@@ -1,5 +1,9 @@
 import { PuppetBridge } from "./puppetbridge";
 import { Util } from "./util";
+import { Log } from "./log";
+import { DbChanStore } from "./db/chanstore";
+
+const log = new Log("ChannelSync");
 
 export interface IRemoteChanSend {
 	roomId: string;
@@ -17,11 +21,11 @@ export interface IRemoteChanReceive {
 }
 
 export class ChannelSyncroniser {
-	private chanStore: ChanStore;
+	private chanStore: DbChanStore;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
-		this.chanStore = this.bridge.ChanStore;
+		this.chanStore = this.bridge.chanStore;
 	}
 
 	public async getRemoteHandler(mxid: string): Promise<IRemoteChanSend | null> {
@@ -36,6 +40,7 @@ export class ChannelSyncroniser {
 	}
 
 	public async getMxid(data: IRemoteChanReceive) {
+		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
 		let chan = await this.chanStore.getByRemote(data.roomId, data.puppetId);
 		const update = {
 			name: false,
@@ -45,6 +50,7 @@ export class ChannelSyncroniser {
 		const intent = this.bridge.botIntent;
 		let mxid = "";
 		if (!chan) {
+			log.info("Channel doesn't exist yet, creating entry...");
 			update.name = data.name ? true : false;
 			update.avatar = data.avatarUrl ? true : false;
 			update.topic = data.topic ? true : false;
@@ -53,11 +59,7 @@ export class ChannelSyncroniser {
 				visibilitvisibility: "private",
 				preset: "trusted_private_chat",
 			});
-			chan = {
-				mxid,
-				roomId: data.roomId,
-				puppetId: data.puppetId,
-			};
+			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
 		} else {
 			update.name = data.name !== chan.name;
 			update.avatar = data.avatarUrl !== chan.avatarUrl;
@@ -65,6 +67,7 @@ export class ChannelSyncroniser {
 			mxid = chan.mxid; 
 		}
 		if (update.name) {
+			log.verbose("Updating name");
 			await intent.underlyingClient.sendStateEvent(
 				mxid,
 				"m.room.name",
@@ -74,6 +77,7 @@ export class ChannelSyncroniser {
 			chan.name = data.name;
 		}
 		if (update.avatar) {
+			log.verbose("Updating avatar");
 			if (data.avatarUrl) {
 				const avatarData = await Util.DownloadFile(data.avatarUrl);
 				const avatarMxc = await intent.underlyingClient.uploadContent(
@@ -94,6 +98,7 @@ export class ChannelSyncroniser {
 			chan.avatarUrl = data.avatarUrl;
 		}
 		if (update.topic) {
+			log.verbose("updating topic");
 			await intent.underlyingClient.sendStateEvent(
 				mxid,
 				"m.room.topic",
@@ -112,6 +117,7 @@ export class ChannelSyncroniser {
 		}
 
 		if (doUpdate) {
+			log.verbose("Storing update to DB");
 			await this.chanStore.set(chan);
 		}
 

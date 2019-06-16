@@ -12,12 +12,16 @@
     "@types/node": "^12.0.8"
   },
   "dependencies": {
+    "better-sqlite3": "^5.4.0",
     "events": "^3.0.0",
     "file-type": "^12.0.0",
     "js-yaml": "^3.13.1",
     "matrix-bot-sdk": "^0.3.8",
+    "pg-promise": "^8.7.2",
     "tslint": "^5.17.0",
     "typescript": "^3.5.2",
-    "uuid": "^3.3.2"
+    "uuid": "^3.3.2",
+    "winston": "^3.2.1",
+    "winston-daily-rotate-file": "^3.9.0"
   }
 }

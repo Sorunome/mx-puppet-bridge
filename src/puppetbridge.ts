@@ -10,7 +10,14 @@ import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
 import { ChannelSyncroniser, IRemoteChanSend, IRemoteChanReceive } from "./channelsyncroniser";
 import { UserSyncroniser, IRemoteUserReceive } from "./usersyncroniser";
+import { MxBridgeConfig } from "./config";
 import { Util } from "./util";
+import { Log } from "./log";
+import { DbUserStore } from "./db/userstore";
+import { DbChanStore } from "./db/chanstore";
+import { Store } from "./store";
+
+const log = new Log("PuppetBridge");
 
 interface ISendInfo {
 	intent: Intent;
@@ -48,19 +55,33 @@ export class PuppetBridge extends EventEmitter {
 	private appservice: Appservice;
 	private chanSync: ChannelSyncroniser;
 	private userSync: UserSyncroniser;
+	private config: MxBridgeConfig;
+	private store: Store;
 
 	constructor(
 		private registrationPath: string,
+		private configPath: string,
 		private features: IPuppetBridgeFeatures,
 	) {
 		super();
+	}
+
+	public async init() {
+		this.config = new MxBridgeConfig();
+		this.config.applyConfig(yaml.safeLoad(fs.readFileSync(this.configPath, "utf8")));
+		Log.Configure(this.config.logging);
+		this.store = new Store(this.config.database);
+		await this.store.init();
+
 		this.chanSync = new ChannelSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
 	}
 
-	generateRegistration(opts: IPuppetBridgeRegOpts) {
+	public generateRegistration(opts: IPuppetBridgeRegOpts) {
+		log.info("Generating registration file...");
 		if (fs.existsSync(this.registrationPath)) {
-			throw new Error("Registration file already exists");
+			log.error("Registration file already exists!");
+			throw new Error("Registration file already exists!");
 		}
 		if (!opts.botUser) {
 			opts.botUser = opts.prefix + "bot";
@@ -95,13 +116,22 @@ export class PuppetBridge extends EventEmitter {
 		return this.appservice.botIntent;
 	}
 
+	get userStore(): DbUserStore {
+		return this.store.userStore;
+	}
+
+	get chanStore(): DbChanStore {
+		return this.store.chanStore
+	}
+
 	public async start() {
+		log.info("Starting application service....");
 		const registration = yaml.safeLoad(fs.readFileSync(this.registrationPath, "utf8")) as IAppserviceRegistration;
 		this.appservice = new Appservice({
-			bindAddress: "localhost",
-			homeserverName: "localhost",
-			homeserverUrl: "http://localhost",
-			port: 8095,
+			bindAddress: this.config.bridge.bindAddress,
+			homeserverName: this.config.bridge.domain,
+			homeserverUrl: this.config.bridge.homeserverUrl,
+			port: this.config.bridge.port,
 			registration,
 			joinStrategy: new SimpleRetryJoinStrategy(),
 		});
@@ -110,6 +140,7 @@ export class PuppetBridge extends EventEmitter {
 		});
 		this.appservice.on("room.event", this.handleRoomEvent.bind(this));
 		await this.appservice.begin();
+		log.info("Application service started!");
 	}
 
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
@@ -155,13 +186,17 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const mimetype = Util.GetMimeType(buffer);
 		if (msgtype === "detect") {
-			const type = mimetype.split("/")[0];
-			msgtype = [
-				audio: "m.audio",
-				image: "m.image",
-				video: "m.video",
-			][type];
-			if (!msgtype) {
+			if (mimetype) {
+				const type = mimetype.split("/")[0];
+				msgtype = {
+					audio: "m.audio",
+					image: "m.image",
+					video: "m.video",
+				}[type];
+				if (!msgtype) {
+					msgtype = "m.file";
+				}
+			} else {
 				msgtype = "m.file";
 			}
 		}
