@@ -112,20 +112,24 @@ export class PuppetBridge extends EventEmitter {
 		await this.appservice.begin();
 	}
 
+	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
+		await this.sendFileByType("detect", params, thing, name);
+	}
+
 	public async sendFile(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		this.sendFileByType("m.file", params, thing, name);
+		await this.sendFileByType("m.file", params, thing, name);
 	}
 
 	public async sendVideo(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		this.sendFileByType("m.video", params, thing, name);
+		await this.sendFileByType("m.video", params, thing, name);
 	}
 
 	public async sendAudio(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		this.sendFileByType("m.audio", params, thing, name);
+		await this.sendFileByType("m.audio", params, thing, name);
 	}
 
 	public async sendImage(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		this.sendFileByType("m.image", params, thing, name);
+		await this.sendFileByType("m.image", params, thing, name);
 	}
 
 	public async sendMessage(params: IReceiveParams, msg: string, html?: string, emote: boolean = false) {
@@ -150,6 +154,17 @@ export class PuppetBridge extends EventEmitter {
 			buffer = thing;
 		}
 		const mimetype = Util.GetMimeType(buffer);
+		if (msgtype === "detect") {
+			const type = mimetype.split("/")[0];
+			msgtype = [
+				audio: "m.audio",
+				image: "m.image",
+				video: "m.video",
+			][type];
+			if (!msgtype) {
+				msgtype = "m.file";
+			}
+		}
 		const fileMxc = await intent.underlyingClient.uploadContent(
 			buffer,
 			mimetype,
