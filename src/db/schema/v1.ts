@@ -28,10 +28,17 @@ export class Schema implements IDbSchema {
 				topic TEXT DEFAULT NULL
 			);
 		`, "chan_store");
+		await store.createTable(`
+			CREATE TABLE puppet_store(
+				puppet_id TEXT NOT NULL,
+				data TEXT NOT NULL
+			);
+		`, "puppet_store");
 	}
 	public async rollBack(store: Store) {
 		await store.db.Exec("DROP TABLE IF EXISTS schema");
 		await store.db.Exec("DROP TABLE IF EXISTS user_store");
 		await store.db.Exec("DROP TABLE IF EXISTS chan_store");
+		await store.db.Exec("DROP TABLE IF EXISTS puppet_store");
 	}
 }

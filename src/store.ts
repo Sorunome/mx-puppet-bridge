@@ -5,6 +5,7 @@ import { Log } from "./log";
 import { MxBridgeConfigDatabase } from "./config";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
+import { DbPuppetStore } from "./db/puppetstore";
 import { IDatabaseConnector } from "./db/connector";
 const log = new Log("Store");
 
@@ -14,6 +15,7 @@ export class Store {
 	public db: IDatabaseConnector;
 	private pChanStore: DbChanStore;
 	private pUserStore: DbUserStore;
+	private pPuppetStore: DbPuppetStore;
 
 	constructor(private config: MxBridgeConfigDatabase) { }
 
@@ -25,8 +27,12 @@ export class Store {
 		return this.pUserStore;
 	}
 
+	get puppetStore() {
+		return this.pPuppetStore;
+	}
+
 	public async init(overrideSchema: number = 0): Promise<void> {
-		log.info("Starting DB INit");
+		log.info("Starting DB Init");
 		await this.openDatabase();
 		let version = await this.getSchemaVersion();
 		const targetSchema = overrideSchema || CURRENT_SCHEMA;
@@ -102,6 +108,7 @@ export class Store {
 			this.db.Open();
 			this.pChanStore = new DbChanStore(this.db);
 			this.pUserStore = new DbUserStore(this.db);
+			this.pPuppetStore = new DbPuppetStore(this.db);
 		} catch (ex) {
 			log.error("Error opening database:", ex);
 			throw new Error("Couldn't open database. The appservice won't be able to continue.");

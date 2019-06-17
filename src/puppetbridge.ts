@@ -15,6 +15,8 @@ import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
+import { DbPuppetStore } from "./db/puppetstore";
+import { PuppetHandler } from "./puppethandler";
 import { Store } from "./store";
 
 const log = new Log("PuppetBridge");
@@ -68,6 +70,7 @@ export class PuppetBridge extends EventEmitter {
 	private appservice: Appservice;
 	private chanSync: ChannelSyncroniser;
 	private userSync: UserSyncroniser;
+	private puppetHandler: PuppetHandler;
 	private config: MxBridgeConfig;
 	private store: Store;
 
@@ -88,6 +91,7 @@ export class PuppetBridge extends EventEmitter {
 
 		this.chanSync = new ChannelSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
+		this.puppetHandler = new PuppetHandler(this);
 	}
 
 	public generateRegistration(opts: IPuppetBridgeRegOpts) {
@@ -134,7 +138,11 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	get chanStore(): DbChanStore {
-		return this.store.chanStore
+		return this.store.chanStore;
+	}
+
+	get puppetStore(): DbPuppetStore {
+		return this.store.puppetStore;
 	}
 
 	public async start() {
@@ -154,6 +162,11 @@ export class PuppetBridge extends EventEmitter {
 		this.appservice.on("room.event", this.handleRoomEvent.bind(this));
 		await this.appservice.begin();
 		log.info("Application service started!");
+		log.info("Activating users...");
+		const puppets = await this.puppetHandler.getAll();
+		for (const p of puppets) {
+			this.emit("puppetAdd", p.puppetId, p.data);
+		}
 	}
 
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
@@ -277,7 +290,7 @@ export class PuppetBridge extends EventEmitter {
 			if (event.content.format) {
 				data.formatted_body = event.content.formatted_body;
 			}
-			emit("message", room, event);
+			this.emit("message", room, event);
 			return;
 		}
 		// this is a file!
@@ -300,21 +313,21 @@ export class PuppetBridge extends EventEmitter {
 			emitEvent = "file";
 		}
 		if (this.features[emitEvent]) {
-			emit(emitEvent, data, event);
+			this.emit(emitEvent, data, event);
 			return;
 		}
 		if ((emitEvent === "audio" || emitEvent === "video") && this.features.file) {
-			emit("file", data, event);
+			this.emit("file", data, event);
 			return;
 		}
 		if (emitEvent === "sticker" && this.features.image) {
-			emit("image", data, event);
+			this.emit("image", data, event);
 			return;
 		}
 		const textData = {
-			body: `New ${emitEvent}: ${data.url}´,
+			body: `New ${emitEvent}: ${data.url}`,
 			emote: false,
 		} as IMessageEvent;
-		emit("message", room, event);
+		this.emit("message", room, event);
 	}
 }
