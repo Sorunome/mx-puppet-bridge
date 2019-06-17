@@ -33,23 +33,36 @@ export interface IPuppetBridgeRegOpts {
 
 export interface IPuppetBridgeFeatures {
 	// file features
-	files?: boolean;
-	images?: boolean;
+	file?: boolean;
+	image?: boolean;
 	audio?: boolean;
-	videos?: boolean;
+	video?: boolean;
 	// stickers
-	stickers?: boolean;
-};
-
-export interface ITextMessage {
-	body: string;
-	formatted_body?: string;
+	sticker?: boolean;
 };
 
 export interface IReceiveParams {
 	chan: IRemoteChanReceive;
 	user: IRemoteUserReceive;
-}
+};
+
+export interface IMessageEvent {
+	body: string;
+	formatted_body?: string;
+	emote: boolean;
+};
+
+export interface IFileEvent {
+	filename: string;
+	info?: {
+		mimetype?: string;
+		size?: number;
+		w?: number;
+		h?: number;
+	};
+	mxc: string;
+	url: string;
+};
 
 export class PuppetBridge extends EventEmitter {
 	private appservice: Appservice;
@@ -228,6 +241,10 @@ export class PuppetBridge extends EventEmitter {
 		// ensure that the intent is in the room
 		await intent.ensureRegisteredAndJoined(mxid);
 
+		// ensure our puppeted user is in the room
+		const puppetId = params.chan.puppetId;
+		await this.botIntent.underlyingClient.inviteUser(puppetId, mxid);
+
 		return {
 			intent,
 			mxid,
@@ -246,6 +263,58 @@ export class PuppetBridge extends EventEmitter {
 		if (!room || event.sender !== room.puppetId) {
 			return; // this isn't a room we handle
 		}
-		console.log(`New message by ${event.sender} of type ${event.type} to process!`);
+		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
+		let msgtype = event.content.msgtype;
+		if (event.type == "m.sticker") {
+			msgtype = "m.sticker";
+		}
+		if (msgtype === "m.emote" || msgtype === "m.text") {
+			// short-circuit text stuff
+			const data = {
+				body: event.content.body,
+				emote: msgtype === "m.emote",
+			} as IMessageEvent;
+			if (event.content.format) {
+				data.formatted_body = event.content.formatted_body;
+			}
+			emit("message", room, event);
+			return;
+		}
+		// this is a file!
+		const url = `${this.config.bridge.homeserverUrl}/_matrix/media/v1/download/${event.content.url.substring("mxc://".length)}`;
+		const data = {
+			filename: event.content.body,
+			mxc: event.content.url,
+			url,
+		} as IFileEvent;
+		if (event.content.info) {
+			data.info = event.content.info;
+		}
+		let emitEvent = {
+			"m.image": "image",
+			"m.audio": "audio",
+			"m.video": "video",
+			"m.sticker": "sticker",
+		}[msgtype];
+		if (!emitEvent) {
+			emitEvent = "file";
+		}
+		if (this.features[emitEvent]) {
+			emit(emitEvent, data, event);
+			return;
+		}
+		if ((emitEvent === "audio" || emitEvent === "video") && this.features.file) {
+			emit("file", data, event);
+			return;
+		}
+		if (emitEvent === "sticker" && this.features.image) {
+			emit("image", data, event);
+			return;
+		}
+		const textData = {
+			body: `New ${emitEvent}: ${data.url}´,
+			emote: false,
+		} as IMessageEvent;
+		emit("message", room, event);
 	}
 }
