@@ -37,7 +37,7 @@ export class UserSyncroniser {
 			update.name = data.name !== user.name;
 			update.avatar = data.avatarUrl !== user.avatarUrl;
 		}
-		const intent = this.bridge.AS.getIntentForSuffix(data.userId);
+		const intent = this.bridge.AS.getIntentForSuffix(Util.str2mxid(data.userId));
 		if (update.name) {
 			log.verbose("Updating name");
 			intent.underlyingClient.setDisplayName(data.name || "");

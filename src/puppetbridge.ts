@@ -243,7 +243,7 @@ export class PuppetBridge extends EventEmitter {
 			return; // we don't handle things from our own namespace
 		}
 		const room = await this.chanSync.getRemoteHandler(event.room_id);
-		if (!room) {
+		if (!room || event.sender !== room.puppetId) {
 			return; // this isn't a room we handle
 		}
 		console.log(`New message by ${event.sender} of type ${event.type} to process!`);
