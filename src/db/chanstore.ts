@@ -6,7 +6,7 @@ const log = new Log("DbChanStore");
 export interface IChanStoreEntry {
 	mxid: string;
 	roomId: string;
-	puppetId: string;
+	puppetId: number;
 	name?: string | null;
 	avatarUrl?: string | null;
 	avatarMxc?: string | null;
@@ -18,7 +18,7 @@ export class DbChanStore {
 		private db:IDatabaseConnector,
 	) { }
 
-	public newData(mxid: string, roomId: string, puppetId: string): IChanStoreEntry {
+	public newData(mxid: string, roomId: string, puppetId: number): IChanStoreEntry {
 		return {
 			mxid,
 			roomId,
@@ -26,7 +26,7 @@ export class DbChanStore {
 		} as IChanStoreEntry;
 	}
 
-	public async getByRemote(roomId: string, puppetId: string) {
+	public async getByRemote(roomId: string, puppetId: number) {
 		const row = await this.db.Get(
 			"SELECT * FROM chan_store WHERE room_id = $room_id AND puppet_id = $puppet_id", {
 			room_id: roomId,
@@ -48,7 +48,7 @@ export class DbChanStore {
 		);
 		let query = "";
 		if (!exists) {
-			query = `INSERT INTO channel_entires (
+			query = `INSERT INTO chan_store (
 				mxid,
 				room_id,
 				puppet_id,
@@ -93,7 +93,7 @@ export class DbChanStore {
 		const result = this.newData(
 			row.mxid as string,
 			row.room_id as string,
-			row.puppet_id as string,
+			row.puppet_id as number,
 		);
 		result.name = row.name as string | null;
 		result.avatarUrl = row.avatar_url as string | null;

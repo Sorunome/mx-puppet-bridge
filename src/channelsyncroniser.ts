@@ -7,13 +7,13 @@ const log = new Log("ChannelSync");
 
 export interface IRemoteChanSend {
 	roomId: string;
-	puppetId: string;
+	puppetId: number;
 };
 
 export interface IRemoteChanReceive {
 	data?: any;
 	roomId: string;
-	puppetId: string;
+	puppetId: number;
 
 	avatarUrl?: string;
 	name?: string;
@@ -49,8 +49,10 @@ export class ChannelSyncroniser {
 		};
 		const intent = this.bridge.botIntent;
 		let mxid = "";
+		let doUpdate = false;
 		if (!chan) {
 			log.info("Channel doesn't exist yet, creating entry...");
+			doUpdate = true;
 			update.name = data.name ? true : false;
 			update.avatar = data.avatarUrl ? true : false;
 			update.topic = data.topic ? true : false;
@@ -61,9 +63,9 @@ export class ChannelSyncroniser {
 			});
 			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
 		} else {
-			update.name = data.name !== chan.name;
-			update.avatar = data.avatarUrl !== chan.avatarUrl;
-			update.topic = data.topic !== chan.topic;
+			update.name = Boolean((data.name || chan.name) && data.name !== chan.name);
+			update.avatar = Boolean((data.avatarUrl || chan.avatarUrl) && data.avatarUrl !== chan.avatarUrl);
+			update.topic = Boolean((data.topic || chan.topic) && data.topic !== chan.topic);
 			mxid = chan.mxid; 
 		}
 		if (update.name) {
@@ -108,7 +110,6 @@ export class ChannelSyncroniser {
 			chan.topic = data.topic;
 		}
 
-		let doUpdate = false;
 		for (const k in Object.keys(update)) {
 			if (update[k]) {
 				doUpdate = true;

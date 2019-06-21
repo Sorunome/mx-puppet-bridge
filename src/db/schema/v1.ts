@@ -14,14 +14,14 @@ export class Schema implements IDbSchema {
 				user_id TEXT UNIQUE NOT NULL,
 				name TEXT DEFAULT NULL,
 				avatar_url TEXT DEFAULT NULL,
-				avatar_mxc TEXT DEFAULT NULL,
+				avatar_mxc TEXT DEFAULT NULL
 			);
 		`, "user_store");
 		await store.createTable(`
 			CREATE TABLE chan_store(
 				mxid TEXT NOT NULL,
 				room_id TEXT NOT NULL,
-				puppet_id TEXT NOT NULL,
+				puppet_id INTEGER NOT NULL,
 				name TEXT DEFAULT NULL,
 				avatar_url TEXT DEFAULT NULL,
 				avatar_mxc TEXT DEFAULT NULL,
@@ -30,8 +30,8 @@ export class Schema implements IDbSchema {
 		`, "chan_store");
 		await store.createTable(`
 			CREATE TABLE puppet_store(
-				id INTEGER PRIMARY KEY AUTO INCREMENT,
-				puppet_id TEXT NOT NULL,
+				puppet_id INTEGER PRIMARY KEY AUTOINCREMENT,
+				puppet_mxid TEXT NOT NULL,
 				data TEXT NOT NULL
 			);
 		`, "puppet_store");

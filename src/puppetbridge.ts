@@ -82,10 +82,14 @@ export class PuppetBridge extends EventEmitter {
 		super();
 	}
 
-	public async init() {
+	public async readConfig() {
 		this.config = new MxBridgeConfig();
 		this.config.applyConfig(yaml.safeLoad(fs.readFileSync(this.configPath, "utf8")));
 		Log.Configure(this.config.logging);
+	}
+
+	public async init() {
+		this.readConfig();
 		this.store = new Store(this.config.database);
 		await this.store.init();
 
@@ -145,6 +149,10 @@ export class PuppetBridge extends EventEmitter {
 		return this.store.puppetStore;
 	}
 
+	get Config(): MxBridgeConfig {
+		return this.config;
+	}
+
 	public async start() {
 		log.info("Starting application service....");
 		const registration = yaml.safeLoad(fs.readFileSync(this.registrationPath, "utf8")) as IAppserviceRegistration;
@@ -165,7 +173,7 @@ export class PuppetBridge extends EventEmitter {
 		log.info("Activating users...");
 		const puppets = await this.puppetHandler.getAll();
 		for (const p of puppets) {
-			this.emit("puppetAdd", p.id, p.puppetId, p.data);
+			this.emit("puppetAdd", p.puppetId, p.data);
 		}
 	}
 
@@ -255,8 +263,12 @@ export class PuppetBridge extends EventEmitter {
 		await intent.ensureRegisteredAndJoined(mxid);
 
 		// ensure our puppeted user is in the room
-		const puppetId = params.chan.puppetId;
-		await this.botIntent.underlyingClient.inviteUser(puppetId, mxid);
+		try {
+			const puppetMxid = await this.puppetHandler.getMxid(params.chan.puppetId);
+			await this.botIntent.underlyingClient.inviteUser(puppetMxid, mxid);
+		} catch (err) {
+			log.verbose("Failed to invite user, likely already in room", err.body);
+		}
 
 		return {
 			intent,
@@ -273,9 +285,9 @@ export class PuppetBridge extends EventEmitter {
 			return; // we don't handle things from our own namespace
 		}
 		const room = await this.chanSync.getRemoteHandler(event.room_id);
-		if (!room || event.sender !== room.puppetId) {
-			return; // this isn't a room we handle
-		}
+//		if (!room || event.sender !== room.puppetId) {
+//			return; // this isn't a room we handle
+//		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		let msgtype = event.content.msgtype;
 		if (event.type == "m.sticker") {
@@ -290,7 +302,7 @@ export class PuppetBridge extends EventEmitter {
 			if (event.content.format) {
 				data.formatted_body = event.content.formatted_body;
 			}
-			this.emit("message", room, event);
+			this.emit("message", room, data, event);
 			return;
 		}
 		// this is a file!
@@ -313,21 +325,21 @@ export class PuppetBridge extends EventEmitter {
 			emitEvent = "file";
 		}
 		if (this.features[emitEvent]) {
-			this.emit(emitEvent, data, event);
+			this.emit(emitEvent, room, data, event);
 			return;
 		}
 		if ((emitEvent === "audio" || emitEvent === "video") && this.features.file) {
-			this.emit("file", data, event);
+			this.emit("file", room, data, event);
 			return;
 		}
 		if (emitEvent === "sticker" && this.features.image) {
-			this.emit("image", data, event);
+			this.emit("image", room, data, event);
 			return;
 		}
 		const textData = {
 			body: `New ${emitEvent}: ${data.url}`,
 			emote: false,
 		} as IMessageEvent;
-		this.emit("message", room, event);
+		this.emit("message", room, textData, event);
 	}
 }

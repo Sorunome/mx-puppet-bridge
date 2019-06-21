@@ -15,7 +15,7 @@ export class MxBridgeConfig {
 }
 
 class MxBridgeConfigBridge {
-	public bindAddress: string;
+	public bindAddress: string = "localhost";
 	public port: number; 
 	public domain: string;
 	public homeserverUrl: string;
@@ -39,7 +39,5 @@ export class LoggingFile {
 
 export class MxBridgeConfigDatabase {
 	public connString: string;
-	public filename: string;
-	public userStorePath: string;
-	public roomStorePath: string;
+	public filename: string = "database.db";
 }

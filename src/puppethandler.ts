@@ -15,4 +15,8 @@ export class PuppetHandler {
 	public async getAll(): Promise<IPuppet[]> {
 		return await this.puppetStore.getAll();
 	}
+
+	public async getMxid(puppetId: number): Promise<string> {
+		return await this.puppetStore.getMxid(puppetId);
+	}
 }

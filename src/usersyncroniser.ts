@@ -28,14 +28,16 @@ export class UserSyncroniser {
 			name: false,
 			avatar: false,
 		};
+		let doUpdate = false;
 		if (!user) {
+			doUpdate = true;
 			log.info("User doesn't exist yet, creating entry...");
 			update.name = data.name ? true : false;
 			update.avatar = data.avatarUrl ? true : false;
 			user = this.userStore.newData(data.userId);
 		} else {
-			update.name = data.name !== user.name;
-			update.avatar = data.avatarUrl !== user.avatarUrl;
+			update.name = Boolean((data.name || user.name) && data.name !== user.name);
+			update.avatar = Boolean((data.avatarUrl || user.avatarUrl) && data.avatarUrl !== user.avatarUrl);
 		}
 		const intent = this.bridge.AS.getIntentForSuffix(Util.str2mxid(data.userId));
 		if (update.name) {
@@ -60,7 +62,6 @@ export class UserSyncroniser {
 			user.avatarUrl = data.avatarUrl;
 		}
 
-		let doUpdate = false;
 		for (const k in Object.keys(update)) {
 			if (update[k]) {
 				doUpdate = true;

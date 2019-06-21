@@ -23,7 +23,7 @@ export class DbUserStore {
 
 	public async get(userId: string): Promise<IUserStoreEntry | null> {
 		const row = await this.db.Get(
-			"SELECT * FROM user_entries WHERE user_id = $id", {id: userId},
+			"SELECT * FROM user_store WHERE user_id = $id", {id: userId},
 		);
 		if (!row) {
 			return null;
@@ -37,11 +37,11 @@ export class DbUserStore {
 
 	public async set(data: IUserStoreEntry) {
 		const exists = await this.db.Get(
-			"SELECT * FROM user_entries WHERE user_id = $id", {id: data.userId},
+			"SELECT * FROM user_store WHERE user_id = $id", {id: data.userId},
 		);
 		let query = "";
 		if (!exists) {
-			query = `INSERT INTO user_entries (
+			query = `INSERT INTO user_store (
 				user_id,
 				name,
 				avatar_url,
@@ -53,7 +53,7 @@ export class DbUserStore {
 				$avatar_mxc
 			)`;
 		} else {
-			query = `UPDATE user_entries SET
+			query = `UPDATE user_store SET
 				name = $name,
 				avatar_url = $avatar_url,
 				avatar_mxc = $avatar_mxc
