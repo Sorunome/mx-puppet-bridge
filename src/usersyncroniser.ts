@@ -9,8 +9,8 @@ const log = new Log("UserSync");
 export interface IRemoteUserReceive {
 	userId: string;
 	
-	avatarUrl?: string;
-	name?: string;
+	avatarUrl?: string | null;
+	name?: string | null;
 }
 
 export class UserSyncroniser {
@@ -36,8 +36,8 @@ export class UserSyncroniser {
 			update.avatar = data.avatarUrl ? true : false;
 			user = this.userStore.newData(data.userId);
 		} else {
-			update.name = Boolean((data.name || user.name) && data.name !== user.name);
-			update.avatar = Boolean((data.avatarUrl || user.avatarUrl) && data.avatarUrl !== user.avatarUrl);
+			update.name = data.name !== undefined && data.name !== user.name;
+			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
 		}
 		const intent = this.bridge.AS.getIntentForSuffix(Util.str2mxid(data.userId));
 		if (update.name) {
@@ -62,7 +62,7 @@ export class UserSyncroniser {
 			user.avatarUrl = data.avatarUrl;
 		}
 
-		for (const k in Object.keys(update)) {
+		for (const k of Object.keys(update)) {
 			if (update[k]) {
 				doUpdate = true;
 				break;

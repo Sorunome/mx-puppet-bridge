@@ -1,7 +1,10 @@
 import { IDatabaseConnector } from "./connector";
 import { Log } from "../log";
+import { TimedCache } from "../structures/timedcache";
 
 const log = new Log("DbPuppetStore");
+
+const PUPPET_CACHE_LIFETIME = 1000*60*60*24;
 
 export interface IPuppet {
 	puppetId: number;
@@ -10,9 +13,12 @@ export interface IPuppet {
 }
 
 export class DbPuppetStore {
+	private mxidCache: TimedCache<number, string>;
 	constructor(
 		private db: IDatabaseConnector,
-	) { }
+	) {
+		this.mxidCache = new TimedCache(PUPPET_CACHE_LIFETIME);
+	}
 
 	public async getAll(): Promise<IPuppet[]> {
 		const result = [] as IPuppet[];
@@ -33,10 +39,16 @@ export class DbPuppetStore {
 	}
 
 	public async getMxid(puppetId: number): Promise<string> {
+		const cached = this.mxidCache.get(puppetId);
+		if (cached) {
+			return cached;
+		}
 		const result = await this.db.Get("SELECT puppet_mxid FROM puppet_store WHERE puppet_id=$id", { id: puppetId });
 		if (!result) {
 			throw new Error("Puppet not found");
 		}
-		return result.puppet_mxid as string;
+		const mxid = result.puppet_mxid as string;
+		this.mxidCache.set(puppetId, mxid);
+		return mxid;
 	}
 }

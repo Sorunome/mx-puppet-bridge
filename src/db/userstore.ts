@@ -1,7 +1,10 @@
 import { IDatabaseConnector } from "./connector";
 import { Log } from "../log";
+import { TimedCache } from "../structures/timedcache";
 
 const log = new Log("DbUserStore");
+
+const USERS_CACHE_LIFETIME = 1000*60*60*24;
 
 export interface IUserStoreEntry {
 	userId: string;
@@ -11,9 +14,12 @@ export interface IUserStoreEntry {
 }
 
 export class DbUserStore {
+	private usersCache: TimedCache<string, IUserStoreEntry>;
 	constructor(
 		private db: IDatabaseConnector,
-	) { }
+	) {
+		this.usersCache = new TimedCache(USERS_CACHE_LIFETIME);
+	}
 
 	public newData(userId: string): IUserStoreEntry {
 		return {
@@ -22,6 +28,10 @@ export class DbUserStore {
 	}
 
 	public async get(userId: string): Promise<IUserStoreEntry | null> {
+		const cached = this.usersCache.get(userId);
+		if (cached) {
+			return cached;
+		}
 		const row = await this.db.Get(
 			"SELECT * FROM user_store WHERE user_id = $id", {id: userId},
 		);
@@ -32,6 +42,7 @@ export class DbUserStore {
 		data.name = row.name as string|null;
 		data.avatarUrl = row.avatar_url as string|null;
 		data.avatarMxc = row.avatar_mxc as string|null;
+		this.usersCache.set(userId, data);
 		return data;
 	}
 
@@ -65,5 +76,6 @@ export class DbUserStore {
 			avatar_url: data.avatarUrl || null,
 			avatar_mxc: data.avatarMxc || null,
 		});
+		this.usersCache.set(data.userId, data);
 	}
 }

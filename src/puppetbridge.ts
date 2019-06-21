@@ -18,8 +18,11 @@ import { DbChanStore } from "./db/chanstore";
 import { DbPuppetStore } from "./db/puppetstore";
 import { PuppetHandler } from "./puppethandler";
 import { Store } from "./store";
+import { TimedCache } from "./structures/timedcache";
 
 const log = new Log("PuppetBridge");
+
+const PUPPET_INVITE_CACHE_LIFETIME = 1000*60*60*24;
 
 interface ISendInfo {
 	intent: Intent;
@@ -73,6 +76,7 @@ export class PuppetBridge extends EventEmitter {
 	private puppetHandler: PuppetHandler;
 	private config: MxBridgeConfig;
 	private store: Store;
+	private puppetInviteCache: TimedCache<string, boolean>;
 
 	constructor(
 		private registrationPath: string,
@@ -80,6 +84,7 @@ export class PuppetBridge extends EventEmitter {
 		private features: IPuppetBridgeFeatures,
 	) {
 		super();
+		this.puppetInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
 	}
 
 	public async readConfig() {
@@ -177,6 +182,14 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	public async updateUser(user: IRemoteUserReceive) {
+		await this.userSync.getIntent(user);
+	}
+
+	public async updateRoom(chan: IRemoteChanReceive) {
+		await this.chanSync.getMxid(chan);
+	}
+
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("detect", params, thing, name);
 	}
@@ -263,11 +276,21 @@ export class PuppetBridge extends EventEmitter {
 		await intent.ensureRegisteredAndJoined(mxid);
 
 		// ensure our puppeted user is in the room
+		const cacheKey = `${params.chan.puppetId}_mxid`;
 		try {
-			const puppetMxid = await this.puppetHandler.getMxid(params.chan.puppetId);
-			await this.botIntent.underlyingClient.inviteUser(puppetMxid, mxid);
+			const cache = this.puppetInviteCache.get(cacheKey);
+			if (!cache) {
+				const puppetMxid = await this.puppetHandler.getMxid(params.chan.puppetId);
+				await this.botIntent.underlyingClient.inviteUser(puppetMxid, mxid);
+				this.puppetInviteCache.set(cacheKey, true);
+			}
 		} catch (err) {
-			log.verbose("Failed to invite user, likely already in room", err.body);
+			if (err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
+				log.verbose("Failed to invite user, as they are already in there");
+				this.puppetInviteCache.set(cacheKey, true);
+			} else {
+				log.warn("Failed to invite user:", err.body);
+			}
 		}
 
 		return {

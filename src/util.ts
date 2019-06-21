@@ -84,4 +84,10 @@ export class Util {
 		}
 		return decoded.toString('utf8', 0, j);
 	}
+
+	public static async sleep(timeout: number): Promise<void> {
+		return new Promise((resolve, reject) => {
+			setTimeout(resolve, timeout);
+		});
+	}
 }

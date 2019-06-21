@@ -15,9 +15,9 @@ export interface IRemoteChanReceive {
 	roomId: string;
 	puppetId: number;
 
-	avatarUrl?: string;
-	name?: string;
-	topic?: string;
+	avatarUrl?: string | null;
+	name?: string | null;
+	topic?: string | null;
 }
 
 export class ChannelSyncroniser {
@@ -63,9 +63,9 @@ export class ChannelSyncroniser {
 			});
 			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
 		} else {
-			update.name = Boolean((data.name || chan.name) && data.name !== chan.name);
-			update.avatar = Boolean((data.avatarUrl || chan.avatarUrl) && data.avatarUrl !== chan.avatarUrl);
-			update.topic = Boolean((data.topic || chan.topic) && data.topic !== chan.topic);
+			update.name = data.name !== undefined && data.name !== chan.name;
+			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl;
+			update.topic = data.topic !== undefined && data.topic !== chan.topic;
 			mxid = chan.mxid; 
 		}
 		if (update.name) {
@@ -110,7 +110,7 @@ export class ChannelSyncroniser {
 			chan.topic = data.topic;
 		}
 
-		for (const k in Object.keys(update)) {
+		for (const k of Object.keys(update)) {
 			if (update[k]) {
 				doUpdate = true;
 				break;
