@@ -4,6 +4,7 @@ import { Log } from "../log";
 const log = new Log("DbPuppetStore");
 
 export interface IPuppet {
+	id: number;
 	puppetId: string;
 	data: any;
 }
@@ -19,6 +20,7 @@ export class DbPuppetStore {
 		for (const r of rows) {
 			try {
 				result.push({
+					id: r.id as number,
 					puppetId: r.puppet_id as string,
 					data: JSON.parse(r.data as string),
 				});

@@ -165,7 +165,7 @@ export class PuppetBridge extends EventEmitter {
 		log.info("Activating users...");
 		const puppets = await this.puppetHandler.getAll();
 		for (const p of puppets) {
-			this.emit("puppetAdd", p.puppetId, p.data);
+			this.emit("puppetAdd", p.id, p.puppetId, p.data);
 		}
 	}
 
