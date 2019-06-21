@@ -186,7 +186,7 @@ export class PuppetBridge extends EventEmitter {
 		await this.userSync.getIntent(user);
 	}
 
-	public async updateRoom(chan: IRemoteChanReceive) {
+	public async updateChannel(chan: IRemoteChanReceive) {
 		await this.chanSync.getMxid(chan);
 	}
 
@@ -269,8 +269,14 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
-		const mxid = await this.chanSync.getMxid(params.chan);
-		const intent = await this.userSync.getIntent(params.user);
+		const { mxid, created: createdMxid } = await this.chanSync.getMxid(params.chan);
+		if (createdMxid) {
+			this.emit("updateChannel", params.chan.puppetId, params.chan.roomId);
+		}
+		const { intent, created: createdIntent } = await this.userSync.getIntent(params.user);
+		if (createdIntent) {
+			this.emit("updateUser", params.chan.puppetId, params.user.userId);
+		}
 
 		// ensure that the intent is in the room
 		await intent.ensureRegisteredAndJoined(mxid);

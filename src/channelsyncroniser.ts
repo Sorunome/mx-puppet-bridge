@@ -11,7 +11,6 @@ export interface IRemoteChanSend {
 };
 
 export interface IRemoteChanReceive {
-	data?: any;
 	roomId: string;
 	puppetId: number;
 
@@ -39,7 +38,7 @@ export class ChannelSyncroniser {
 		} as IRemoteChanSend;
 	}
 
-	public async getMxid(data: IRemoteChanReceive) {
+	public async getMxid(data: IRemoteChanReceive): Promise<{mxid: string; created: boolean;}> {
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
 		let chan = await this.chanStore.getByRemote(data.roomId, data.puppetId);
 		const update = {
@@ -50,6 +49,7 @@ export class ChannelSyncroniser {
 		const intent = this.bridge.botIntent;
 		let mxid = "";
 		let doUpdate = false;
+		let created = false;
 		if (!chan) {
 			log.info("Channel doesn't exist yet, creating entry...");
 			doUpdate = true;
@@ -62,6 +62,7 @@ export class ChannelSyncroniser {
 				preset: "trusted_private_chat",
 			});
 			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
+			created = true;
 		} else {
 			update.name = data.name !== undefined && data.name !== chan.name;
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl;
@@ -122,6 +123,6 @@ export class ChannelSyncroniser {
 			await this.chanStore.set(chan);
 		}
 
-		return mxid;
+		return { mxid, created };
 	}
 }

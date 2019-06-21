@@ -21,7 +21,7 @@ export class UserSyncroniser {
 		this.userStore = this.bridge.userStore;
 	}
 
-	public async getIntent(data: IRemoteUserReceive): Promise<Intent> {
+	public async getIntent(data: IRemoteUserReceive): Promise<{intent: Intent; created: boolean;}> {
 		log.info("Fetching intent for " + data.userId);
 		let user = await this.userStore.get(data.userId);
 		const update = {
@@ -29,12 +29,14 @@ export class UserSyncroniser {
 			avatar: false,
 		};
 		let doUpdate = false;
+		let created = false;
 		if (!user) {
 			doUpdate = true;
 			log.info("User doesn't exist yet, creating entry...");
 			update.name = data.name ? true : false;
 			update.avatar = data.avatarUrl ? true : false;
 			user = this.userStore.newData(data.userId);
+			created = true;
 		} else {
 			update.name = data.name !== undefined && data.name !== user.name;
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
@@ -73,6 +75,6 @@ export class UserSyncroniser {
 			await this.userStore.set(user);
 		}
 
-		return intent;
+		return { intent, created };
 	}
 }
