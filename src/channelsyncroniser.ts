@@ -2,6 +2,7 @@ import { PuppetBridge } from "./puppetbridge";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbChanStore } from "./db/chanstore";
+import { MatrixClient } from "matrix-bot-sdk";
 
 const log = new Log("ChannelSync");
 
@@ -38,15 +39,29 @@ export class ChannelSyncroniser {
 		} as IRemoteChanSend;
 	}
 
-	public async getMxid(data: IRemoteChanReceive): Promise<{mxid: string; created: boolean;}> {
+	public async getChanOp(chan: string): Promise<MatrixClient|null> {
+		const mxid = await this.chanStore.getChanOp(chan);
+		if (!mxid) {
+			return null;
+		}
+		if (!this.bridge.AS.isNamespacedUser(mxid)) {
+			// TODO: logic if puppeted
+			return null;
+		}
+		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
+	}
+
+	public async getMxid(data: IRemoteChanReceive, client?: MatrixClient): Promise<{mxid: string; created: boolean;}> {
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
+		if (!client) {
+			client = this.bridge.botIntent.underlyingClient;
+		}
 		let chan = await this.chanStore.getByRemote(data.roomId, data.puppetId);
 		const update = {
 			name: false,
 			avatar: false,
 			topic: false,
 		};
-		const intent = this.bridge.botIntent;
 		let mxid = "";
 		let doUpdate = false;
 		let created = false;
@@ -57,21 +72,28 @@ export class ChannelSyncroniser {
 			update.avatar = data.avatarUrl ? true : false;
 			update.topic = data.topic ? true : false;
 			// ooookay, we need to create this channel
-			mxid = await intent.underlyingClient.createRoom({
+			mxid = await client!.createRoom({
 				visibilitvisibility: "private",
 				preset: "trusted_private_chat",
 			});
+			await this.chanStore.setChanOp(mxid, await client!.getUserId());
 			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
 			created = true;
 		} else {
 			update.name = data.name !== undefined && data.name !== chan.name;
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl;
 			update.topic = data.topic !== undefined && data.topic !== chan.topic;
-			mxid = chan.mxid; 
+			mxid = chan.mxid;
+
+			// set new client for potential updates
+			const newClient = await this.getChanOp(mxid);
+			if (newClient) {
+				client = newClient;
+			}
 		}
 		if (update.name) {
 			log.verbose("Updating name");
-			await intent.underlyingClient.sendStateEvent(
+			await client!.sendStateEvent(
 				mxid,
 				"m.room.name",
 				"",
@@ -83,7 +105,7 @@ export class ChannelSyncroniser {
 			log.verbose("Updating avatar");
 			if (data.avatarUrl) {
 				const avatarData = await Util.DownloadFile(data.avatarUrl);
-				const avatarMxc = await intent.underlyingClient.uploadContent(
+				const avatarMxc = await client!.uploadContent(
 					avatarData,
 					Util.GetMimeType(avatarData), // TOOD: mimetype
 				);
@@ -92,7 +114,7 @@ export class ChannelSyncroniser {
 				// remove the avatar URL
 				chan.avatarMxc = undefined;
 			}
-			await intent.underlyingClient.sendStateEvent(
+			await client!.sendStateEvent(
 				mxid,
 				"m.room.avatar",
 				"",
@@ -102,7 +124,7 @@ export class ChannelSyncroniser {
 		}
 		if (update.topic) {
 			log.verbose("updating topic");
-			await intent.underlyingClient.sendStateEvent(
+			await client!.sendStateEvent(
 				mxid,
 				"m.room.topic",
 				"",

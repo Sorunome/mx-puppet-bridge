@@ -1,5 +1,5 @@
 import { PuppetBridge } from "./puppetbridge";
-import { Intent } from "matrix-bot-sdk";
+import { MatrixClient } from "matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
@@ -21,8 +21,8 @@ export class UserSyncroniser {
 		this.userStore = this.bridge.userStore;
 	}
 
-	public async getIntent(data: IRemoteUserReceive): Promise<{intent: Intent; created: boolean;}> {
-		log.info("Fetching intent for " + data.userId);
+	public async getClient(data: IRemoteUserReceive): Promise<{client: MatrixClient; created: boolean;}> {
+		log.info("Fetching client for " + data.userId);
 		let user = await this.userStore.get(data.userId);
 		const update = {
 			name: false,
@@ -42,16 +42,17 @@ export class UserSyncroniser {
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
 		}
 		const intent = this.bridge.AS.getIntentForSuffix(Util.str2mxid(data.userId));
+		const client = intent.underlyingClient;
 		if (update.name) {
 			log.verbose("Updating name");
-			intent.underlyingClient.setDisplayName(data.name || "");
+			client.setDisplayName(data.name || "");
 			user.name = data.name;
 		}
 		if (update.avatar) {
 			log.verbose("Updating avatar");
 			if (data.avatarUrl) {
 				const avatarData = await Util.DownloadFile(data.avatarUrl);
-				const avatarMxc = await intent.underlyingClient.uploadContent(
+				const avatarMxc = await client.uploadContent(
 					avatarData,
 					Util.GetMimeType(avatarData),
 				);
@@ -60,7 +61,7 @@ export class UserSyncroniser {
 				// remove the avatar URL
 				user.avatarMxc = undefined;
 			}
-			await intent.underlyingClient.setAvatarUrl(user.avatarMxc || "");
+			await client.setAvatarUrl(user.avatarMxc || "");
 			user.avatarUrl = data.avatarUrl;
 		}
 
@@ -75,6 +76,6 @@ export class UserSyncroniser {
 			await this.userStore.set(user);
 		}
 
-		return { intent, created };
+		return { client, created };
 	}
 }

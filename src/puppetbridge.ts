@@ -3,6 +3,7 @@ import {
 	Appservice,
 	IAppserviceRegistration,
 	Intent,
+	MatrixClient,
 	SimpleRetryJoinStrategy,
 } from "matrix-bot-sdk";
 import * as uuid from "uuid/v4";
@@ -19,13 +20,14 @@ import { DbPuppetStore } from "./db/puppetstore";
 import { PuppetHandler } from "./puppethandler";
 import { Store } from "./store";
 import { TimedCache } from "./structures/timedcache";
+import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 
 const log = new Log("PuppetBridge");
 
 const PUPPET_INVITE_CACHE_LIFETIME = 1000*60*60*24;
 
 interface ISendInfo {
-	intent: Intent;
+	client: MatrixClient;
 	mxid: string;
 };
 
@@ -77,13 +79,13 @@ export interface IFileEvent {
 };
 
 export class PuppetBridge extends EventEmitter {
+	public chanSync: ChannelSyncroniser;
+	public userSync: UserSyncroniser;
 	private appservice: Appservice;
-	private chanSync: ChannelSyncroniser;
-	private userSync: UserSyncroniser;
 	private puppetHandler: PuppetHandler;
 	private config: MxBridgeConfig;
 	private store: Store;
-	private puppetInviteCache: TimedCache<string, boolean>;
+	private ghostInviteCache: TimedCache<string, boolean>;
 
 	constructor(
 		private registrationPath: string,
@@ -91,7 +93,7 @@ export class PuppetBridge extends EventEmitter {
 		private features: IPuppetBridgeFeatures,
 	) {
 		super();
-		this.puppetInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
+		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
 	}
 
 	public async readConfig() {
@@ -174,7 +176,7 @@ export class PuppetBridge extends EventEmitter {
 			homeserverUrl: this.config.bridge.homeserverUrl,
 			port: this.config.bridge.port,
 			registration,
-			joinStrategy: new SimpleRetryJoinStrategy(),
+			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
 		this.appservice.on("room.invite", async (roomId: string, event: any) => {
 			console.log(`Got invite in ${roomId} with event ${event}`);
@@ -190,7 +192,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async updateUser(user: IRemoteUserReceive) {
-		await this.userSync.getIntent(user);
+		await this.userSync.getClient(user);
 	}
 
 	public async updateChannel(chan: IRemoteChanReceive) {
@@ -223,7 +225,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async sendMessage(params: IReceiveParams, opts: ISendMessageOpts) {
-		const { intent, mxid } = await this.prepareSend(params);
+		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
 		if (opts.emote) {
 			msgtype = "m.emote";
@@ -238,11 +240,11 @@ export class PuppetBridge extends EventEmitter {
 			send.format = "org.matrix.custom.html";
 			send.formatted_body = opts.formatted_body;
 		}
-		await intent.underlyingClient.sendMessage(mxid, send);
+		await client.sendMessage(mxid, send);
 	}
 
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
-		const { intent, mxid } = await this.prepareSend(params);
+		const { client, mxid } = await this.prepareSend(params);
 		let buffer: Buffer;
 		if (typeof thing === "string") {
 			buffer = await Util.DownloadFile(thing);
@@ -265,7 +267,7 @@ export class PuppetBridge extends EventEmitter {
 				msgtype = "m.file";
 			}
 		}
-		const fileMxc = await intent.underlyingClient.uploadContent(
+		const fileMxc = await client.uploadContent(
 			buffer,
 			mimetype,
 			name,
@@ -283,42 +285,49 @@ export class PuppetBridge extends EventEmitter {
 		if (typeof thing === "string") {
 			sendData.external_url = thing;
 		}
-		await intent.sendEvent(mxid, sendData);
+		await client.sendMessage(mxid, sendData);
 	}
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
-		const { mxid, created: createdMxid } = await this.chanSync.getMxid(params.chan);
-		if (createdMxid) {
-			this.emit("updateChannel", params.chan.puppetId, params.chan.roomId);
-		}
-		const { intent, created: createdIntent } = await this.userSync.getIntent(params.user);
+		const { client, created: createdIntent } = await this.userSync.getClient(params.user);
 		if (createdIntent) {
 			this.emit("updateUser", params.chan.puppetId, params.user.userId);
 		}
+		const { mxid, created: createdMxid } = await this.chanSync.getMxid(params.chan, client);
+		if (createdMxid) {
+			this.emit("updateChannel", params.chan.puppetId, params.chan.roomId);
+		}
 
 		// ensure that the intent is in the room
-		await intent.ensureRegisteredAndJoined(mxid);
+		const userId = await client.getUserId();
+		if (this.appservice.isNamespacedUser(await client.getUserId())) {
+			await this.appservice.getIntentForUserId(userId).ensureRegisteredAndJoined(mxid);
+		}
 
 		// ensure our puppeted user is in the room
-		const cacheKey = `${params.chan.puppetId}_mxid`;
+		const cacheKey = `${params.chan.puppetId}_${mxid}`;
 		try {
-			const cache = this.puppetInviteCache.get(cacheKey);
+			const cache = this.ghostInviteCache.get(cacheKey);
 			if (!cache) {
 				const puppetMxid = await this.puppetHandler.getMxid(params.chan.puppetId);
-				await this.botIntent.underlyingClient.inviteUser(puppetMxid, mxid);
-				this.puppetInviteCache.set(cacheKey, true);
+				let inviteClient = await this.chanSync.getChanOp(mxid);
+				if (!inviteClient) {
+					inviteClient = client;
+				}
+				await client.inviteUser(puppetMxid, mxid);
+				this.ghostInviteCache.set(cacheKey, true);
 			}
 		} catch (err) {
 			if (err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
 				log.verbose("Failed to invite user, as they are already in there");
-				this.puppetInviteCache.set(cacheKey, true);
+				this.ghostInviteCache.set(cacheKey, true);
 			} else {
 				log.warn("Failed to invite user:", err.body);
 			}
 		}
 
 		return {
-			intent,
+			client,
 			mxid,
 		} as ISendInfo;
 	}

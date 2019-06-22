@@ -19,11 +19,13 @@ export interface IChanStoreEntry {
 export class DbChanStore {
 	private remoteCache: TimedCache<string, IChanStoreEntry>;
 	private mxidCache: TimedCache<string, IChanStoreEntry>;
+	private opCache: TimedCache<string, string>;
 	constructor (
 		private db:IDatabaseConnector,
 	) {
 		this.remoteCache = new TimedCache(CHAN_CACHE_LIFETIME);
 		this.mxidCache = new TimedCache(CHAN_CACHE_LIFETIME);
+		this.opCache = new TimedCache(CHAN_CACHE_LIFETIME);
 	}
 
 	public newData(mxid: string, roomId: string, puppetId: number): IChanStoreEntry {
@@ -102,6 +104,38 @@ export class DbChanStore {
 		});
 		this.remoteCache.set(`${data.roomId}_${data.puppetId}`, data);
 		this.mxidCache.set(data.mxid, data);
+	}
+
+	public async setChanOp(chanMxid: string, userMxid: string) {
+		const row = await this.db.Get("SELECT * FROM chan_op WHERE chan_mxid=$chan AND user_mxid=$user", {
+			chan: chanMxid,
+			user: userMxid,
+		});
+		if (row) {
+			// nothing to do, we are already one
+			return;
+		}
+		await this.db.Run("INSERT INTO chan_op (chan_mxid, user_mxid) VALUES ($chan, $user)", {
+			chan: chanMxid,
+			user: userMxid,
+		});
+		this.opCache.set(chanMxid, userMxid);
+	}
+
+	public async getChanOp(chanMxid: string): Promise<string|null> {
+		const cached = this.opCache.get(chanMxid);
+		if (cached) {
+			return cached;
+		}
+		const row = await this.db.Get("SELECT user_mxid FROM chan_op WHERE chan_mxid=$chan", {
+			chan: chanMxid,
+		});
+		if (!row) {
+			return null;
+		}
+		const userMxid = row.user_mxid as string;
+		this.opCache.set(chanMxid, userMxid);
+		return userMxid
 	}
 
 	private getFromRow(row: ISqlRow | null): IChanStoreEntry | null {

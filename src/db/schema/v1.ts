@@ -35,11 +35,18 @@ export class Schema implements IDbSchema {
 				data TEXT NOT NULL
 			);
 		`, "puppet_store");
+		await store.createTable(`
+			CREATE TABLE chan_op(
+				chan_mxid TEXT NOT NULL,
+				user_mxid TEXT NOT NULL
+			);
+		`, "chan_op");
 	}
 	public async rollBack(store: Store) {
 		await store.db.Exec("DROP TABLE IF EXISTS schema");
 		await store.db.Exec("DROP TABLE IF EXISTS user_store");
 		await store.db.Exec("DROP TABLE IF EXISTS chan_store");
 		await store.db.Exec("DROP TABLE IF EXISTS puppet_store");
+		await store.db.Exec("DROP TABLE IF EXISTS chan_op");
 	}
 }
