@@ -51,6 +51,13 @@ export interface IReceiveParams {
 	user: IRemoteUserReceive;
 };
 
+export interface ISendMessageOpts {
+	body: string;
+	formatted_body?: string;
+	emote?: boolean;
+	notice?: boolean;
+};
+
 export interface IMessageEvent {
 	body: string;
 	formatted_body?: string;
@@ -190,6 +197,11 @@ export class PuppetBridge extends EventEmitter {
 		await this.chanSync.getMxid(chan);
 	}
 
+	public async getMxidForUser(userId: string, puppetId?: number): Promise<string> {
+		// TODO: fetch own mxid based on mapping
+		return this.appservice.getUserIdForSuffix(Util.str2mxid(userId));
+	}
+
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("detect", params, thing, name);
 	}
@@ -210,15 +222,21 @@ export class PuppetBridge extends EventEmitter {
 		await this.sendFileByType("m.image", params, thing, name);
 	}
 
-	public async sendMessage(params: IReceiveParams, msg: string, html?: string, emote: boolean = false) {
+	public async sendMessage(params: IReceiveParams, opts: ISendMessageOpts) {
 		const { intent, mxid } = await this.prepareSend(params);
+		let msgtype = "m.text";
+		if (opts.emote) {
+			msgtype = "m.emote";
+		} else if (opts.notice) {
+			msgtype = "m.notice";
+		}
 		const send = {
-			msgtype: emote ? "m.emote" : "m.text",
-			body: msg,
+			msgtype,
+			body: opts.body,
 		} as any;
-		if (html) {
+		if (opts.formatted_body) {
 			send.format = "org.matrix.custom.html";
-			send.formatted_body = html;
+			send.formatted_body = opts.formatted_body;
 		}
 		await intent.underlyingClient.sendMessage(mxid, send);
 	}
