@@ -226,7 +226,12 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async getMxidForUser(userId: string, puppetId?: number): Promise<string> {
-		// TODO: fetch own mxid based on mapping
+		if (puppetId) {
+			const puppetData = await this.puppetHandler.get(puppetId);
+			if (puppetData && puppetData.userId === userId) {
+				return puppetData.puppetMxid;
+			}
+		}
 		return this.appservice.getUserIdForSuffix(Util.str2mxid(userId));
 	}
 
