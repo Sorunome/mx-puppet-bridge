@@ -3,8 +3,11 @@ import { Util } from "./util";
 import { Log } from "./log";
 import { DbChanStore } from "./db/chanstore";
 import { MatrixClient } from "matrix-bot-sdk";
+import { Lock } from "./structures/lock";
 
 const log = new Log("ChannelSync");
+
+const MXID_LOOKUP_LOCK_TIMEOUT = 1000*60;
 
 export interface IRemoteChanSend {
 	roomId: string;
@@ -23,10 +26,12 @@ export interface IRemoteChanReceive {
 
 export class ChannelSyncroniser {
 	private chanStore: DbChanStore;
+	private mxidLock: Lock<string>;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
 		this.chanStore = this.bridge.chanStore;
+		this.mxidLock = new Lock(MXID_LOOKUP_LOCK_TIMEOUT);
 	}
 
 	public async getRemoteHandler(mxid: string): Promise<IRemoteChanSend | null> {
@@ -53,6 +58,8 @@ export class ChannelSyncroniser {
 	}
 
 	public async getMxid(data: IRemoteChanReceive, client?: MatrixClient, invites?: string[]): Promise<{mxid: string; created: boolean;}> {
+		const lockKey = `${data.puppetId};${data.roomId}`;
+		await this.mxidLock.wait(lockKey);
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
 		if (!client) {
 			client = this.bridge.botIntent.underlyingClient;
@@ -68,6 +75,7 @@ export class ChannelSyncroniser {
 		let created = false;
 		if (!chan) {
 			log.info("Channel doesn't exist yet, creating entry...");
+			this.mxidLock.set(lockKey);
 			doUpdate = true;
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createChan) {
@@ -162,6 +170,7 @@ export class ChannelSyncroniser {
 			log.verbose("Storing update to DB");
 			await this.chanStore.set(chan);
 		}
+		this.mxidLock.release(lockKey);
 
 		return { mxid, created };
 	}
