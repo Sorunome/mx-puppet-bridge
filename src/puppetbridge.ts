@@ -413,6 +413,10 @@ export class PuppetBridge extends EventEmitter {
 			this.emit("image", room, data, event);
 			return;
 		}
+		if (this.features.file) {
+			this.emit("file", room, data, event);
+			return;
+		}
 		const textData = {
 			body: `New ${emitEvent}: ${data.url}`,
 			emote: false,
