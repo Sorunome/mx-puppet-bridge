@@ -207,6 +207,14 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.createUser = hook;
 	}
 
+	public async setUserId(puppetId: number, userId: string) {
+		await this.puppetHandler.setUserId(puppetId, userId);
+	}
+
+	public async setPuppetData(puppetId: number, data: any) {
+		await this.puppetHandler.setData(puppetId, data);
+	}
+
 	public async updateUser(user: IRemoteUserReceive) {
 		log.verbose("Got request to update a user");
 		await this.userSync.getClient(user);

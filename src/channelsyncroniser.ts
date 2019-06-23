@@ -144,7 +144,7 @@ export class ChannelSyncroniser {
 				mxid,
 				"m.room.avatar",
 				"",
-				{ avatar_url: chan.avatarMxc },
+				{ url: chan.avatarMxc },
 			);
 			chan.avatarUrl = data.avatarUrl;
 		}
