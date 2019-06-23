@@ -21,7 +21,7 @@ export class UserSyncroniser {
 		this.userStore = this.bridge.userStore;
 	}
 
-	public async getClient(data: IRemoteUserReceive): Promise<{client: MatrixClient; created: boolean;}> {
+	public async getClient(data: IRemoteUserReceive, puppetId?: number): Promise<MatrixClient> {
 		log.info("Fetching client for " + data.userId);
 		let user = await this.userStore.get(data.userId);
 		const update = {
@@ -29,14 +29,20 @@ export class UserSyncroniser {
 			avatar: false,
 		};
 		let doUpdate = false;
-		let created = false;
 		if (!user) {
-			doUpdate = true;
 			log.info("User doesn't exist yet, creating entry...");
+			doUpdate = true;
+			// let's fetch the create data via hook
+			if (this.bridge.hooks.createUser && puppetId) {
+				const newData = await this.bridge.hooks.createUser(puppetId, data.userId);
+				if (newData && newData.userId === data.userId) {
+					log.verbose("got new user data to override");
+					data = newData;
+				}
+			}
 			update.name = data.name ? true : false;
 			update.avatar = data.avatarUrl ? true : false;
 			user = this.userStore.newData(data.userId);
-			created = true;
 		} else {
 			update.name = data.name !== undefined && data.name !== user.name;
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
@@ -76,6 +82,6 @@ export class UserSyncroniser {
 			await this.userStore.set(user);
 		}
 
-		return { client, created };
+		return client;
 	}
 }

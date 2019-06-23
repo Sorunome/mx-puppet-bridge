@@ -36,8 +36,8 @@ export class DbChanStore {
 		} as IChanStoreEntry;
 	}
 
-	public async getByRemote(roomId: string, puppetId: number): Promise<IChanStoreEntry | null> {
-		const cached = this.remoteCache.get(`${roomId}_${puppetId}`);
+	public async getByRemote(puppetId: number, roomId: string): Promise<IChanStoreEntry | null> {
+		const cached = this.remoteCache.get(`${puppetId};${roomId}`);
 		if (cached) {
 			return cached;
 		}
@@ -152,7 +152,7 @@ export class DbChanStore {
 		data.avatarMxc = row.avatar_mxc as string | null;
 		data.topic = row.topic as string | null;
 
-		this.remoteCache.set(`${data.roomId}_${data.puppetId}`, data);
+		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);
 		this.mxidCache.set(data.mxid, data);
 		return data;
 	}

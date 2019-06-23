@@ -41,7 +41,7 @@ export class Util {
 	}
 
 	public static str2mxid(a: string): string {
-		let buf = new Buffer(a);
+		let buf = Buffer.from(a);
 		let encoded = '';
 		for (let b of buf) {
 			if (b == 0x5F) {
@@ -62,7 +62,7 @@ export class Util {
 	}
 
 	public static mxid2str(b: string): string {
-		let decoded = new Buffer(b.length);
+		let decoded = Buffer.alloc(b.length);
 		let j = 0;
 		for (let i = 0; i < b.length; i++) {
 			let char = b[i];

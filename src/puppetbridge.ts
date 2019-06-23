@@ -78,9 +78,18 @@ export interface IFileEvent {
 	url: string;
 };
 
+export type CreateChanHook = (puppetId: number, chanId: string) => Promise<IRemoteChanReceive | null>;
+export type CreateUserHook = (puppetId: number, userId: string) => Promise<IRemoteUserReceive | null>;
+
+export interface IPuppetBridgeHooks {
+	createChan?: CreateChanHook;
+	createUser?: CreateUserHook;
+};
+
 export class PuppetBridge extends EventEmitter {
 	public chanSync: ChannelSyncroniser;
 	public userSync: UserSyncroniser;
+	public hooks: IPuppetBridgeHooks;
 	private appservice: Appservice;
 	private puppetHandler: PuppetHandler;
 	private config: MxBridgeConfig;
@@ -94,6 +103,7 @@ export class PuppetBridge extends EventEmitter {
 	) {
 		super();
 		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
+		this.hooks = {} as IPuppetBridgeHooks;
 	}
 
 	public async readConfig() {
@@ -178,10 +188,8 @@ export class PuppetBridge extends EventEmitter {
 			registration,
 			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
-		this.appservice.on("room.invite", async (roomId: string, event: any) => {
-			console.log(`Got invite in ${roomId} with event ${event}`);
-		});
 		this.appservice.on("room.event", this.handleRoomEvent.bind(this));
+		this.appservice.on("room.invite", this.handleInviteEvent.bind(this));
 		await this.appservice.begin();
 		log.info("Application service started!");
 		log.info("Activating users...");
@@ -191,11 +199,21 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	public setCreateChanHook(hook: CreateChanHook) {
+		this.hooks.createChan = hook;
+	}
+
+	public setCreateUserHook(hook: CreateUserHook) {
+		this.hooks.createUser = hook;
+	}
+
 	public async updateUser(user: IRemoteUserReceive) {
+		log.verbose("Got request to update a user");
 		await this.userSync.getClient(user);
 	}
 
 	public async updateChannel(chan: IRemoteChanReceive) {
+		log.verbose("Got request to update a channel");
 		await this.chanSync.getMxid(chan);
 	}
 
@@ -289,27 +307,25 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
-		const { client, created: createdIntent } = await this.userSync.getClient(params.user);
-		if (createdIntent) {
-			this.emit("updateUser", params.chan.puppetId, params.user.userId);
-		}
-		const { mxid, created: createdMxid } = await this.chanSync.getMxid(params.chan, client);
-		if (createdMxid) {
-			this.emit("updateChannel", params.chan.puppetId, params.chan.roomId);
-		}
+		const puppetMxid = await this.puppetHandler.getMxid(params.chan.puppetId);
+		const client = await this.userSync.getClient(params.user, params.chan.puppetId);
+		const { mxid, created } = await this.chanSync.getMxid(params.chan, client, [puppetMxid]);
 
 		// ensure that the intent is in the room
 		const userId = await client.getUserId();
-		if (this.appservice.isNamespacedUser(await client.getUserId())) {
+		if (this.appservice.isNamespacedUser(userId)) {
 			await this.appservice.getIntentForUserId(userId).ensureRegisteredAndJoined(mxid);
 		}
 
 		// ensure our puppeted user is in the room
 		const cacheKey = `${params.chan.puppetId}_${mxid}`;
+		if (created) {
+			// we just invited if we freshly created
+			this.ghostInviteCache.set(cacheKey, true);
+		}
 		try {
 			const cache = this.ghostInviteCache.get(cacheKey);
 			if (!cache) {
-				const puppetMxid = await this.puppetHandler.getMxid(params.chan.puppetId);
 				let inviteClient = await this.chanSync.getChanOp(mxid);
 				if (!inviteClient) {
 					inviteClient = client;
@@ -340,10 +356,15 @@ export class PuppetBridge extends EventEmitter {
 		if (this.appservice.isNamespacedUser(event.sender)) {
 			return; // we don't handle things from our own namespace
 		}
+		log.verbose("got matrix event to pass on");
 		const room = await this.chanSync.getRemoteHandler(event.room_id);
-//		if (!room || event.sender !== room.puppetId) {
-//			return; // this isn't a room we handle
-//		}
+		if (!room) {
+			return;
+		}
+		const puppetMxid = await this.puppetHandler.getMxid(room.puppetId);
+		if (event.sender !== puppetMxid) {
+			return; // this isn't a room we handle
+		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		let msgtype = event.content.msgtype;
 		if (event.type == "m.sticker") {
@@ -397,5 +418,13 @@ export class PuppetBridge extends EventEmitter {
 			emote: false,
 		} as IMessageEvent;
 		this.emit("message", room, textData, event);
+	}
+
+	private async handleInviteEvent(roomId: string, event: any) {
+		const userId = event.state_key;
+		const intent = this.appservice.botIntent;
+		if (userId === intent.userId) {
+			intent.joinRoom(roomId);
+		}
 	}
 }

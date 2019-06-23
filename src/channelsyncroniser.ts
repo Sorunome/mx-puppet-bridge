@@ -18,6 +18,7 @@ export interface IRemoteChanReceive {
 	avatarUrl?: string | null;
 	name?: string | null;
 	topic?: string | null;
+	isDirect?: boolean | null;
 }
 
 export class ChannelSyncroniser {
@@ -51,12 +52,12 @@ export class ChannelSyncroniser {
 		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
 	}
 
-	public async getMxid(data: IRemoteChanReceive, client?: MatrixClient): Promise<{mxid: string; created: boolean;}> {
+	public async getMxid(data: IRemoteChanReceive, client?: MatrixClient, invites?: string[]): Promise<{mxid: string; created: boolean;}> {
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
 		if (!client) {
 			client = this.bridge.botIntent.underlyingClient;
 		}
-		let chan = await this.chanStore.getByRemote(data.roomId, data.puppetId);
+		let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
 		const update = {
 			name: false,
 			avatar: false,
@@ -68,13 +69,30 @@ export class ChannelSyncroniser {
 		if (!chan) {
 			log.info("Channel doesn't exist yet, creating entry...");
 			doUpdate = true;
+			// let's fetch the create data via hook
+			if (this.bridge.hooks.createChan) {
+				const newData = await this.bridge.hooks.createChan(data.puppetId, data.roomId);
+				if (newData && newData.puppetId === data.puppetId && newData.roomId === data.roomId) {
+					log.verbose("Got new room data to override");
+					data = newData;
+				}
+			}
+			log.verbose("Creation data:", data);
+			log.verbose("Initial invites:", invites);
 			update.name = data.name ? true : false;
 			update.avatar = data.avatarUrl ? true : false;
 			update.topic = data.topic ? true : false;
 			// ooookay, we need to create this channel
 			mxid = await client!.createRoom({
-				visibilitvisibility: "private",
-				preset: "trusted_private_chat",
+				visibility: "private",
+				preset: "private_chat",
+				power_level_content_override: {
+					notifications: {
+						room: 0,
+					},
+				},
+				is_direct: data.isDirect,
+				invite: invites,
 			});
 			await this.chanStore.setChanOp(mxid, await client!.getUserId());
 			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
