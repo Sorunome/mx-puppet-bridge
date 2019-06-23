@@ -90,4 +90,11 @@ export class Util {
 			setTimeout(resolve, timeout);
 		});
 	}
+
+	
+	public static async AsyncForEach(arr, callback) {
+		for (let i = 0; i < arr.length; i++) {
+			await callback(arr[i], i, arr);
+		}
+	}
 }

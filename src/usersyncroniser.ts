@@ -55,6 +55,7 @@ export class UserSyncroniser {
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
 		}
 		const intent = this.bridge.AS.getIntentForSuffix(Util.str2mxid(data.userId));
+		await intent.ensureRegistered();
 		const client = intent.underlyingClient;
 		if (update.name) {
 			log.verbose("Updating name");
