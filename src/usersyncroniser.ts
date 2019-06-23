@@ -3,8 +3,11 @@ import { MatrixClient } from "matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
+import { Lock } from "./structures/lock";
 
 const log = new Log("UserSync");
+
+const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000*60;
 
 export interface IRemoteUserReceive {
 	userId: string;
@@ -15,13 +18,16 @@ export interface IRemoteUserReceive {
 
 export class UserSyncroniser {
 	private userStore: DbUserStore;
+	private clientLock: Lock<string>;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
 		this.userStore = this.bridge.userStore;
+		this.clientLock = new Lock(CLIENT_LOOKUP_LOCK_TIMEOUT);
 	}
 
 	public async getClient(data: IRemoteUserReceive, puppetId?: number): Promise<MatrixClient> {
+		await this.clientLock.wait(data.userId);
 		log.info("Fetching client for " + data.userId);
 		let user = await this.userStore.get(data.userId);
 		const update = {
@@ -31,6 +37,7 @@ export class UserSyncroniser {
 		let doUpdate = false;
 		if (!user) {
 			log.info("User doesn't exist yet, creating entry...");
+			this.clientLock.set(data.userId);
 			doUpdate = true;
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createUser && puppetId) {
@@ -81,6 +88,8 @@ export class UserSyncroniser {
 			log.verbose("Storing update to DB");
 			await this.userStore.set(user);
 		}
+
+		this.clientLock.release(data.userId);
 
 		return client;
 	}
