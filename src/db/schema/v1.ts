@@ -30,7 +30,7 @@ export class Schema implements IDbSchema {
 		`, "chan_store");
 		await store.createTable(`
 			CREATE TABLE puppet_store(
-				puppet_id INTEGER PRIMARY KEY AUTOINCREMENT,
+				puppet_id SERIAL PRIMARY KEY,
 				puppet_mxid TEXT NOT NULL,
 				data TEXT NOT NULL,
 				user_id TEXT

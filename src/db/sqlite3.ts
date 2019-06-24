@@ -20,9 +20,11 @@ import { IDatabaseConnector, ISqlCommandParameters, ISqlRow } from "./connector"
 const log = new Log("SQLite3");
 
 export class SQLite3 implements IDatabaseConnector {
+	public type = "sqlite";
 	private db: Database;
+	private insertId: number;
 	constructor(private filename: string) {
-
+		this.insertId = -1;
 	}
 
 	public async Open() {
@@ -40,9 +42,11 @@ export class SQLite3 implements IDatabaseConnector {
 		return this.db.prepare(sql).all(parameters || []);
 	}
 
-	public async Run(sql: string, parameters?: ISqlCommandParameters): Promise<void> {
+	public async Run(sql: string, parameters?: ISqlCommandParameters, returnId?: string): Promise<number> {
 		log.silly("Run:", sql);
-		return this.db.prepare(sql).run(parameters || []);
+		return this.db.prepare(sql).run(parameters || []).then((info) => {
+			return info.lastInsertRowid;
+		});
 	}
 
 	public async Close(): Promise<void> {

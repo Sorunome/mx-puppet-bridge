@@ -24,6 +24,8 @@ const pgp: pgPromise.IMain = pgPromise({
 });
 
 export class Postgres implements IDatabaseConnector {
+	public type = "postgres";
+
 	public static ParameterizeSql(sql: string): string {
 		return sql.replace(/\$((\w|\d|_)+)+/g, (k) => {
 			return `\${${k.substr("$".length)}}`;
@@ -61,9 +63,17 @@ export class Postgres implements IDatabaseConnector {
 		}
 	}
 
-	public async Run(sql: string, parameters?: ISqlCommandParameters): Promise<void> {
+	public async Run(sql: string, parameters?: ISqlCommandParameters, returnId?: string): Promise<number> {
+		if (returnId) {
+			sql += ` RETURNING ${returnId}`;
+		}
 		log.silly("Run:", sql);
-		return this.db.oneOrNone(Postgres.ParameterizeSql(sql), parameters).then(() => {});
+		return this.db.oneOrNone(Postgres.ParameterizeSql(sql), parameters).then((row) => {
+			if (!row || !returnId) {
+				return -1;
+			}
+			return row[returnId];
+		});
 	}
 
 	public async Close(): Promise<void> {

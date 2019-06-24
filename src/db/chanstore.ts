@@ -49,6 +49,21 @@ export class DbChanStore {
 		return this.getFromRow(row);
 	}
 
+	public async getByPuppetId(puppetId: number): Promise<IChanStoreEntry[]> {
+		const rows = await this.db.All(
+			"SELECT * FROM chan_store WHERE puppet_id = $puppet_id", {
+			puppet_id: puppetId,
+		});
+		const results = [] as IChanStoreEntry[];
+		for (const row of rows) {
+			let res = this.getFromRow(row);
+			if (res) {
+				results.push(res);
+			}
+		}
+		return results;
+	}
+
 	public async getByMxid(mxid: string): Promise<IChanStoreEntry | null> {
 		const cached = this.mxidCache.get(mxid);
 		if (cached) {
@@ -60,7 +75,7 @@ export class DbChanStore {
 		return this.getFromRow(row);
 	}
 
-	public async set(data:IChanStoreEntry) {
+	public async set(data: IChanStoreEntry) {
 		const exists = await this.db.Get(
 			"SELECT * FROM chan_store WHERE mxid = $mxid", {mxid: data.mxid}
 		);
@@ -104,6 +119,18 @@ export class DbChanStore {
 		});
 		this.remoteCache.set(`${data.roomId}_${data.puppetId}`, data);
 		this.mxidCache.set(data.mxid, data);
+	}
+
+	public async delete(data: IChanStoreEntry) {
+		await this.db.Run(
+			"DELETE FROM chan_store WHERE mxid = $mxid", { mxid: data.mxid }
+		);
+		await this.db.Run(
+			"DELETE FROM chan_op WHERE chan_mxid=$mxid", { mxid: data.mxid }
+		);
+		this.remoteCache.delete(`${data.roomId}_${data.puppetId}`);
+		this.mxidCache.delete(data.mxid);
+		this.opCache.delete(data.mxid);
 	}
 
 	public async setChanOp(chanMxid: string, userMxid: string) {

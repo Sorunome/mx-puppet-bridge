@@ -33,6 +33,18 @@ export class DbPuppetStore {
 		return result;
 	}
 
+	public async getForMxid(puppetMxid: string): Promise<IPuppet[]> {
+		const result = [] as IPuppet[];
+		const rows = await this.db.All("SELECT * FROM puppet_store WHERE puppet_mxid=$mxid", { mxid: puppetMxid });
+		for (const r of rows) {
+			const res = this.getRow(r);
+			if (res) {
+				result.push(res);
+			}
+		}
+		return result;
+	}
+
 	public async get(puppetId: number): Promise<IPuppet | null> {
 		const row = await this.db.Get("SELECT * FROM puppet_store WHERE puppet_id=$id", { id: puppetId });
 		if (!row) {
@@ -74,6 +86,27 @@ export class DbPuppetStore {
 			d: dataStr,
 			id: puppetId,
 		});
+	}
+
+	public async new(puppetMxid: string, data: any, userId?: string): Promise<number> {
+		let dataStr = "";
+		try {
+			dataStr = JSON.stringify(data);
+		} catch (err) {
+			log.warn("Error strinifying json:", err);
+			return -1;
+		}
+		const puppetId = await this.db.Run("INSERT INTO puppet_store (puppet_mxid, data, user_id) VALUES ($mxid, $data, $uid)", {
+			mxid: puppetMxid,
+			data: dataStr,
+			uid: userId || null,
+		}, "puppet_id");
+		return puppetId;
+	}
+
+	public async delete(puppetId: number) {
+		await this.db.Run("DELETE FROM puppet_store WHERE puppet_id=$id", { id: puppetId });
+		this.mxidCache.delete(puppetId);
 	}
 
 	private getRow(row: ISqlRow): IPuppet | null {

@@ -17,7 +17,7 @@ import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
 import { DbPuppetStore } from "./db/puppetstore";
-import { PuppetHandler } from "./puppethandler";
+import { Provisioner } from "./provisioner";
 import { Store } from "./store";
 import { TimedCache } from "./structures/timedcache";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
@@ -80,19 +80,21 @@ export interface IFileEvent {
 
 export type CreateChanHook = (puppetId: number, chanId: string) => Promise<IRemoteChanReceive | null>;
 export type CreateUserHook = (puppetId: number, userId: string) => Promise<IRemoteUserReceive | null>;
+export type GetDescHook = (puppetId: number, data: any, html: boolean) => Promise<string>;
 
 export interface IPuppetBridgeHooks {
 	createChan?: CreateChanHook;
 	createUser?: CreateUserHook;
+	getDesc?: GetDescHook;
 };
 
 export class PuppetBridge extends EventEmitter {
 	public chanSync: ChannelSyncroniser;
 	public userSync: UserSyncroniser;
 	public hooks: IPuppetBridgeHooks;
+	public config: MxBridgeConfig;
 	private appservice: Appservice;
-	private puppetHandler: PuppetHandler;
-	private config: MxBridgeConfig;
+	private provisioner: Provisioner;
 	private store: Store;
 	private ghostInviteCache: TimedCache<string, boolean>;
 
@@ -119,7 +121,7 @@ export class PuppetBridge extends EventEmitter {
 
 		this.chanSync = new ChannelSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
-		this.puppetHandler = new PuppetHandler(this);
+		this.provisioner = new Provisioner(this);
 	}
 
 	public generateRegistration(opts: IPuppetBridgeRegOpts) {
@@ -193,9 +195,9 @@ export class PuppetBridge extends EventEmitter {
 		await this.appservice.begin();
 		log.info("Application service started!");
 		log.info("Activating users...");
-		const puppets = await this.puppetHandler.getAll();
+		const puppets = await this.provisioner.getAll();
 		for (const p of puppets) {
-			this.emit("puppetAdd", p.puppetId, p.data);
+			this.emit("puppetNew", p.puppetId, p.data);
 		}
 	}
 
@@ -207,12 +209,16 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.createUser = hook;
 	}
 
+	public setGetDescHook(hook: GetDescHook) {
+		this.hooks.getDesc = hook;
+	}
+
 	public async setUserId(puppetId: number, userId: string) {
-		await this.puppetHandler.setUserId(puppetId, userId);
+		await this.provisioner.setUserId(puppetId, userId);
 	}
 
 	public async setPuppetData(puppetId: number, data: any) {
-		await this.puppetHandler.setData(puppetId, data);
+		await this.provisioner.setData(puppetId, data);
 	}
 
 	public async updateUser(user: IRemoteUserReceive) {
@@ -227,7 +233,7 @@ export class PuppetBridge extends EventEmitter {
 
 	public async getMxidForUser(userId: string, puppetId?: number): Promise<string> {
 		if (puppetId) {
-			const puppetData = await this.puppetHandler.get(puppetId);
+			const puppetData = await this.provisioner.get(puppetId);
 			if (puppetData && puppetData.userId === userId) {
 				return puppetData.puppetMxid;
 			}
@@ -320,7 +326,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
-		const puppetMxid = await this.puppetHandler.getMxid(params.chan.puppetId);
+		const puppetMxid = await this.provisioner.getMxid(params.chan.puppetId);
 		const client = await this.userSync.getClient(params.user, params.chan.puppetId);
 		const { mxid, created } = await this.chanSync.getMxid(params.chan, client, [puppetMxid]);
 
@@ -374,7 +380,7 @@ export class PuppetBridge extends EventEmitter {
 		if (!room) {
 			return;
 		}
-		const puppetMxid = await this.puppetHandler.getMxid(room.puppetId);
+		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
 		if (event.sender !== puppetMxid) {
 			return; // this isn't a room we handle
 		}

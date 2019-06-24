@@ -25,10 +25,11 @@ export interface ISqlRow {
 }
 
 export interface IDatabaseConnector {
+	type: string;
 	Open(): void;
 	Get(sql: string, parameters?: ISqlCommandParameters): Promise<ISqlRow|null>;
 	All(sql: string, parameters?: ISqlCommandParameters): Promise<ISqlRow[]>;
-	Run(sql: string, parameters?: ISqlCommandParameters): Promise<void>;
+	Run(sql: string, parameters?: ISqlCommandParameters, returnId?: string): Promise<number>;
 	Close(): Promise<void>;
 	Exec(sql: string): Promise<void>;
 }

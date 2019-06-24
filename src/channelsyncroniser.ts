@@ -1,7 +1,7 @@
 import { PuppetBridge } from "./puppetbridge";
 import { Util } from "./util";
 import { Log } from "./log";
-import { DbChanStore } from "./db/chanstore";
+import { DbChanStore, IChanStoreEntry } from "./db/chanstore";
 import { MatrixClient } from "matrix-bot-sdk";
 import { Lock } from "./structures/lock";
 
@@ -173,5 +173,25 @@ export class ChannelSyncroniser {
 		this.mxidLock.release(lockKey);
 
 		return { mxid, created };
+	}
+
+	public async deleteForMxid(mxid: string) {
+		let chan = await this.chanStore.getByMxid(mxid);
+		if (!chan) {
+			return; // nothing to do
+		}
+		await this.deleteEntries([ chan ]);
+	}
+
+	public async deleteForPuppet(puppetId: number) {
+		const entries = await this.chanStore.getByPuppetId(puppetId);
+		await this.deleteEntries(entries);
+	}
+
+	private async deleteEntries(entries: IChanStoreEntry[]) {
+		for (const entry of entries) {
+			// delete from DB (also OP store), cache and trigger ghosts to quit
+			await this.chanStore.delete(entry);
+		}
 	}
 }

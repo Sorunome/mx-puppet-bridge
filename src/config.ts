@@ -2,6 +2,7 @@ export class MxBridgeConfig {
 	public bridge: MxBridgeConfigBridge = new MxBridgeConfigBridge();
 	public logging: MxBridgeConfigLogging = new MxBridgeConfigLogging();
 	public database: MxBridgeConfigDatabase = new MxBridgeConfigDatabase();
+	public provisioning: MxBridgeConfigProvisioning = new MxBridgeConfigProvisioning();
 
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
 		  Object.keys(newConfig).forEach((key) => {
@@ -40,4 +41,9 @@ export class LoggingFile {
 export class MxBridgeConfigDatabase {
 	public connString: string;
 	public filename: string = "database.db";
+}
+
+class MxBridgeConfigProvisioning {
+	public whitelist: string[] = [".*"];
+	public blacklist: string[] = [];
 }

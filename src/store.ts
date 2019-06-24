@@ -67,6 +67,9 @@ export class Store {
 
 	public async createTable(statement: string, tablename: string) {
 		try {
+			if (this.db.type !== "postgres") {
+				statement = statement.replace(/SERIAL/g, "INTEGER AUTOINCREMENT");
+			}
 			await this.db.Exec(statement);
 			log.info("Created table", tablename);
 		} catch (err) {
