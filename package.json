@@ -13,7 +13,7 @@
     "events": "^3.0.0",
     "file-type": "^12.0.0",
     "js-yaml": "^3.13.1",
-    "matrix-bot-sdk": "^0.3.8",
+    "matrix-bot-sdk": "git://github.com/Sorunome/matrix-js-bot-sdk.git#79a66fe0315be46035590f203b941d075954a81c",
     "pg-promise": "^8.7.2",
     "tslint": "^5.17.0",
     "typescript": "^3.5.2",

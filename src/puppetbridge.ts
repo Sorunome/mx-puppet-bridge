@@ -21,6 +21,7 @@ import { Provisioner } from "./provisioner";
 import { Store } from "./store";
 import { TimedCache } from "./structures/timedcache";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
+import { BotProvisioner } from "./botprovisioner";
 
 const log = new Log("PuppetBridge");
 
@@ -78,14 +79,25 @@ export interface IFileEvent {
 	url: string;
 };
 
+export interface IRetData {
+	success: boolean;
+	error?: string;
+	data?: any;
+	userId?: string;
+};
+
 export type CreateChanHook = (puppetId: number, chanId: string) => Promise<IRemoteChanReceive | null>;
 export type CreateUserHook = (puppetId: number, userId: string) => Promise<IRemoteUserReceive | null>;
 export type GetDescHook = (puppetId: number, data: any, html: boolean) => Promise<string>;
+export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
+export type BotHeaderMsgHook = () => string;
 
 export interface IPuppetBridgeHooks {
 	createChan?: CreateChanHook;
 	createUser?: CreateUserHook;
 	getDesc?: GetDescHook;
+	botHeaderMsg?: BotHeaderMsgHook;
+	getDataFromStr?: GetDataFromStrHook;
 };
 
 export class PuppetBridge extends EventEmitter {
@@ -93,10 +105,11 @@ export class PuppetBridge extends EventEmitter {
 	public userSync: UserSyncroniser;
 	public hooks: IPuppetBridgeHooks;
 	public config: MxBridgeConfig;
+	public provisioner: Provisioner;
 	private appservice: Appservice;
-	private provisioner: Provisioner;
 	private store: Store;
 	private ghostInviteCache: TimedCache<string, boolean>;
+	private botProvisioner: BotProvisioner;
 
 	constructor(
 		private registrationPath: string,
@@ -122,6 +135,8 @@ export class PuppetBridge extends EventEmitter {
 		this.chanSync = new ChannelSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
 		this.provisioner = new Provisioner(this);
+
+		this.botProvisioner = new BotProvisioner(this);
 	}
 
 	public generateRegistration(opts: IPuppetBridgeRegOpts) {
@@ -211,6 +226,14 @@ export class PuppetBridge extends EventEmitter {
 
 	public setGetDescHook(hook: GetDescHook) {
 		this.hooks.getDesc = hook;
+	}
+
+	public setBotHeaderMsgHook(hook: BotHeaderMsgHook) {
+		this.hooks.botHeaderMsg = hook;
+	}
+
+	public setGetDastaFromStrHook(hook: GetDataFromStrHook) {
+		this.hooks.getDataFromStr = hook;
 	}
 
 	public async setUserId(puppetId: number, userId: string) {
@@ -378,11 +401,13 @@ export class PuppetBridge extends EventEmitter {
 		log.verbose("got matrix event to pass on");
 		const room = await this.chanSync.getRemoteHandler(event.room_id);
 		if (!room) {
+			// this isn't a room we handle....so let's do provisioning!
+			this.botProvisioner.processEvent(event);
 			return;
 		}
 		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
 		if (event.sender !== puppetMxid) {
-			return; // this isn't a room we handle
+			return; // this isn't our puppeted user, so let's not do anything
 		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		let msgtype = event.content.msgtype;

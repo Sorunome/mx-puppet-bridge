@@ -1,5 +1,8 @@
 import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet } from "./db/puppetstore";
+import { Log } from "./log";
+
+const log = new Log("Provisioner");
 
 export interface IProvisionerDesc {
 	puppetId: number;
@@ -60,19 +63,25 @@ export class Provisioner {
 			return -1;
 		}
 		const puppetId = await this.puppetStore.new(puppetMxid, data, userId);
+		log.info(`Created new puppet with id ${puppetId}`);
 		this.bridge.emit("puppetNew", puppetId, data);
 		return puppetId;
 	}
 
-	public async delete(puppetId: number) {
+	public async delete(puppetMxid: string, puppetId: number) {
+		log.info(`Deleting puppet with id ${puppetId}`)
+		const data = await this.get(puppetId);
+		if (!data || data.puppetMxid !== puppetMxid) {
+			return;
+		}
 		await this.puppetStore.delete(puppetId);
 		await this.bridge.chanSync.deleteForPuppet(puppetId);
 		this.bridge.emit("puppetDelete", puppetId);
 	}
 
-	public async getDesc(puppetId: number): Promise<IProvisionerDesc | null> {
+	public async getDesc(puppetMxid: string, puppetId: number): Promise<IProvisionerDesc | null> {
 		const data = await this.get(puppetId);
-		if (!data) {
+		if (!data || data.puppetMxid !== puppetMxid) {
 			return null;
 		}
 		return await this.getDescFromData(data);
@@ -97,8 +106,8 @@ export class Provisioner {
 		}
 		return {
 			puppetId: data.puppetId,
-			desc: await this.bridge.hooks.getDesc(data.puppetId, data, false),
-			html: await this.bridge.hooks.getDesc(data.puppetId, data, true),
+			desc: await this.bridge.hooks.getDesc(data.puppetId, data.data, false),
+			html: await this.bridge.hooks.getDesc(data.puppetId, data.data, true),
 		} as IProvisionerDesc
 	}
 }

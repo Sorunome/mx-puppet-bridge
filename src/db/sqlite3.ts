@@ -44,9 +44,8 @@ export class SQLite3 implements IDatabaseConnector {
 
 	public async Run(sql: string, parameters?: ISqlCommandParameters, returnId?: string): Promise<number> {
 		log.silly("Run:", sql);
-		return this.db.prepare(sql).run(parameters || []).then((info) => {
-			return info.lastInsertRowid;
-		});
+		const info = await this.db.prepare(sql).run(parameters || []);
+		return info.lastInsertRowid;
 	}
 
 	public async Close(): Promise<void> {
