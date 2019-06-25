@@ -133,6 +133,7 @@ export class ChannelSyncroniser {
 			log.verbose("Updating avatar");
 			const { doUpdate, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
 			if (doUpdate) {
+				update.avatar = true;
 				chan.avatarUrl = data.avatarUrl;
 				chan.avatarHash = hash;
 				chan.avatarMxc = mxcUrl;

@@ -67,6 +67,7 @@ export class UserSyncroniser {
 			log.verbose("Updating avatar");
 			const { doUpdate, mxcUrl, hash } = await Util.MaybeUploadFile(client, data, user.avatarHash);
 			if (doUpdate) {
+				update.avatar = true;
 				user.avatarUrl = data.avatarUrl;
 				user.avatarHash = hash;
 				user.avatarMxc = mxcUrl;
