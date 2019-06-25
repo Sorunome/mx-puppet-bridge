@@ -2,8 +2,15 @@ import * as http from "http";
 import * as https from "https";
 import * as fileType from "file-type";
 import { Buffer } from "buffer";
+import * as hasha from "hasha";
+import { MatrixClient } from "matrix-bot-sdk";
 
 const HTTP_OK = 200;
+
+export interface IMakeUploadFileData {
+	avatarUrl?: string | null;
+	avatarBuffer?: Buffer | null;
+}
 
 export class Util {
 	public static async DownloadFile(url: string, options: any = {}): Promise<Buffer> {
@@ -91,10 +98,45 @@ export class Util {
 		});
 	}
 
-	
 	public static async AsyncForEach(arr, callback) {
 		for (let i = 0; i < arr.length; i++) {
 			await callback(arr[i], i, arr);
 		}
+	}
+
+	public static async MaybeUploadFile(client: MatrixClient, data: IMakeUploadFileData, oldHash?: string | null): Promise<{doUpdate: boolean; mxcUrl: string|undefined; hash: string;}> {
+		let updateAvatar = true; // we might set this to false if our hashes are the same
+		let buffer = data.avatarBuffer;
+		if (!buffer && !data.avatarUrl) {
+			// we need to remove the avatar, short-circuit out of here
+			return {
+				doUpdate: true,
+				mxcUrl: undefined,
+				hash: "",
+			}
+		}
+		if (!buffer) {
+			buffer = await Util.DownloadFile(data.avatarUrl!);
+		}
+		const hash = hasha(buffer!, {
+			algorithm: "sha512",
+		});
+		if (hash === oldHash) {
+			// image didn't change, short-circuit out of here
+			return {
+				doUpdate: false,
+				mxcUrl: undefined,
+				hash,
+			}
+		}
+		const avatarMxc = await client!.uploadContent(
+			buffer,
+			Util.GetMimeType(buffer), // TOOD: mimetype
+		);
+		return {
+			doUpdate: true,
+			mxcUrl: avatarMxc,
+			hash,
+		};
 	}
 }

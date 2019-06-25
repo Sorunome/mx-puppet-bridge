@@ -13,6 +13,7 @@ export interface IRemoteUserReceive {
 	userId: string;
 	
 	avatarUrl?: string | null;
+	avatarBuffer?: Buffer | null;
 	name?: string | null;
 }
 
@@ -62,21 +63,17 @@ export class UserSyncroniser {
 			client.setDisplayName(data.name || "");
 			user.name = data.name;
 		}
-		if (update.avatar) {
+		if (update.avatar || data.avatarBuffer) {
 			log.verbose("Updating avatar");
-			if (data.avatarUrl) {
-				const avatarData = await Util.DownloadFile(data.avatarUrl);
-				const avatarMxc = await client.uploadContent(
-					avatarData,
-					Util.GetMimeType(avatarData),
-				);
-				user.avatarMxc = avatarMxc;
-			} else {
-				// remove the avatar URL
-				user.avatarMxc = undefined;
+			const { doUpdate, mxcUrl, hash } = await Util.MaybeUploadFile(client, data, user.avatarHash);
+			if (doUpdate) {
+				user.avatarUrl = data.avatarUrl;
+				user.avatarHash = hash;
+				user.avatarMxc = mxcUrl;
+				// we *don't* await here as that can take rather long
+				// and we might as well do this in the background
+				client.setAvatarUrl(user.avatarMxc || "");
 			}
-			await client.setAvatarUrl(user.avatarMxc || "");
-			user.avatarUrl = data.avatarUrl;
 		}
 
 		for (const k of Object.keys(update)) {

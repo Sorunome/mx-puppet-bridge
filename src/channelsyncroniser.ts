@@ -4,6 +4,7 @@ import { Log } from "./log";
 import { DbChanStore, IChanStoreEntry } from "./db/chanstore";
 import { MatrixClient } from "matrix-bot-sdk";
 import { Lock } from "./structures/lock";
+import { Buffer } from "buffer";
 
 const log = new Log("ChannelSync");
 
@@ -19,6 +20,7 @@ export interface IRemoteChanReceive {
 	puppetId: number;
 
 	avatarUrl?: string | null;
+	avatarBuffer?: Buffer | null;
 	name?: string | null;
 	topic?: string | null;
 	isDirect?: boolean | null;
@@ -127,26 +129,20 @@ export class ChannelSyncroniser {
 			);
 			chan.name = data.name;
 		}
-		if (update.avatar) {
+		if (update.avatar || data.avatarBuffer) {
 			log.verbose("Updating avatar");
-			if (data.avatarUrl) {
-				const avatarData = await Util.DownloadFile(data.avatarUrl);
-				const avatarMxc = await client!.uploadContent(
-					avatarData,
-					Util.GetMimeType(avatarData), // TOOD: mimetype
+			const { doUpdate, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
+			if (doUpdate) {
+				chan.avatarUrl = data.avatarUrl;
+				chan.avatarHash = hash;
+				chan.avatarMxc = mxcUrl;
+				await client!.sendStateEvent(
+					mxid,
+					"m.room.avatar",
+					"",
+					{ url: chan.avatarMxc },
 				);
-				chan.avatarMxc = avatarMxc;
-			} else {
-				// remove the avatar URL
-				chan.avatarMxc = undefined;
 			}
-			await client!.sendStateEvent(
-				mxid,
-				"m.room.avatar",
-				"",
-				{ url: chan.avatarMxc },
-			);
-			chan.avatarUrl = data.avatarUrl;
 		}
 		if (update.topic) {
 			log.verbose("updating topic");

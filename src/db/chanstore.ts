@@ -13,6 +13,7 @@ export interface IChanStoreEntry {
 	name?: string | null;
 	avatarUrl?: string | null;
 	avatarMxc?: string | null;
+	avatarHash?: string | null;
 	topic?: string | null;
 }
 
@@ -88,6 +89,7 @@ export class DbChanStore {
 				name,
 				avatar_url,
 				avatar_mxc,
+				avatar_hash,
 				topic
 			) VALUES (
 				$mxid,
@@ -96,6 +98,7 @@ export class DbChanStore {
 				$name,
 				$avatar_url,
 				$avatar_mxc,
+				$avatar_hash,
 				$topic
 			)`;
 		} else {
@@ -105,6 +108,7 @@ export class DbChanStore {
 				name = $name,
 				avatar_url = $avatar_url,
 				avatar_mxc = $avatar_mxc,
+				avatar_hash = $avatar_hash,
 				topic = $topic
 				WHERE mxid = $mxid`;
 		}
@@ -115,6 +119,7 @@ export class DbChanStore {
 			name: data.name || null,
 			avatar_url: data.avatarUrl || null,
 			avatar_mxc: data.avatarMxc || null,
+			avatar_hash: data.avatarHash || null,
 			topic: data.topic || null,
 		});
 		this.remoteCache.set(`${data.roomId}_${data.puppetId}`, data);
@@ -177,6 +182,7 @@ export class DbChanStore {
 		data.name = row.name as string | null;
 		data.avatarUrl = row.avatar_url as string | null;
 		data.avatarMxc = row.avatar_mxc as string | null;
+		data.avatarHash = row.avatar_hash as string | null;
 		data.topic = row.topic as string | null;
 
 		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);
