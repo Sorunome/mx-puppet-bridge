@@ -14,7 +14,8 @@ export class Schema implements IDbSchema {
 				user_id TEXT UNIQUE NOT NULL,
 				name TEXT DEFAULT NULL,
 				avatar_url TEXT DEFAULT NULL,
-				avatar_mxc TEXT DEFAULT NULL
+				avatar_mxc TEXT DEFAULT NULL,
+				avatar_hash TEXT DEFAULT NULL
 			);
 		`, "user_store");
 		await store.createTable(`
@@ -25,6 +26,7 @@ export class Schema implements IDbSchema {
 				name TEXT DEFAULT NULL,
 				avatar_url TEXT DEFAULT NULL,
 				avatar_mxc TEXT DEFAULT NULL,
+				avatar_hash TEXT DEFAULT NULL,
 				topic TEXT DEFAULT NULL
 			);
 		`, "chan_store");
@@ -33,7 +35,7 @@ export class Schema implements IDbSchema {
 				puppet_id SERIAL PRIMARY KEY,
 				puppet_mxid TEXT NOT NULL,
 				data TEXT NOT NULL,
-				user_id TEXT
+				user_id TEXT DEFAULT NULL
 			);
 		`, "puppet_store");
 		await store.createTable(`
