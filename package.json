@@ -1,6 +1,6 @@
 {
   "name": "mx-puppet-bridge",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Matrix Puppeting Bridge library",
   "repository": {
     "type": "git",
@@ -22,7 +22,7 @@
     "file-type": "^12.0.0",
     "hasha": "^5.0.0",
     "js-yaml": "^3.13.1",
-    "matrix-bot-sdk": "git://github.com/Sorunome/matrix-js-bot-sdk.git#79a66fe0315be46035590f203b941d075954a81c",
+    "matrix-bot-sdk": "git://github.com/Sorunome/matrix-js-bot-sdk.git#4a79d976eea1a187e0e28872745591dd19f7df27",
     "pg-promise": "^8.7.2",
     "tslint": "^5.17.0",
     "typescript": "^3.5.2",
