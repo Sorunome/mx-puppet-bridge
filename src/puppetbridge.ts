@@ -23,6 +23,7 @@ import { TimedCache } from "./structures/timedcache";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner } from "./botprovisioner";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
+import { TypingHandler } from "./typinghandler";
 
 const log = new Log("PuppetBridge");
 
@@ -115,6 +116,7 @@ export class PuppetBridge extends EventEmitter {
 	private ghostInviteCache: TimedCache<string, boolean>;
 	private botProvisioner: BotProvisioner;
 	private presenceHandler: PresenceHandler;
+	private typingHandler: TypingHandler;
 
 	constructor(
 		private registrationPath: string,
@@ -141,6 +143,7 @@ export class PuppetBridge extends EventEmitter {
 		this.userSync = new UserSyncroniser(this);
 		this.provisioner = new Provisioner(this);
 		this.presenceHandler = new PresenceHandler(this);
+		this.typingHandler = new TypingHandler(this);
 
 		this.botProvisioner = new BotProvisioner(this);
 	}
@@ -273,6 +276,11 @@ export class PuppetBridge extends EventEmitter {
 		const client = await this.userSync.getClient(user, puppetId);
 		const userId = await client.getUserId();
 		this.presenceHandler.setStatus(userId, status);
+	}
+
+	public async setUserTyping(params: IReceiveParams, typing: boolean) {
+		const { client, mxid } = await this.prepareSend(params);
+		await this.typingHandler.set(await client.getUserId(), mxid, typing);
 	}
 
 	public async getMxidForUser(userId: string, puppetId?: number): Promise<string> {
