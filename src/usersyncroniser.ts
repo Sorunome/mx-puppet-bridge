@@ -11,6 +11,7 @@ const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000*60;
 
 export interface IRemoteUserReceive {
 	userId: string;
+	puppetId: number;
 	
 	avatarUrl?: string | null;
 	avatarBuffer?: Buffer | null;
@@ -27,7 +28,7 @@ export class UserSyncroniser {
 		this.clientLock = new Lock(CLIENT_LOOKUP_LOCK_TIMEOUT);
 	}
 
-	public async getClient(data: IRemoteUserReceive, puppetId?: number): Promise<MatrixClient> {
+	public async getClient(data: IRemoteUserReceive): Promise<MatrixClient> {
 		await this.clientLock.wait(data.userId);
 		log.info("Fetching client for " + data.userId);
 		let user = await this.userStore.get(data.userId);
@@ -41,9 +42,9 @@ export class UserSyncroniser {
 			this.clientLock.set(data.userId);
 			doUpdate = true;
 			// let's fetch the create data via hook
-			if (this.bridge.hooks.createUser && puppetId) {
-				const newData = await this.bridge.hooks.createUser(puppetId, data.userId);
-				if (newData && newData.userId === data.userId) {
+			if (this.bridge.hooks.createUser) {
+				const newData = await this.bridge.hooks.createUser(data.puppetId, data.userId);
+				if (newData && newData.userId === data.userId && newData.puppetId === data.puppetId) {
 					log.verbose("got new user data to override");
 					data = newData;
 				}
@@ -55,7 +56,7 @@ export class UserSyncroniser {
 			update.name = data.name !== undefined && data.name !== user.name;
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
 		}
-		const intent = this.bridge.AS.getIntentForSuffix(Util.str2mxid(data.userId));
+		const intent = this.bridge.AS.getIntentForSuffix(`${data.puppetId}_${Util.str2mxid(data.userId)}`);
 		await intent.ensureRegistered();
 		const client = intent.underlyingClient;
 		if (update.name) {

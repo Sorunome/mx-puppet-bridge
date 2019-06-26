@@ -266,14 +266,14 @@ export class PuppetBridge extends EventEmitter {
 		await this.chanSync.getMxid(chan);
 	}
 
-	public async setUserPresence(user: IRemoteUserReceive, presence: MatrixPresence, puppetId?: number) {
-		const client = await this.userSync.getClient(user, puppetId);
+	public async setUserPresence(user: IRemoteUserReceive, presence: MatrixPresence) {
+		const client = await this.userSync.getClient(user);
 		const userId = await client.getUserId();
 		this.presenceHandler.set(userId, presence);
 	}
 
-	public async setUserStatus(user: IRemoteUserReceive, status: string, puppetId?: number) {
-		const client = await this.userSync.getClient(user, puppetId);
+	public async setUserStatus(user: IRemoteUserReceive, status: string) {
+		const client = await this.userSync.getClient(user);
 		const userId = await client.getUserId();
 		this.presenceHandler.setStatus(userId, status);
 	}
@@ -283,14 +283,12 @@ export class PuppetBridge extends EventEmitter {
 		await this.typingHandler.set(await client.getUserId(), mxid, typing);
 	}
 
-	public async getMxidForUser(userId: string, puppetId?: number): Promise<string> {
-		if (puppetId) {
-			const puppetData = await this.provisioner.get(puppetId);
-			if (puppetData && puppetData.userId === userId) {
-				return puppetData.puppetMxid;
-			}
+	public async getMxidForUser(user: IRemoteUserReceive): Promise<string> {
+		const puppetData = await this.provisioner.get(user.puppetId);
+		if (puppetData && puppetData.userId === user.userId) {
+			return puppetData.puppetMxid;
 		}
-		return this.appservice.getUserIdForSuffix(Util.str2mxid(userId));
+		return this.appservice.getUserIdForSuffix(`${user.puppetId}_${Util.str2mxid(user.userId)}`);
 	}
 
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
@@ -379,7 +377,7 @@ export class PuppetBridge extends EventEmitter {
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
 		const puppetMxid = await this.provisioner.getMxid(params.chan.puppetId);
-		const client = await this.userSync.getClient(params.user, params.chan.puppetId);
+		const client = await this.userSync.getClient(params.user);
 		const { mxid, created } = await this.chanSync.getMxid(params.chan, client, [puppetMxid]);
 
 		// ensure that the intent is in the room
