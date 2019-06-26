@@ -4,6 +4,9 @@ import * as fileType from "file-type";
 import { Buffer } from "buffer";
 import * as hasha from "hasha";
 import { MatrixClient } from "matrix-bot-sdk";
+import { Log } from "./log";
+
+const log = new Log("Util");
 
 const HTTP_OK = 200;
 
@@ -107,7 +110,7 @@ export class Util {
 	public static async MaybeUploadFile(client: MatrixClient, data: IMakeUploadFileData, oldHash?: string | null): Promise<{doUpdate: boolean; mxcUrl: string|undefined; hash: string;}> {
 		let updateAvatar = true; // we might set this to false if our hashes are the same
 		let buffer = data.avatarBuffer;
-		if (!buffer && !data.avatarUrl) {
+		if ((!buffer && !data.avatarUrl) || (buffer && buffer.byteLength === 0)) {
 			// we need to remove the avatar, short-circuit out of here
 			return {
 				doUpdate: true,
@@ -129,14 +132,23 @@ export class Util {
 				hash,
 			}
 		}
-		const avatarMxc = await client!.uploadContent(
-			buffer,
-			Util.GetMimeType(buffer), // TOOD: mimetype
-		);
-		return {
-			doUpdate: true,
-			mxcUrl: avatarMxc,
-			hash,
-		};
+		try {
+			const avatarMxc = await client!.uploadContent(
+				buffer,
+				Util.GetMimeType(buffer), // TOOD: mimetype
+			);
+			return {
+				doUpdate: true,
+				mxcUrl: avatarMxc,
+				hash,
+			};
+		} catch (err) {
+			log.error("Error uploading file content:", err);
+			return {
+				doUpdate: false,
+				mxcUrl: undefined,
+				hash,
+			}
+		}
 	}
 }
