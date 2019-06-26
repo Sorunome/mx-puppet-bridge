@@ -553,7 +553,6 @@ export class PuppetBridge extends EventEmitter {
 	private async handleJoinEvent(roomId: string, event: any) {
 		// okay, we want to catch *puppet* profile changes, nothing of the ghosts
 		const userId = event.state_key;
-		log.silly("Received join event", event);
 		if (this.appservice.isNamespacedUser(event.sender)) {
 			return; // we don't handle things from our own namespace
 		}
