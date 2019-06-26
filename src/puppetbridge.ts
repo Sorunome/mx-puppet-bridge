@@ -16,7 +16,7 @@ import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
-import { DbPuppetStore } from "./db/puppetstore";
+import { DbPuppetStore, IMxidInfo } from "./db/puppetstore";
 import { Provisioner } from "./provisioner";
 import { Store } from "./store";
 import { TimedCache } from "./structures/timedcache";
@@ -294,6 +294,43 @@ export class PuppetBridge extends EventEmitter {
 		return this.appservice.getUserIdForSuffix(`${user.puppetId}_${Util.str2mxid(user.userId)}`);
 	}
 
+	public getUrlFromMxc(mxc: string): string {
+		return `${this.config.bridge.homeserverUrl}/_matrix/media/v1/download/${mxc.substring("mxc://".length)}`;
+	}
+
+	public async getPuppetMxidInfo(puppetId: number): Promise<IMxidInfo | null> {
+		let puppetMxid = "";
+		try {
+			puppetMxid = await this.provisioner.getMxid(puppetId);
+		} catch (err) {
+			return null;
+		}
+		const info = await this.store.puppetStore.getMxidInfo(puppetMxid);
+		if (info) {
+			if (info.avatarMxc) {
+				info.avatarUrl = this.getUrlFromMxc(info.avatarMxc);
+			}
+			return info;
+		}
+		// okay, let's see if we can fetch the profile
+		try {
+			const ret = await this.botIntent.underlyingClient.getUserProfile(puppetMxid);
+			const p = {
+				puppetMxid,
+				name: ret.displayname || null,
+				avatarMxc: ret.avatar_url,
+				token: null,
+			} as IMxidInfo;
+			await this.store.puppetStore.setMxidInfo(p);
+			if (p.avatarMxc) {
+				p.avatarUrl = this.getUrlFromMxc(p.avatarMxc);
+			}
+			return p;
+		} catch (err) {
+			return null;
+		}
+	}
+
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("detect", params, thing, name);
 	}
@@ -430,6 +467,12 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async handleRoomEvent(roomId: string, event: any) {
+		if (event.type === "m.room.member" && event.content) {
+			if (event.content.membership === "join") {
+				await this.handleJoinEvent(roomId, event);
+				return;
+			}
+		}
 		const validTypes = ["m.room.message", "m.sticker"];
 		if (!validTypes.includes(event.type)) {
 			return; // we don't handle this here, silently drop the event
@@ -466,7 +509,7 @@ export class PuppetBridge extends EventEmitter {
 			return;
 		}
 		// this is a file!
-		const url = `${this.config.bridge.homeserverUrl}/_matrix/media/v1/download/${event.content.url.substring("mxc://".length)}`;
+		const url = this.getUrlFromMxc(event.content.url);
 		const data = {
 			filename: event.content.body,
 			mxc: event.content.url,
@@ -507,11 +550,53 @@ export class PuppetBridge extends EventEmitter {
 		this.emit("message", room, textData, event);
 	}
 
+	private async handleJoinEvent(roomId: string, event: any) {
+		// okay, we want to catch *puppet* profile changes, nothing of the ghosts
+		const userId = event.state_key;
+		log.silly("Received join event", event);
+		if (this.appservice.isNamespacedUser(event.sender)) {
+			return; // we don't handle things from our own namespace
+		}
+		const room = await this.chanSync.getRemoteHandler(event.room_id);
+		if (!room) {
+			return; // this isn't a room we handle, just ignore it
+		}
+		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
+		if (userId !== puppetMxid) {
+			return; // it wasn't us
+		}
+		log.verbose(`Received profile change for ${puppetMxid}`);
+		const puppet = await this.store.puppetStore.getOrCreateMxidInfo(puppetMxid);
+		const newName = event.content.displayname;
+		const newAvatarMxc = event.content.avatar_url;
+		let update = false;
+		if (newName !== puppet.name) {
+			const puppets = await this.provisioner.getForMxid(puppetMxid);
+			for (const p of puppets) {
+				this.emit("puppetName", p.puppetId, newName);
+			}
+			puppet.name = newName;
+			update = true;
+		}
+		if (newAvatarMxc !== puppet.avatarMxc) {
+			const url = this.getUrlFromMxc(newAvatarMxc);
+			const puppets = await this.provisioner.getForMxid(puppetMxid);
+			for (const p of puppets) {
+				this.emit("puppetAvatar", p.puppetId, url, newAvatarMxc);
+			}
+			puppet.avatarMxc = newAvatarMxc;
+			update = true;
+		}
+		if (update) {
+			await this.store.puppetStore.setMxidInfo(puppet);
+		}
+	}
+
 	private async handleInviteEvent(roomId: string, event: any) {
 		const userId = event.state_key;
 		const intent = this.appservice.botIntent;
 		if (userId === intent.userId) {
-			intent.joinRoom(roomId);
+			await intent.joinRoom(roomId);
 		}
 	}
 }

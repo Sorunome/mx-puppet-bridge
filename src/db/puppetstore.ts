@@ -1,10 +1,12 @@
 import { IDatabaseConnector, ISqlRow } from "./connector";
 import { Log } from "../log";
 import { TimedCache } from "../structures/timedcache";
+import { Lock } from "../structures/lock";
 
 const log = new Log("DbPuppetStore");
 
 const PUPPET_CACHE_LIFETIME = 1000*60*60*24;
+const MXID_INFO_LOCK_TIMEOUT = 1000;
 
 export interface IPuppet {
 	puppetId: number;
@@ -13,12 +15,84 @@ export interface IPuppet {
 	userId: string | null;
 }
 
+export interface IMxidInfo {
+	puppetMxid: string;
+	name: string | null;
+	avatarMxc: string | null;
+	avatarUrl: string | null;
+	token: string | null;
+}
+
 export class DbPuppetStore {
 	private mxidCache: TimedCache<number, string>;
+	private mxidInfoLock: Lock<string>;
 	constructor(
 		private db: IDatabaseConnector,
 	) {
 		this.mxidCache = new TimedCache(PUPPET_CACHE_LIFETIME);
+		this.mxidInfoLock = new Lock(MXID_INFO_LOCK_TIMEOUT);
+	}
+
+	public async getMxidInfo(puppetMxid: string): Promise<IMxidInfo | null> {
+		const row = await this.db.Get("SELECT * FROM puppet_mxid_store WHERE puppet_mxid=$id", { id: puppetMxid });
+		if (!row) {
+			return null;
+		}
+		return {
+			puppetMxid,
+			name: row.name as string | null,
+			avatarMxc: row.avatar_mxc as string | null,
+			token: row.token as string | null,
+		} as IMxidInfo;
+	}
+
+	public async getOrCreateMxidInfo(puppetMxid: string): Promise<IMxidInfo> {
+		await this.mxidInfoLock.wait(puppetMxid);
+		this.mxidInfoLock.set(puppetMxid);
+		const puppet = await this.getMxidInfo(puppetMxid);
+		if (puppet) {
+			this.mxidInfoLock.release(puppetMxid);
+			return puppet;
+		}
+		const p = {
+			puppetMxid,
+			name: null,
+			avatarMxc: null,
+			token: null,
+		} as IMxidInfo;
+		await this.setMxidInfo(p);
+		this.mxidInfoLock.release(puppetMxid);
+		return p;
+	}
+
+	public async setMxidInfo(puppet: IMxidInfo) {
+		const exists = await this.db.Get("SELECT * FROM puppet_mxid_store WHERE puppet_mxid=$id", { id: puppet.puppetMxid });
+		let query = "";
+		if (!exists) {
+			query = `INSERT INTO puppet_mxid_store (
+				puppet_mxid,
+				name,
+				avatar_mxc,
+				token
+			) VALUES (
+				$puppetMxid,
+				$name,
+				$avatarMxc,
+				$token
+			)`;
+		} else {
+			query = `UPDATE puppet_mxid_store SET 
+				name = $name,
+				avatar_mxc = $avatarMxc,
+				token = $token
+				WHERE puppet_mxid = $puppetMxid`;
+		}
+		await this.db.Run(query, {
+			puppetMxid: puppet.puppetMxid,
+			name: puppet.name || null,
+			avatarMxc: puppet.avatarMxc || null,
+			token: puppet.token || null,
+		});
 	}
 
 	public async getAll(): Promise<IPuppet[]> {
