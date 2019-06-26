@@ -279,8 +279,11 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {
-		const { client, mxid } = await this.prepareSend(params);
-		await this.typingHandler.set(await client.getUserId(), mxid, typing);
+		const ret = await this.maybePrepareSend(params);
+		if (!ret) {
+			return;
+		}
+		await this.typingHandler.set(await ret.client.getUserId(), ret.mxid, typing);
 	}
 
 	public async getMxidForUser(user: IRemoteUserReceive): Promise<string> {
@@ -373,6 +376,15 @@ export class PuppetBridge extends EventEmitter {
 			sendData.external_url = thing;
 		}
 		await client.sendMessage(mxid, sendData);
+	}
+
+	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {
+		const client = await this.userSync.getClient(params.user);
+		const mxid = await this.chanSync.maybeGetMxid(params.chan);
+		if (!mxid) {
+			return null;
+		}
+		return { client, mxid };
 	}
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {

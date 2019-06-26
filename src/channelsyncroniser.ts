@@ -59,6 +59,16 @@ export class ChannelSyncroniser {
 		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
 	}
 
+	public async maybeGetMxid(data: IRemoteChanReceive): Promise<string | null> {
+		const lockKey = `${data.puppetId};${data.roomId}`;
+		await this.mxidLock.wait(lockKey);
+		let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
+		if (!chan) {
+			return null;
+		}
+		return chan.mxid;
+	}
+
 	public async getMxid(data: IRemoteChanReceive, client?: MatrixClient, invites?: string[]): Promise<{mxid: string; created: boolean;}> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);

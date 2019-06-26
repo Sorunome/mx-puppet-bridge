@@ -56,15 +56,18 @@ export class PresenceHandler {
 		log.verbose(`Setting presence of ${mxid} to ${presence}`);
 		const index = this.queueIndex(mxid);
 		if (index === -1) {
-			this.presenceQueue.push({
+			const p = {
 				mxid,
 				presence,
-			});
+			};
+			this.presenceQueue.push(p);
+			// do this async in the BG for live updates
+			this.setMatrixPresence(p);
 		} else {
 			this.presenceQueue[index].presence = presence;
+			// do this async in the BG for live updates
+			this.setMatrixPresence(this.presenceQueue[index]);
 		}
-		// do this async in the BG for live updates
-		this.setMatrixPresence(this.presenceQueue[index]);
 	}
 
 	public setStatus(mxid: string, status: string) {
@@ -74,15 +77,18 @@ export class PresenceHandler {
 		log.verbose(`Setting status of ${mxid} to ${status}`);
 		const index = this.queueIndex(mxid);
 		if (index === -1) {
-			this.presenceQueue.push({
+			const p = {
 				mxid,
 				status,
-			});
+			};
+			this.presenceQueue.push(p);
+			// do this async in the BG for live updates
+			this.setMatrixPresence(p);
 		} else {
 			this.presenceQueue[index].status = status;
+			// do this async in the BG for live updates
+			this.setMatrixPresence(this.presenceQueue[index]);
 		}
-		// do this async in the BG for live updates
-		this.setMatrixPresence(this.presenceQueue[index]);
 	}
 
 	public remove(mxid: string) {
