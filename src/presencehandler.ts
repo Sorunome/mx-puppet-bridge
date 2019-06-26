@@ -63,6 +63,8 @@ export class PresenceHandler {
 		} else {
 			this.presenceQueue[index].presence = presence;
 		}
+		// do this async in the BG for live updates
+		this.setMatrixPresence(this.presenceQueue[index]);
 	}
 
 	public setStatus(mxid: string, status: string) {
@@ -79,6 +81,8 @@ export class PresenceHandler {
 		} else {
 			this.presenceQueue[index].status = status;
 		}
+		// do this async in the BG for live updates
+		this.setMatrixPresence(this.presenceQueue[index]);
 	}
 
 	public remove(mxid: string) {
