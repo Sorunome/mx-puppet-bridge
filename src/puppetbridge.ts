@@ -22,6 +22,7 @@ import { Store } from "./store";
 import { TimedCache } from "./structures/timedcache";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner } from "./botprovisioner";
+import { PresenceHandler, MatrixPresence } from "./presencehandler";
 
 const log = new Log("PuppetBridge");
 
@@ -47,6 +48,9 @@ export interface IPuppetBridgeFeatures {
 	video?: boolean;
 	// stickers
 	sticker?: boolean;
+
+	// presence
+	presence?: boolean;
 };
 
 export interface IReceiveParams {
@@ -110,6 +114,7 @@ export class PuppetBridge extends EventEmitter {
 	private store: Store;
 	private ghostInviteCache: TimedCache<string, boolean>;
 	private botProvisioner: BotProvisioner;
+	private presenceHandler: PresenceHandler;
 
 	constructor(
 		private registrationPath: string,
@@ -135,6 +140,7 @@ export class PuppetBridge extends EventEmitter {
 		this.chanSync = new ChannelSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
 		this.provisioner = new Provisioner(this);
+		this.presenceHandler = new PresenceHandler(this);
 
 		this.botProvisioner = new BotProvisioner(this);
 	}
@@ -214,6 +220,9 @@ export class PuppetBridge extends EventEmitter {
 		for (const p of puppets) {
 			this.emit("puppetNew", p.puppetId, p.data);
 		}
+		if (this.features.presence && this.config.presence.enabled) {
+			await this.presenceHandler.start(this.config.presence.interval);
+		}
 	}
 
 	public setCreateChanHook(hook: CreateChanHook) {
@@ -252,6 +261,18 @@ export class PuppetBridge extends EventEmitter {
 	public async updateChannel(chan: IRemoteChanReceive) {
 		log.verbose("Got request to update a channel");
 		await this.chanSync.getMxid(chan);
+	}
+
+	public async setUserPresence(user: IRemoteUserReceive, presence: MatrixPresence, puppetId?: number) {
+		const client = await this.userSync.getClient(user, puppetId);
+		const userId = await client.getUserId();
+		this.presenceHandler.set(userId, presence);
+	}
+
+	public async setUserStatus(user: IRemoteUserReceive, status: string, puppetId?: number) {
+		const client = await this.userSync.getClient(user, puppetId);
+		const userId = await client.getUserId();
+		this.presenceHandler.setStatus(userId, status);
 	}
 
 	public async getMxidForUser(userId: string, puppetId?: number): Promise<string> {

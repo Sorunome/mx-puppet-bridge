@@ -3,6 +3,8 @@ export class MxBridgeConfig {
 	public logging: MxBridgeConfigLogging = new MxBridgeConfigLogging();
 	public database: MxBridgeConfigDatabase = new MxBridgeConfigDatabase();
 	public provisioning: MxBridgeConfigProvisioning = new MxBridgeConfigProvisioning();
+	public presence: MxBridgeConfigPresence = new MxBridgeConfigPresence();
+	
 
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
 		  Object.keys(newConfig).forEach((key) => {
@@ -46,4 +48,9 @@ export class MxBridgeConfigDatabase {
 class MxBridgeConfigProvisioning {
 	public whitelist: string[] = [".*"];
 	public blacklist: string[] = [];
+}
+
+class MxBridgeConfigPresence {
+	public enabled: boolean = true;
+	public interval: number = 500;
 }
