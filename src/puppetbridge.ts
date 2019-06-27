@@ -614,7 +614,11 @@ export class PuppetBridge extends EventEmitter {
 	private async handleLeaveEvent(roomId: string, event: any) {
 		const userId = event.state_key;
 		if (this.appservice.isNamespacedUser(userId)) {
-			return; // we don't handle namespaced users leaving
+			if (userId !== event.sender) {
+				// puppet got kicked, unbridging room
+				await this.chanSync.deleteForMxid(roomId);
+			}
+			return;
 		}
 
 		const room = await this.chanSync.getRemoteHandler(roomId);
