@@ -91,4 +91,13 @@ export class DbUserStore {
 		const cacheKey = `${data.puppetId};${data.userId}`;
 		this.usersCache.set(cacheKey, data);
 	}
+
+	public async delete(data: IUserStoreEntry) {
+		await this.db.Run("DELETE FROM user_store WHERE user_id = $user_id AND puppet_id = $puppet_id", {
+			user_id: data.userId,
+			puppet_id: data.puppetId,
+		});
+		const cacheKey = `${data.puppetId};${data.userId}`;
+		this.usersCache.delete(cacheKey);
+	}
 }

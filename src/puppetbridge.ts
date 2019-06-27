@@ -432,7 +432,8 @@ export class PuppetBridge extends EventEmitter {
 		// ensure that the intent is in the room
 		const userId = await client.getUserId();
 		if (this.appservice.isNamespacedUser(userId)) {
-			await this.appservice.getIntentForUserId(userId).ensureRegisteredAndJoined(mxid);
+			const intent = this.appservice.getIntentForUserId(userId);
+			await intent.ensureRegisteredAndJoined(mxid);
 		}
 
 		// ensure our puppeted user is in the room
@@ -550,13 +551,27 @@ export class PuppetBridge extends EventEmitter {
 		this.emit("message", room, textData, event);
 	}
 
+	private async handleGhostJoinEvent(roomId: string, ghostId: string) {
+		if (ghostId === this.appservice.botIntent.userId) {
+			return; // we don't handle ghost user here
+		}
+
+		// we CAN'T check for if the room exists here, as if we create a new room
+		// the m.room.member event triggers before the room is incerted into the store
+
+		log.verbose("adding ghost to chan cache");
+		await this.store.puppetStore.joinGhostToChan(ghostId, roomId);
+	}
+
 	private async handleJoinEvent(roomId: string, event: any) {
 		// okay, we want to catch *puppet* profile changes, nothing of the ghosts
 		const userId = event.state_key;
-		if (this.appservice.isNamespacedUser(event.sender)) {
-			return; // we don't handle things from our own namespace
+		if (this.appservice.isNamespacedUser(userId)) {
+			// let's add the ghost to the things to quit....
+			await this.handleGhostJoinEvent(roomId, userId);
+			return;
 		}
-		const room = await this.chanSync.getRemoteHandler(event.room_id);
+		const room = await this.chanSync.getRemoteHandler(roomId);
 		if (!room) {
 			return; // this isn't a room we handle, just ignore it
 		}

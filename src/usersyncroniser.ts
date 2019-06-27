@@ -1,5 +1,5 @@
 import { PuppetBridge } from "./puppetbridge";
-import { MatrixClient } from "matrix-bot-sdk";
+import { MatrixClient, Intent } from "matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
@@ -94,5 +94,36 @@ export class UserSyncroniser {
 		this.clientLock.release(data.userId);
 
 		return client;
+	}
+
+	public getPartsFromMxid(mxid: string): {puppetId: number; userId: string} | null {
+		const suffix = this.bridge.AS.getSuffixForUserId(mxid);
+		if (!suffix) {
+			return null;
+		}
+		const matches = suffix.match(/^(\d+)_(.*)/);
+		if (!matches) {
+			return null;
+		}
+		const puppetId = Number(matches[1]);
+		const userId = Util.mxid2str(matches[2]);
+		if (isNaN(puppetId)) {
+			return null;
+		}
+		return {
+			puppetId,
+			userId,
+		};
+	}
+
+	public async deleteForMxid(mxid: string): Promise<Intent | null> {
+		const user = this.getPartsFromMxid(mxid);
+		if (!user) {
+			return null;
+		}
+		log.info(`Deleting ghost ${mxid}`);
+		await this.userStore.delete(user);
+		const intent = this.bridge.AS.getIntentForUserId(mxid);
+		return intent;
 	}
 }

@@ -198,9 +198,24 @@ export class ChannelSyncroniser {
 	}
 
 	private async deleteEntries(entries: IChanStoreEntry[]) {
+		log.info("Deleting entries", entries);
 		for (const entry of entries) {
 			// delete from DB (also OP store), cache and trigger ghosts to quit
+			const { mxid } = await this.getMxid(entry);
 			await this.chanStore.delete(entry);
+			const ghosts = await this.bridge.puppetStore.getGhostsInChan(mxid);
+			log.info("Removing ghosts from room....");
+			for (const ghost of ghosts) {
+				const intent = await this.bridge.userSync.deleteForMxid(ghost);
+				if (intent) {
+					try {
+						intent.underlyingClient.leaveRoom(mxid);
+					} catch (err) {
+						log.warn("Failed to trigger client leave room", err);
+					}
+				}
+			}
+			await this.bridge.puppetStore.emptyGhostsInChan(mxid);
 		}
 	}
 }
