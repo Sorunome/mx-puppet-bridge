@@ -9,7 +9,7 @@ import { DbPuppetStore } from "./db/puppetstore";
 import { IDatabaseConnector } from "./db/connector";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 2;
+export const CURRENT_SCHEMA = 3;
 
 export class Store {
 	public db: IDatabaseConnector;

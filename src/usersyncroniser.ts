@@ -31,7 +31,7 @@ export class UserSyncroniser {
 	public async getClient(data: IRemoteUserReceive): Promise<MatrixClient> {
 		await this.clientLock.wait(data.userId);
 		log.info("Fetching client for " + data.userId);
-		let user = await this.userStore.get(data.userId);
+		let user = await this.userStore.get(data.puppetId, data.userId);
 		const update = {
 			name: false,
 			avatar: false,
@@ -51,7 +51,7 @@ export class UserSyncroniser {
 			}
 			update.name = data.name ? true : false;
 			update.avatar = data.avatarUrl ? true : false;
-			user = this.userStore.newData(data.userId);
+			user = this.userStore.newData(data.puppetId, data.userId);
 		} else {
 			update.name = data.name !== undefined && data.name !== user.name;
 			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
