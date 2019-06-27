@@ -4,7 +4,8 @@ import { TimedCache } from "../structures/timedcache";
 
 const log = new Log("DbChanStore");
 
-const CHAN_CACHE_LIFETIME = 1000*60*60*24;
+// tslint:disable-next-line:no-magic-numbers
+const CHAN_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 
 export interface IChanStoreEntry {
 	mxid: string;
@@ -21,8 +22,8 @@ export class DbChanStore {
 	private remoteCache: TimedCache<string, IChanStoreEntry>;
 	private mxidCache: TimedCache<string, IChanStoreEntry>;
 	private opCache: TimedCache<string, string>;
-	constructor (
-		private db:IDatabaseConnector,
+	constructor(
+		private db: IDatabaseConnector,
 	) {
 		this.remoteCache = new TimedCache(CHAN_CACHE_LIFETIME);
 		this.mxidCache = new TimedCache(CHAN_CACHE_LIFETIME);
@@ -57,7 +58,7 @@ export class DbChanStore {
 		});
 		const results = [] as IChanStoreEntry[];
 		for (const row of rows) {
-			let res = this.getFromRow(row);
+			const res = this.getFromRow(row);
 			if (res) {
 				results.push(res);
 			}
@@ -71,14 +72,14 @@ export class DbChanStore {
 			return cached;
 		}
 		const row = await this.db.Get(
-			"SELECT * FROM chan_store WHERE mxid = $mxid", { mxid }
+			"SELECT * FROM chan_store WHERE mxid = $mxid", { mxid },
 		);
 		return this.getFromRow(row);
 	}
 
 	public async set(data: IChanStoreEntry) {
 		const exists = await this.db.Get(
-			"SELECT * FROM chan_store WHERE mxid = $mxid", {mxid: data.mxid}
+			"SELECT * FROM chan_store WHERE mxid = $mxid", {mxid: data.mxid},
 		);
 		let query = "";
 		if (!exists) {
@@ -128,10 +129,10 @@ export class DbChanStore {
 
 	public async delete(data: IChanStoreEntry) {
 		await this.db.Run(
-			"DELETE FROM chan_store WHERE mxid = $mxid", { mxid: data.mxid }
+			"DELETE FROM chan_store WHERE mxid = $mxid", { mxid: data.mxid },
 		);
 		await this.db.Run(
-			"DELETE FROM chan_op WHERE chan_mxid=$mxid", { mxid: data.mxid }
+			"DELETE FROM chan_op WHERE chan_mxid=$mxid", { mxid: data.mxid },
 		);
 		this.remoteCache.delete(`${data.puppetId};${data.roomId}`);
 		this.mxidCache.delete(data.mxid);
@@ -167,7 +168,7 @@ export class DbChanStore {
 		}
 		const userMxid = row.user_mxid as string;
 		this.opCache.set(chanMxid, userMxid);
-		return userMxid
+		return userMxid;
 	}
 
 	private getFromRow(row: ISqlRow | null): IChanStoreEntry | null {

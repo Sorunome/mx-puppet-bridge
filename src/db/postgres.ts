@@ -24,13 +24,13 @@ const pgp: pgPromise.IMain = pgPromise({
 });
 
 export class Postgres implements IDatabaseConnector {
-	public type = "postgres";
-
 	public static ParameterizeSql(sql: string): string {
 		return sql.replace(/\$((\w|\d|_)+)+/g, (k) => {
 			return `\${${k.substr("$".length)}}`;
 		});
 	}
+
+	public type = "postgres";
 
 	// tslint:disable-next-line no-any
 	private db: pgPromise.IDatabase<any>;

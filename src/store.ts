@@ -62,7 +62,7 @@ export class Store {
 	}
 
 	public async close() {
-		this.db.Close();
+		await this.db.Close();
 	}
 
 	public async createTable(statement: string, tablename: string) {

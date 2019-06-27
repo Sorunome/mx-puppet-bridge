@@ -18,7 +18,8 @@ export class Lock<T> {
 		this.locks.set(key, {i: null, r: null});
 
 		const p = new Promise<{}>((resolve) => {
-			// first we check if the lock has the key....if not, e.g. if it got released too quickly, we still want to resolve our promise
+			// first we check if the lock has the key....if not, e.g. if it
+			// got released too quickly, we still want to resolve our promise
 			if (!this.locks.has(key)) {
 				resolve();
 				return;

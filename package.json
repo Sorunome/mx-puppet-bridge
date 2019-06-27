@@ -12,6 +12,7 @@
   "main": "./lib/index.js",
   "scripts": {
     "prepublishOnly": "npm run build",
+    "lint": "tslint --project ./tsconfig.json -t stylish",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

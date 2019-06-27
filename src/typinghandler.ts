@@ -4,7 +4,7 @@ import { Log } from "./log";
 const log = new Log("TypingHandler");
 
 export class TypingHandler {
-	constructor (
+	constructor(
 		private bridge: PuppetBridge,
 	) { }
 

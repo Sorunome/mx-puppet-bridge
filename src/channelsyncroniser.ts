@@ -8,7 +8,8 @@ import { Buffer } from "buffer";
 
 const log = new Log("ChannelSync");
 
-const MXID_LOOKUP_LOCK_TIMEOUT = 1000*60;
+// tslint:disable-next-line:no-magic-numbers
+const MXID_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
 
 export interface IRemoteChan {
 	roomId: string;
@@ -57,14 +58,18 @@ export class ChannelSyncroniser {
 	public async maybeGetMxid(data: IRemoteChan): Promise<string | null> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
-		let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
+		const chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
 		if (!chan) {
 			return null;
 		}
 		return chan.mxid;
 	}
 
-	public async getMxid(data: IRemoteChan, client?: MatrixClient, invites?: string[]): Promise<{mxid: string; created: boolean;}> {
+	public async getMxid(
+		data: IRemoteChan,
+		client?: MatrixClient,
+		invites?: string[],
+	): Promise<{ mxid: string; created: boolean; }> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
@@ -138,8 +143,8 @@ export class ChannelSyncroniser {
 		}
 		if (update.avatar || data.avatarBuffer) {
 			log.verbose("Updating avatar");
-			const { doUpdate, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
-			if (doUpdate) {
+			const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
+			if (updateAvatar) {
 				update.avatar = true;
 				chan.avatarUrl = data.avatarUrl;
 				chan.avatarHash = hash;
@@ -180,7 +185,7 @@ export class ChannelSyncroniser {
 	}
 
 	public async deleteForMxid(mxid: string) {
-		let chan = await this.chanStore.getByMxid(mxid);
+		const chan = await this.chanStore.getByMxid(mxid);
 		if (!chan) {
 			return; // nothing to do
 		}
@@ -205,7 +210,7 @@ export class ChannelSyncroniser {
 					const intent = await this.bridge.userSync.deleteForMxid(ghost);
 					if (intent) {
 						try {
-							intent.underlyingClient.leaveRoom(mxid);
+							await intent.underlyingClient.leaveRoom(mxid);
 						} catch (err) {
 							log.warn("Failed to trigger client leave room", err);
 						}

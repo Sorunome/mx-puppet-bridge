@@ -24,8 +24,7 @@ export class BotProvisioner {
 			await this.sendMessage(roomId, this.bridge.hooks.botHeaderMsg());
 		}
 		switch (arg) {
-			case "link":
-			{
+			case "link": {
 				if (!this.provisioner.canCreate(sender)) {
 					await this.sendMessage(roomId, "ERROR: You don't have permission to use this bridge");
 					break;
@@ -43,8 +42,7 @@ export class BotProvisioner {
 				await this.sendMessage(roomId, `Created new link with ID ${puppetId}`);
 				break;
 			}
-			case "unlink":
-			{
+			case "unlink": {
 				if (!param || !param.trim()) {
 					await this.sendMessage(roomId, `ERROR: You need to specify an index to unlink`);
 					return;
@@ -63,8 +61,7 @@ export class BotProvisioner {
 				await this.sendMessage(roomId, `Removed link with ID ${puppetId}`);
 				break;
 			}
-			case "list":
-			{
+			case "list": {
 				const descs = await this.provisioner.getDescMxid(sender);
 				if (descs.length === 0) {
 					await this.sendMessage(roomId, "Nothing linked yet!");

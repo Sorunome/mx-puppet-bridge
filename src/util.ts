@@ -51,48 +51,52 @@ export class Util {
 	}
 
 	public static str2mxid(a: string): string {
-		let buf = Buffer.from(a);
-		let encoded = '';
-		for (let b of buf) {
-			if (b == 0x5F) {
+		// tslint:disable:no-magic-numbers
+		const buf = Buffer.from(a);
+		let encoded = "";
+		for (const b of buf) {
+			if (b === 0x5F) {
 				// underscore
-				encoded += '__';
+				encoded += "__";
 			} else if ((b >= 0x61 && b <= 0x7A) || (b >= 0x30 && b <= 0x39)) {
 				// [a-z0-9]
 				encoded += String.fromCharCode(b);
 			} else if (b >= 0x41 && b <= 0x5A) {
-				encoded += '_' + String.fromCharCode(b + 0x20);
+				encoded += "_" + String.fromCharCode(b + 0x20);
 			} else if (b < 16) {
-				encoded += '=0' + b.toString(16);
+				encoded += "=0" + b.toString(16);
 			} else {
-				encoded += '=' + b.toString(16);
+				encoded += "=" + b.toString(16);
 			}
 		}
 		return encoded;
+		// tslint:enable:no-magic-numbers
 	}
 
 	public static mxid2str(b: string): string {
-		let decoded = Buffer.alloc(b.length);
+		// tslint:disable:no-magic-numbers
+		const decoded = Buffer.alloc(b.length);
 		let j = 0;
 		for (let i = 0; i < b.length; i++) {
-			let char = b[i];
-			if (char == '_') {
+			const char = b[i];
+			if (char === "_") {
 				i++;
-				if (b[i] == '_') {
+				if (b[i] === "_") {
 					decoded[j] = 0x5F;
 				} else {
 					decoded[j] = b[i].charCodeAt(0) - 0x20;
 				}
-			} else if (char == '=') {
+			} else if (char === "=") {
 				i++;
-				decoded[j] = parseInt(b[i]+b[i+1], 16);
+				decoded[j] = parseInt(b[i] + b[i + 1], 16);
 				i++;
 			} else {
 				decoded[j] = b[i].charCodeAt(0);
 			}
 			j++;
 		}
-		return decoded.toString('utf8', 0, j);
+		return decoded.toString("utf8", 0, j);
+		// tslint:enable:no-magic-numbers
 	}
 
 	public static async sleep(timeout: number): Promise<void> {
@@ -107,8 +111,11 @@ export class Util {
 		}
 	}
 
-	public static async MaybeUploadFile(client: MatrixClient, data: IMakeUploadFileData, oldHash?: string | null): Promise<{doUpdate: boolean; mxcUrl: string|undefined; hash: string;}> {
-		let updateAvatar = true; // we might set this to false if our hashes are the same
+	public static async MaybeUploadFile(
+		client: MatrixClient,
+		data: IMakeUploadFileData,
+		oldHash?: string | null,
+	): Promise<{ doUpdate: boolean; mxcUrl: string|undefined; hash: string; }> {
 		let buffer = data.avatarBuffer;
 		if ((!buffer && !data.avatarUrl) || (buffer && buffer.byteLength === 0)) {
 			// we need to remove the avatar, short-circuit out of here
@@ -116,7 +123,7 @@ export class Util {
 				doUpdate: true,
 				mxcUrl: undefined,
 				hash: "",
-			}
+			};
 		}
 		if (!buffer) {
 			buffer = await Util.DownloadFile(data.avatarUrl!);
@@ -130,7 +137,7 @@ export class Util {
 				doUpdate: false,
 				mxcUrl: undefined,
 				hash,
-			}
+			};
 		}
 		try {
 			const avatarMxc = await client!.uploadContent(
@@ -148,7 +155,7 @@ export class Util {
 				doUpdate: false,
 				mxcUrl: undefined,
 				hash,
-			}
+			};
 		}
 	}
 }

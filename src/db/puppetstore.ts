@@ -5,8 +5,10 @@ import { Lock } from "../structures/lock";
 
 const log = new Log("DbPuppetStore");
 
-const PUPPET_CACHE_LIFETIME = 1000*60*60*24;
+// tslint:disable:no-magic-numbers
+const PUPPET_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 const MXID_INFO_LOCK_TIMEOUT = 1000;
+// tslint:enable:no-magic-numbers
 
 export interface IPuppet {
 	puppetId: number;
@@ -81,7 +83,7 @@ export class DbPuppetStore {
 				$token
 			)`;
 		} else {
-			query = `UPDATE puppet_mxid_store SET 
+			query = `UPDATE puppet_mxid_store SET
 				name = $name,
 				avatar_mxc = $avatarMxc,
 				token = $token
@@ -170,7 +172,9 @@ export class DbPuppetStore {
 			log.warn("Error strinifying json:", err);
 			return -1;
 		}
-		const puppetId = await this.db.Run("INSERT INTO puppet_store (puppet_mxid, data, user_id) VALUES ($mxid, $data, $uid)", {
+		const puppetId = await this.db.Run(
+			"INSERT INTO puppet_store (puppet_mxid, data, user_id) VALUES ($mxid, $data, $uid)"
+		, {
 			mxid: puppetMxid,
 			data: dataStr,
 			uid: userId || null,
@@ -184,7 +188,9 @@ export class DbPuppetStore {
 	}
 
 	public async joinGhostToChan(ghostMxid: string, chanMxid: string) {
-		const exists = await this.db.Get("SELECT * FROM ghosts_joined_chans WHERE ghost_mxid = $ghostMxid AND chan_mxid = $chanMxid", {
+		const exists = await this.db.Get(
+			"SELECT * FROM ghosts_joined_chans WHERE ghost_mxid = $ghostMxid AND chan_mxid = $chanMxid"
+			, {
 			ghostMxid,
 			chanMxid,
 		});

@@ -15,7 +15,10 @@ export class Schema implements IDbSchema {
 				avatar_hash TEXT DEFAULT NULL
 			);
 		`, "user_store_tmp");
-		await store.db.Exec("INSERT INTO user_store_tmp (user_id, puppet_id, name, avatar_url, avatar_mxc, avatar_hash) SELECT old.user_id, '-1', old.name, old.avatar_url, old.avatar_mxc, old.avatar_hash FROM user_store AS old");
+		await store.db.Exec(`INSERT INTO user_store_tmp
+			(user_id, puppet_id, name, avatar_url, avatar_mxc, avatar_hash)
+			SELECT old.user_id, '-1', old.name, old.avatar_url, old.avatar_mxc, old.avatar_hash
+			FROM user_store AS old`);
 		await store.db.Exec("DROP TABLE user_store");
 		await store.db.Exec("ALTER TABLE user_store_tmp RENAME TO user_store");
 	}

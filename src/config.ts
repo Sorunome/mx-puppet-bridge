@@ -4,10 +4,9 @@ export class MxBridgeConfig {
 	public database: MxBridgeConfigDatabase = new MxBridgeConfigDatabase();
 	public provisioning: MxBridgeConfigProvisioning = new MxBridgeConfigProvisioning();
 	public presence: MxBridgeConfigPresence = new MxBridgeConfigPresence();
-	
 
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
-		  Object.keys(newConfig).forEach((key) => {
+		Object.keys(newConfig).forEach((key) => {
 			if (configLayer[key] instanceof Object && !(configLayer[key] instanceof Array)) {
 				this.applyConfig(newConfig[key], configLayer[key]);
 			} else {
@@ -19,7 +18,7 @@ export class MxBridgeConfig {
 
 class MxBridgeConfigBridge {
 	public bindAddress: string = "localhost";
-	public port: number; 
+	public port: number;
 	public domain: string;
 	public homeserverUrl: string;
 }

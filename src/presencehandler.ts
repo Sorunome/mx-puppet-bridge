@@ -62,10 +62,12 @@ export class PresenceHandler {
 			};
 			this.presenceQueue.push(p);
 			// do this async in the BG for live updates
+			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixPresence(p);
 		} else {
 			this.presenceQueue[index].presence = presence;
 			// do this async in the BG for live updates
+			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixPresence(this.presenceQueue[index]);
 		}
 	}
@@ -83,10 +85,12 @@ export class PresenceHandler {
 			};
 			this.presenceQueue.push(p);
 			// do this async in the BG for live updates
+			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixPresence(p);
 		} else {
 			this.presenceQueue[index].status = status;
 			// do this async in the BG for live updates
+			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixPresence(this.presenceQueue[index]);
 		}
 	}

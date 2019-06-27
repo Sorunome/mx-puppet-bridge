@@ -4,7 +4,8 @@ import { TimedCache } from "../structures/timedcache";
 
 const log = new Log("DbUserStore");
 
-const USERS_CACHE_LIFETIME = 1000*60*60*24;
+// tslint:disable-next-line:no-magic-numbers
+const USERS_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 
 export interface IUserStoreEntry {
 	puppetId: number;

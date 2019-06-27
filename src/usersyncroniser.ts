@@ -7,12 +7,13 @@ import { Lock } from "./structures/lock";
 
 const log = new Log("UserSync");
 
-const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000*60;
+// tslint:disable-next-line:no-magic-numbers
+const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
 
 export interface IRemoteUser {
 	userId: string;
 	puppetId: number;
-	
+
 	avatarUrl?: string | null;
 	avatarBuffer?: Buffer | null;
 	name?: string | null;
@@ -63,19 +64,23 @@ export class UserSyncroniser {
 		const client = intent.underlyingClient;
 		if (update.name) {
 			log.verbose("Updating name");
+			// we *don't* await here as setting the name might take a
+			// while due to updating all those m.room.member events, we can do that in the BG
+			// tslint:disable-next-line:no-floating-promises
 			client.setDisplayName(data.name || "");
 			user.name = data.name;
 		}
 		if (update.avatar || data.avatarBuffer) {
 			log.verbose("Updating avatar");
-			const { doUpdate, mxcUrl, hash } = await Util.MaybeUploadFile(client, data, user.avatarHash);
-			if (doUpdate) {
+			const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client, data, user.avatarHash);
+			if (updateAvatar) {
 				update.avatar = true;
 				user.avatarUrl = data.avatarUrl;
 				user.avatarHash = hash;
 				user.avatarMxc = mxcUrl;
 				// we *don't* await here as that can take rather long
 				// and we might as well do this in the background
+				// tslint:disable-next-line:no-floating-promises
 				client.setAvatarUrl(user.avatarMxc || "");
 			}
 		}
@@ -101,12 +106,14 @@ export class UserSyncroniser {
 		if (!suffix) {
 			return null;
 		}
+		const MXID_MATCH_PUPPET_ID = 1;
+		const MXID_MATCH_USER_ID = 2;
 		const matches = suffix.match(/^(\d+)_(.*)/);
 		if (!matches) {
 			return null;
 		}
-		const puppetId = Number(matches[1]);
-		const userId = Util.mxid2str(matches[2]);
+		const puppetId = Number(matches[MXID_MATCH_PUPPET_ID]);
+		const userId = Util.mxid2str(matches[MXID_MATCH_USER_ID]);
 		if (isNaN(puppetId)) {
 			return null;
 		}

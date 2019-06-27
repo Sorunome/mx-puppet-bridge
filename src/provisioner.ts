@@ -69,7 +69,7 @@ export class Provisioner {
 	}
 
 	public async delete(puppetMxid: string, puppetId: number) {
-		log.info(`Deleting puppet with id ${puppetId}`)
+		log.info(`Deleting puppet with id ${puppetId}`);
 		const data = await this.get(puppetId);
 		if (!data || data.puppetMxid !== puppetMxid) {
 			return;
@@ -89,7 +89,7 @@ export class Provisioner {
 
 	public async getDescMxid(puppetMxid: string): Promise<IProvisionerDesc[]> {
 		const datas = await this.getForMxid(puppetMxid);
-		let descs = [] as IProvisionerDesc[];
+		const descs = [] as IProvisionerDesc[];
 		for (const data of datas) {
 			descs.push(await this.getDescFromData(data));
 		}
@@ -108,6 +108,6 @@ export class Provisioner {
 			puppetId: data.puppetId,
 			desc: await this.bridge.hooks.getDesc(data.puppetId, data.data, false),
 			html: await this.bridge.hooks.getDesc(data.puppetId, data.data, true),
-		} as IProvisionerDesc
+		} as IProvisionerDesc;
 	}
 }

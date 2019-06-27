@@ -27,19 +27,20 @@ import { TypingHandler } from "./typinghandler";
 
 const log = new Log("PuppetBridge");
 
-const PUPPET_INVITE_CACHE_LIFETIME = 1000*60*60*24;
+// tslint:disable-next-line:no-magic-numbers
+const PUPPET_INVITE_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 
 interface ISendInfo {
 	client: MatrixClient;
 	mxid: string;
-};
+}
 
 export interface IPuppetBridgeRegOpts {
 	prefix: string;
 	id: string;
 	url: string;
 	botUser?: string;
-};
+}
 
 export interface IPuppetBridgeFeatures {
 	// file features
@@ -52,19 +53,19 @@ export interface IPuppetBridgeFeatures {
 
 	// presence
 	presence?: boolean;
-};
+}
 
 export interface IReceiveParams {
 	chan: IRemoteChan;
 	user: IRemoteUser;
-};
+}
 
 export interface IMessageEvent {
 	body: string;
 	formatted_body?: string;
 	emote: boolean;
 	notice?: boolean;
-};
+}
 
 export interface IFileEvent {
 	filename: string;
@@ -76,14 +77,14 @@ export interface IFileEvent {
 	};
 	mxc: string;
 	url: string;
-};
+}
 
 export interface IRetData {
 	success: boolean;
 	error?: string;
 	data?: any;
 	userId?: string;
-};
+}
 
 export type CreateChanHook = (puppetId: number, chanId: string) => Promise<IRemoteChan | null>;
 export type CreateUserHook = (puppetId: number, userId: string) => Promise<IRemoteUser | null>;
@@ -97,7 +98,7 @@ export interface IPuppetBridgeHooks {
 	getDesc?: GetDescHook;
 	botHeaderMsg?: BotHeaderMsgHook;
 	getDataFromStr?: GetDataFromStrHook;
-};
+}
 
 export class PuppetBridge extends EventEmitter {
 	public chanSync: ChannelSyncroniser;
@@ -129,7 +130,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async init() {
-		this.readConfig();
+		await this.readConfig();
 		this.store = new Store(this.config.database);
 		await this.store.init();
 
@@ -484,7 +485,7 @@ export class PuppetBridge extends EventEmitter {
 		const room = await this.chanSync.getRemoteHandler(event.room_id);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
-			this.botProvisioner.processEvent(event);
+			await this.botProvisioner.processEvent(event);
 			return;
 		}
 		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
@@ -493,20 +494,20 @@ export class PuppetBridge extends EventEmitter {
 		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		let msgtype = event.content.msgtype;
-		if (event.type == "m.sticker") {
+		if (event.type === "m.sticker") {
 			msgtype = "m.sticker";
 		}
 		if (msgtype === "m.emote" || msgtype === "m.text") {
 			// short-circuit text stuff
-			const data = {
+			const msgData = {
 				body: event.content.body,
 				emote: msgtype === "m.emote",
 				notice: msgtype === "m.notice",
 			} as IMessageEvent;
 			if (event.content.format) {
-				data.formatted_body = event.content.formatted_body;
+				msgData.formatted_body = event.content.formatted_body;
 			}
-			this.emit("message", room, data, event);
+			this.emit("message", room, msgData, event);
 			return;
 		}
 		// this is a file!
