@@ -43,10 +43,12 @@ export class UserSyncroniser {
 			doUpdate = true;
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createUser) {
+				log.verbose("Fetching new override data...");
 				const newData = await this.bridge.hooks.createUser(data.puppetId, data.userId);
 				if (newData && newData.userId === data.userId && newData.puppetId === data.puppetId) {
-					log.verbose("got new user data to override");
 					data = newData;
+				} else {
+					log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 				}
 			}
 			update.name = data.name ? true : false;

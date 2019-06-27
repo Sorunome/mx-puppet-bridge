@@ -91,10 +91,12 @@ export class ChannelSyncroniser {
 			doUpdate = true;
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createChan) {
+				log.verbose("Fetching new override data...");
 				const newData = await this.bridge.hooks.createChan(data.puppetId, data.roomId);
 				if (newData && newData.puppetId === data.puppetId && newData.roomId === data.roomId) {
-					log.verbose("Got new room data to override");
 					data = newData;
+				} else {
+					log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 				}
 			}
 			log.verbose("Creation data:", data);
