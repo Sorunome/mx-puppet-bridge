@@ -74,8 +74,9 @@ This object holds the main data for a message event
 ```ts
 {
 	body: string; // the plain text body
-	emote: boolean; // if the messgae is an emote (/me) message
 	formatted_body: string; (optional) // if present, the html formatting of the message
+	emote: boolean; // if the messgae is an emote (/me) message
+	notice: boolean; (optional) // if the message is a bot message
 }
 ```
 
@@ -92,16 +93,6 @@ This object holds the main data for a file event
 	};
 	mxc: string; // the mxc content uri of the file
 	url: string; // an accessible URL of the file
-}
-```
-
-### ISendMessageOpts
-```ts
-{
-	body: string; // the plain text body
-	formatted_body: string; (optional) // if present, the html formatting of the message
-	emote: boolean; (optional) // if the messgae is an emote (/me) message
-	notice: boolean; (optional) // if the message is a bot message
 }
 ```
 
@@ -158,7 +149,7 @@ mxc: string;
 `sendMessage` sends a text message over to matrix. Parameters are:
 ```ts
 params: IReceiveParams; // channel and user where/who sent something
-opts: ISendMessageOpts; // what to send
+opts: IMessageEvent; // what to send
 ```
 
 ### file sending

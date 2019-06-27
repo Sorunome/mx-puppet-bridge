@@ -59,17 +59,11 @@ export interface IReceiveParams {
 	user: IRemoteUser;
 };
 
-export interface ISendMessageOpts {
-	body: string;
-	formatted_body?: string;
-	emote?: boolean;
-	notice?: boolean;
-};
-
 export interface IMessageEvent {
 	body: string;
 	formatted_body?: string;
 	emote: boolean;
+	notice?: boolean;
 };
 
 export interface IFileEvent {
@@ -351,7 +345,7 @@ export class PuppetBridge extends EventEmitter {
 		await this.sendFileByType("m.image", params, thing, name);
 	}
 
-	public async sendMessage(params: IReceiveParams, opts: ISendMessageOpts) {
+	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
 		if (opts.emote) {
@@ -507,6 +501,7 @@ export class PuppetBridge extends EventEmitter {
 			const data = {
 				body: event.content.body,
 				emote: msgtype === "m.emote",
+				notice: msgtype === "m.notice",
 			} as IMessageEvent;
 			if (event.content.format) {
 				data.formatted_body = event.content.formatted_body;
