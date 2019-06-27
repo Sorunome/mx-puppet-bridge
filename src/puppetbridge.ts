@@ -9,8 +9,8 @@ import {
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
-import { ChannelSyncroniser, IRemoteChanSend, IRemoteChanReceive } from "./channelsyncroniser";
-import { UserSyncroniser, IRemoteUserReceive } from "./usersyncroniser";
+import { ChannelSyncroniser, IRemoteChan } from "./channelsyncroniser";
+import { UserSyncroniser, IRemoteUser } from "./usersyncroniser";
 import { MxBridgeConfig } from "./config";
 import { Util } from "./util";
 import { Log } from "./log";
@@ -55,8 +55,8 @@ export interface IPuppetBridgeFeatures {
 };
 
 export interface IReceiveParams {
-	chan: IRemoteChanReceive;
-	user: IRemoteUserReceive;
+	chan: IRemoteChan;
+	user: IRemoteUser;
 };
 
 export interface ISendMessageOpts {
@@ -91,8 +91,8 @@ export interface IRetData {
 	userId?: string;
 };
 
-export type CreateChanHook = (puppetId: number, chanId: string) => Promise<IRemoteChanReceive | null>;
-export type CreateUserHook = (puppetId: number, userId: string) => Promise<IRemoteUserReceive | null>;
+export type CreateChanHook = (puppetId: number, chanId: string) => Promise<IRemoteChan | null>;
+export type CreateUserHook = (puppetId: number, userId: string) => Promise<IRemoteUser | null>;
 export type GetDescHook = (puppetId: number, data: any, html: boolean) => Promise<string>;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type BotHeaderMsgHook = () => string;
@@ -256,23 +256,23 @@ export class PuppetBridge extends EventEmitter {
 		await this.provisioner.setData(puppetId, data);
 	}
 
-	public async updateUser(user: IRemoteUserReceive) {
+	public async updateUser(user: IRemoteUser) {
 		log.verbose("Got request to update a user");
 		await this.userSync.getClient(user);
 	}
 
-	public async updateChannel(chan: IRemoteChanReceive) {
+	public async updateChannel(chan: IRemoteChan) {
 		log.verbose("Got request to update a channel");
 		await this.chanSync.getMxid(chan);
 	}
 
-	public async setUserPresence(user: IRemoteUserReceive, presence: MatrixPresence) {
+	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
 		const client = await this.userSync.getClient(user);
 		const userId = await client.getUserId();
 		this.presenceHandler.set(userId, presence);
 	}
 
-	public async setUserStatus(user: IRemoteUserReceive, status: string) {
+	public async setUserStatus(user: IRemoteUser, status: string) {
 		const client = await this.userSync.getClient(user);
 		const userId = await client.getUserId();
 		this.presenceHandler.setStatus(userId, status);
@@ -286,7 +286,7 @@ export class PuppetBridge extends EventEmitter {
 		await this.typingHandler.set(await ret.client.getUserId(), ret.mxid, typing);
 	}
 
-	public async getMxidForUser(user: IRemoteUserReceive): Promise<string> {
+	public async getMxidForUser(user: IRemoteUser): Promise<string> {
 		const puppetData = await this.provisioner.get(user.puppetId);
 		if (puppetData && puppetData.userId === user.userId) {
 			return puppetData.puppetMxid;

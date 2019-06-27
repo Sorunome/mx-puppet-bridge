@@ -32,8 +32,8 @@ Similar to the roomId, the protocol needs to set a `userId` (string). This is a 
 
 ## Object types
 These object types appear throughout the API.
-### IRemoteChanReceive
-This object is needed for sending channel-related things to matrix
+### IRemoteChan
+This object is needed for sending or receiving channel-related things from and to matrix
 ```ts
 {
 	roomId: string; // the remote ID of the room
@@ -47,17 +47,8 @@ This object is needed for sending channel-related things to matrix
 }
 ```
 
-### IRemoteChanSend
-This object is like `IRemoteChanReceive` but for sending away from matrix
-```ts
-{
-	roomId: string; // the remote ID of the room
-	puppetId: number; // index of the puppet
-}
-```
-
-### IRemoteUserReceive
-This object is needed for sending user-related things to matrix
+### IRemoteUser
+This object is needed for sending or receiving user-related things from and to matrix
 ```ts
 {
 	userId: string; // the remote ID of the user
@@ -70,12 +61,13 @@ This object is needed for sending user-related things to matrix
 ```
 
 ### IReceiveParams
-This object is a combination of `IRemoteChanReceive` and `IRemoteUserReceive`. Used to combind which user sent something where
+This object is a combination of `IRemoteChan` and `IRemoteUser`. Used to combind which user sent something where
 ```ts
 {
-	chan: IRemoteChanReceive; // channel to send to
-	user: IRemoteUserReceive; // user which sent something
+	chan: IRemoteChan; // channel to send to
+	user: IRemoteUser; // user which sent something
 }
+```
 
 ### IMessageEvent
 This object holds the main data for a message event
@@ -119,7 +111,7 @@ Events are used so that the protocol implementation can listen to them and thus 
 A message has been sent from matrix!
 Event parameters:
 ```ts
-room: IRemoteChanSend; // the room where to send to
+room: IRemoteChan; // the room where to send to
 data: IMessageEvent; // the data on the message
 event: any; // the raw message event
 ```
@@ -127,7 +119,7 @@ event: any; // the raw message event
 ### file events
 File events are `image`, `audio`, `video`, `sticker` and `file`. Appropriate fallbacks are used if feature not enabled, all the way back to plain text messages. They all use the same parameters
 ```ts
-room: IRemoteChanSend; // the room where to send to
+room: IRemoteChan; // the room where to send to
 data: IFileEvent; // the data on the file
 event: any; // the raw file event
 ```
@@ -187,7 +179,7 @@ puppetId: number;
 ### getMxidForUser
 `getMxidForUser` gets the mxid for a given user, obaying puppeting stuff
 ```ts
-user: IRemoteUserReceive;
+user: IRemoteUser;
 ```
 
 ### setUserTyping
@@ -200,20 +192,20 @@ typing: boolean;
 ### setUserPresence
 `setUserPresence` sets the presence of a user
 ```ts
-user: IRemoteUserReceive;
+user: IRemoteUser;
 presence: "online" | "offline" | "unavailable";
 ```
 
 ### updateChannel
 `updateChannel` triggers a remote updating of a channel
 ```ts
-chan: IRemoteChanReceive;
+chan: IRemoteChan;
 ```
 
 ### updateUser
 `updateUser` triggers a remote updating of a user
 ```ts
-user: IRemoteUserReceive
+user: IRemoteUser
 ```
 
 ### setPuppetData
@@ -234,7 +226,7 @@ data: any;
 Hooks are crucial for provisioning. Setting them is done via calling `setHooknameHook` with the hook function as parameter, e.g. if the hook name is `createChan` then you call `setCreateChanHook`
 ### createChan
 This hook is called when a channel is created. It is expected to return full information on the channel. E.g. if the protocol implementation, for performance reasons, mostly only sends around channel IDs, this should get name, topic and avatar.  
-Returns `IRemoteChanReceive`  
+Returns `IRemoteChan`  
 Takes:
 ```ts
 puppetId: number;
@@ -243,7 +235,7 @@ chanId: string;
 
 ### createUser
 Same as `createChan` but for users  
-Returns `IRemoteUserReceive`  
+Returns `IRemoteUser`  
 Takes:
 ```ts
 puppetId: number;

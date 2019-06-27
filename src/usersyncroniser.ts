@@ -9,7 +9,7 @@ const log = new Log("UserSync");
 
 const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000*60;
 
-export interface IRemoteUserReceive {
+export interface IRemoteUser {
 	userId: string;
 	puppetId: number;
 	
@@ -28,7 +28,7 @@ export class UserSyncroniser {
 		this.clientLock = new Lock(CLIENT_LOOKUP_LOCK_TIMEOUT);
 	}
 
-	public async getClient(data: IRemoteUserReceive): Promise<MatrixClient> {
+	public async getClient(data: IRemoteUser): Promise<MatrixClient> {
 		await this.clientLock.wait(data.userId);
 		log.info("Fetching client for " + data.userId);
 		let user = await this.userStore.get(data.puppetId, data.userId);

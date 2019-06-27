@@ -10,12 +10,7 @@ const log = new Log("ChannelSync");
 
 const MXID_LOOKUP_LOCK_TIMEOUT = 1000*60;
 
-export interface IRemoteChanSend {
-	roomId: string;
-	puppetId: number;
-};
-
-export interface IRemoteChanReceive {
+export interface IRemoteChan {
 	roomId: string;
 	puppetId: number;
 
@@ -36,7 +31,7 @@ export class ChannelSyncroniser {
 		this.mxidLock = new Lock(MXID_LOOKUP_LOCK_TIMEOUT);
 	}
 
-	public async getRemoteHandler(mxid: string): Promise<IRemoteChanSend | null> {
+	public async getRemoteHandler(mxid: string): Promise<IRemoteChan | null> {
 		const chan = await this.chanStore.getByMxid(mxid);
 		if (!chan) {
 			return null;
@@ -44,7 +39,7 @@ export class ChannelSyncroniser {
 		return {
 			roomId: chan.roomId,
 			puppetId: chan.puppetId,
-		} as IRemoteChanSend;
+		} as IRemoteChan;
 	}
 
 	public async getChanOp(chan: string): Promise<MatrixClient|null> {
@@ -59,7 +54,7 @@ export class ChannelSyncroniser {
 		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
 	}
 
-	public async maybeGetMxid(data: IRemoteChanReceive): Promise<string | null> {
+	public async maybeGetMxid(data: IRemoteChan): Promise<string | null> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
@@ -69,7 +64,7 @@ export class ChannelSyncroniser {
 		return chan.mxid;
 	}
 
-	public async getMxid(data: IRemoteChanReceive, client?: MatrixClient, invites?: string[]): Promise<{mxid: string; created: boolean;}> {
+	public async getMxid(data: IRemoteChan, client?: MatrixClient, invites?: string[]): Promise<{mxid: string; created: boolean;}> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
