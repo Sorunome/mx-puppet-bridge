@@ -469,9 +469,14 @@ export class PuppetBridge extends EventEmitter {
 
 	private async handleRoomEvent(roomId: string, event: any) {
 		if (event.type === "m.room.member" && event.content) {
-			if (event.content.membership === "join") {
-				await this.handleJoinEvent(roomId, event);
-				return;
+			switch (event.content.membership) {
+				case "join":
+					await this.handleJoinEvent(roomId, event);
+					return;
+				case "ban":
+				case "leave":
+					await this.handleLeaveEvent(roomId, event);
+					return;
 			}
 		}
 		const validTypes = ["m.room.message", "m.sticker"];
@@ -604,6 +609,25 @@ export class PuppetBridge extends EventEmitter {
 		if (update) {
 			await this.store.puppetStore.setMxidInfo(puppet);
 		}
+	}
+
+	private async handleLeaveEvent(roomId: string, event: any) {
+		const userId = event.state_key;
+		if (this.appservice.isNamespacedUser(userId)) {
+			return; // we don't handle namespaced users leaving
+		}
+
+		const room = await this.chanSync.getRemoteHandler(roomId);
+		if (!room) {
+			return; // this isn't a room we handle, just ignore it
+		}
+
+		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
+		if (userId !== puppetMxid) {
+			return; // it wasn't us
+		}
+		log.verbose(`Received leave event from ${puppetMxid}`);
+		await this.chanSync.deleteForMxid(roomId);
 	}
 
 	private async handleInviteEvent(roomId: string, event: any) {

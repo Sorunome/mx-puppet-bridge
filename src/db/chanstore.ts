@@ -122,7 +122,7 @@ export class DbChanStore {
 			avatar_hash: data.avatarHash || null,
 			topic: data.topic || null,
 		});
-		this.remoteCache.set(`${data.roomId}_${data.puppetId}`, data);
+		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);
 		this.mxidCache.set(data.mxid, data);
 	}
 
@@ -133,7 +133,7 @@ export class DbChanStore {
 		await this.db.Run(
 			"DELETE FROM chan_op WHERE chan_mxid=$mxid", { mxid: data.mxid }
 		);
-		this.remoteCache.delete(`${data.roomId}_${data.puppetId}`);
+		this.remoteCache.delete(`${data.puppetId};${data.roomId}`);
 		this.mxidCache.delete(data.mxid);
 		this.opCache.delete(data.mxid);
 	}

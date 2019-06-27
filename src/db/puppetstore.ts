@@ -200,8 +200,6 @@ export class DbPuppetStore {
 	public async getGhostsInChan(chan: string): Promise<string[]> {
 		const result = [] as string[];
 		const rows = await this.db.All("SELECT * FROM ghosts_joined_chans WHERE chan_mxid = $chan", { chan });
-		console.log("+++++++++++++++++*");
-		console.log(rows);
 		for (const r of rows) {
 			result.push(r.ghost_mxid as string);
 		}
