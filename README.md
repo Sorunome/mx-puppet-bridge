@@ -1,4 +1,4 @@
-[![donate](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Sorunome/donate)
+[Support Chat](https://matrix.to/#/#mx-puppet-bridge:sorunome.de) [![donate](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Sorunome/donate)
 
 # mx-puppet-bridge
 This is a library for easily building puppeting bridges for matrix.
