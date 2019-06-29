@@ -49,8 +49,11 @@ export class ChannelSyncroniser {
 			return null;
 		}
 		if (!this.bridge.AS.isNamespacedUser(mxid)) {
-			// TODO: logic if puppeted
-			return null;
+			const token = await this.bridge.provisioner.getToken(mxid);
+			if (!token) {
+				return null;
+			}
+			return new MatrixClient(token.hsUrl, token.token);
 		}
 		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
 	}
@@ -73,6 +76,7 @@ export class ChannelSyncroniser {
 		data: IRemoteChan,
 		client?: MatrixClient,
 		invites?: string[],
+		doCreate: boolean = true,
 	): Promise<{ mxid: string; created: boolean; }> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
@@ -81,6 +85,7 @@ export class ChannelSyncroniser {
 			client = this.bridge.botIntent.underlyingClient;
 		}
 		let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
+		log.silly(chan);
 		const update = {
 			name: false,
 			avatar: false,
@@ -90,6 +95,12 @@ export class ChannelSyncroniser {
 		let doUpdate = false;
 		let created = false;
 		if (!chan) {
+			if (!doCreate) {
+				return {
+					mxid: "",
+					created: false,
+				};
+			}
 			log.info("Channel doesn't exist yet, creating entry...");
 			this.mxidLock.set(lockKey);
 			doUpdate = true;
@@ -215,8 +226,19 @@ export class ChannelSyncroniser {
 			// delete from DB (also OP store), cache and trigger ghosts to quit
 			await this.chanStore.delete(entry);
 
-			const ghosts = await this.bridge.puppetStore.getGhostsInChan(entry.mxid);
+			log.info("Removing bot client from room....");
+			const botIntent = this.bridge.botIntent;
+			const botRooms = await botIntent.getJoinedRooms();
+			if (botRooms.includes(entry.mxid)) {
+				try {
+					await botIntent.leaveRoom(entry.mxid);
+				} catch (err) {
+					log.warn("Failed to make bot client leave", err);
+				}
+			}
+
 			log.info("Removing ghosts from room....");
+			const ghosts = await this.bridge.puppetStore.getGhostsInChan(entry.mxid);
 			for (const ghost of ghosts) {
 				const intent = await this.bridge.userSync.deleteForMxid(ghost);
 				if (intent) {

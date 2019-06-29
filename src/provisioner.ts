@@ -30,8 +30,29 @@ export class Provisioner {
 		return await this.puppetStore.get(puppetId);
 	}
 
-	public async getMxid(puppetMxid: number): Promise<string> {
-		return await this.puppetStore.getMxid(puppetMxid);
+	public async getMxid(puppetId: number): Promise<string> {
+		return await this.puppetStore.getMxid(puppetId);
+	}
+
+	public async getToken(puppetId: number | string): Promise<{ token: string; hsUrl: string; } | null> {
+		let mxid = "";
+		if (typeof puppetId === "string") {
+			mxid = puppetId;
+		} else {
+			mxid = await this.getMxid(puppetId);
+		}
+		const info = await this.puppetStore.getMxidInfo(mxid);
+		if (!info || !info.token) {
+			return null;
+		}
+		const token = info.token;
+		let hsUrl = mxid.split(":")[1];
+		if (hsUrl === "localhost") {
+			hsUrl = "http://" + hsUrl;
+		} else {
+			hsUrl = "https://" + hsUrl;
+		}
+		return { token, hsUrl };
 	}
 
 	public async setUserId(puppetId: number, userId: string) {

@@ -258,7 +258,7 @@ export class PuppetBridge extends EventEmitter {
 
 	public async updateChannel(chan: IRemoteChan) {
 		log.verbose("Got request to update a channel");
-		await this.chanSync.getMxid(chan);
+		await this.chanSync.getMxid(chan, undefined, undefined, false);
 	}
 
 	public async unbridgeChannelByMxid(mxid: string) {
@@ -435,10 +435,18 @@ export class PuppetBridge extends EventEmitter {
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
 		const puppetMxid = await this.provisioner.getMxid(params.chan.puppetId);
 		const client = await this.userSync.getClient(params.user);
-		const { mxid, created } = await this.chanSync.getMxid(params.chan, client, [puppetMxid]);
+		const userId = await client.getUserId();
+		// we could be the one creating the room, no need to invite ourself
+		const invites: string[] = [];
+		if (userId !== puppetMxid) {
+			invites.push(puppetMxid);
+		} else {
+			// else we need the bot client in order to be able to receive matrix messages
+			invites.push(await this.botIntent.underlyingClient.getUserId());
+		}
+		const { mxid, created } = await this.chanSync.getMxid(params.chan, client, invites);
 
 		// ensure that the intent is in the room
-		const userId = await client.getUserId();
 		if (this.appservice.isNamespacedUser(userId)) {
 			const intent = this.appservice.getIntentForUserId(userId);
 			await intent.ensureRegisteredAndJoined(mxid);
@@ -457,8 +465,11 @@ export class PuppetBridge extends EventEmitter {
 				if (!inviteClient) {
 					inviteClient = client;
 				}
-				await client.inviteUser(puppetMxid, mxid);
-				this.ghostInviteCache.set(cacheKey, true);
+				// we can't really invite ourself...
+				if (await inviteClient.getUserId() !== puppetMxid) {
+					await client.inviteUser(puppetMxid, mxid);
+					this.ghostInviteCache.set(cacheKey, true);
+				}
 			}
 		} catch (err) {
 			if (err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
