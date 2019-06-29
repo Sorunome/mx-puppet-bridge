@@ -1,6 +1,7 @@
 import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet } from "./db/puppetstore";
 import { Log } from "./log";
+import { Util } from "./util";
 
 const log = new Log("Provisioner");
 
@@ -39,13 +40,18 @@ export class Provisioner {
 		return await this.puppetStore.getMxid(puppetId);
 	}
 
-	public parseToken(mxid: string, token: string): ITokenResponse {
+	public async parseToken(mxid: string, token: string): Promise<ITokenResponse> {
 		let hsUrl = mxid.split(":")[1];
 		if (hsUrl === "localhost") {
 			hsUrl = "http://" + hsUrl;
 		} else {
 			hsUrl = "https://" + hsUrl;
 		}
+		try {
+			const wellKnownStr = (await Util.DownloadFile(hsUrl + "/.well-known/matrix/client")).toString("utf-8");
+			const wellKnown = JSON.parse(wellKnownStr);
+			hsUrl = wellKnown["m.homeserver"].base_url;
+		} catch (err) { } // do nothing
 		return { token, hsUrl } as ITokenResponse;
 	}
 
@@ -60,7 +66,7 @@ export class Provisioner {
 		if (!info || !info.token) {
 			return null;
 		}
-		return this.parseToken(mxid, info.token);
+		return await this.parseToken(mxid, info.token);
 	}
 
 	public async setToken(mxid: string, token: string | null) {

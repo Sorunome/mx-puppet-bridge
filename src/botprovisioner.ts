@@ -84,7 +84,7 @@ export class BotProvisioner {
 					break;
 				}
 				const token = param.trim();
-				const tokenParts = this.provisioner.parseToken(sender, token);
+				const tokenParts = await this.provisioner.parseToken(sender, token);
 				const client = await this.bridge.userSync.getClientFromTokenCallback(tokenParts);
 				if (!client) {
 					await this.sendMessage(roomId, "ERROR: Invalid matrix token");
