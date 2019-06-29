@@ -53,6 +53,9 @@ export interface IPuppetBridgeFeatures {
 
 	// presence
 	presence?: boolean;
+
+	// typing
+	typingTimeout?: number;
 }
 
 export interface IReceiveParams {
@@ -138,7 +141,7 @@ export class PuppetBridge extends EventEmitter {
 		this.userSync = new UserSyncroniser(this);
 		this.provisioner = new Provisioner(this);
 		this.presenceHandler = new PresenceHandler(this);
-		this.typingHandler = new TypingHandler(this);
+		this.typingHandler = new TypingHandler(this, this.features.typingTimeout || 30000);
 
 		this.botProvisioner = new BotProvisioner(this);
 	}
