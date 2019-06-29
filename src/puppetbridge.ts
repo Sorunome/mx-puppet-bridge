@@ -370,6 +370,7 @@ export class PuppetBridge extends EventEmitter {
 		const send = {
 			msgtype,
 			body: opts.body,
+			source: "remote",
 		} as any;
 		if (opts.formatted_body) {
 			send.format = "org.matrix.custom.html";
@@ -416,6 +417,7 @@ export class PuppetBridge extends EventEmitter {
 			info,
 			msgtype,
 			url: fileMxc,
+			source: "remote",
 		} as any;
 		if (typeof thing === "string") {
 			sendData.external_url = thing;
@@ -517,6 +519,10 @@ export class PuppetBridge extends EventEmitter {
 			return; // this isn't our puppeted user, so let's not do anything
 		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
+		if (event.content.source === "remote") {
+			log.verbose("Dropping event due to de-duping...");
+			return;
+		}
 		let msgtype = event.content.msgtype;
 		if (event.type === "m.sticker") {
 			msgtype = "m.sticker";
