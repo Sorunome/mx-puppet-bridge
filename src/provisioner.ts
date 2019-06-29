@@ -10,6 +10,11 @@ export interface IProvisionerDesc {
 	html: string;
 }
 
+export interface ITokenResponse {
+	token: string;
+	hsUrl: string;
+}
+
 export class Provisioner {
 	private puppetStore: DbPuppetStore;
 	constructor(
@@ -34,7 +39,7 @@ export class Provisioner {
 		return await this.puppetStore.getMxid(puppetId);
 	}
 
-	public async getToken(puppetId: number | string): Promise<{ token: string; hsUrl: string; } | null> {
+	public async getToken(puppetId: number | string): Promise<ITokenResponse | null> {
 		let mxid = "";
 		if (typeof puppetId === "string") {
 			mxid = puppetId;
@@ -52,7 +57,7 @@ export class Provisioner {
 		} else {
 			hsUrl = "https://" + hsUrl;
 		}
-		return { token, hsUrl };
+		return { token, hsUrl } as ITokenResponse;
 	}
 
 	public async setUserId(puppetId: number, userId: string) {

@@ -50,10 +50,7 @@ export class ChannelSyncroniser {
 		}
 		if (!this.bridge.AS.isNamespacedUser(mxid)) {
 			const token = await this.bridge.provisioner.getToken(mxid);
-			if (!token) {
-				return null;
-			}
-			return new MatrixClient(token.hsUrl, token.token);
+			return await this.bridge.userSync.getClientFromTokenCallback(token);
 		}
 		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
 	}

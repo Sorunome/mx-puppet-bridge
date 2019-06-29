@@ -4,6 +4,7 @@ import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
 import { Lock } from "./structures/lock";
+import { ITokenResponse } from "./provisioner";
 
 const log = new Log("UserSync");
 
@@ -29,13 +30,28 @@ export class UserSyncroniser {
 		this.clientLock = new Lock(CLIENT_LOOKUP_LOCK_TIMEOUT);
 	}
 
+	public async getClientFromTokenCallback(token: ITokenResponse | null): Promise<MatrixClient | null> {
+		if (!token) {
+			return null;
+		}
+		const client = new MatrixClient(token.hsUrl, token.token);
+		try {
+			await client.getUserId();
+			return client;
+		} catch (err) {
+			log.verbose("Invalid client config");
+		}
+		return null;
+	}
+
 	public async getClient(data: IRemoteUser): Promise<MatrixClient> {
 		// first we look if we can puppet this user to the matrix side
 		const puppetData = await this.bridge.provisioner.get(data.puppetId);
 		if (puppetData && puppetData.userId === data.userId) {
 			const token = await this.bridge.provisioner.getToken(data.puppetId);
-			if (token) {
-				return new MatrixClient(token.hsUrl, token.token);
+			const puppetClient = await this.getClientFromTokenCallback(token);
+			if (puppetClient) {
+				return puppetClient;
 			}
 		}
 
