@@ -77,6 +77,7 @@ export class ChannelSyncroniser {
 	): Promise<{ mxid: string; created: boolean; }> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
+		this.mxidLock.set(lockKey);
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
 		if (!client) {
 			client = this.bridge.botIntent.underlyingClient;
@@ -99,7 +100,6 @@ export class ChannelSyncroniser {
 				};
 			}
 			log.info("Channel doesn't exist yet, creating entry...");
-			this.mxidLock.set(lockKey);
 			doUpdate = true;
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createChan) {

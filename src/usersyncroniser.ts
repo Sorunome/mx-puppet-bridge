@@ -57,6 +57,7 @@ export class UserSyncroniser {
 
 		// now we fetch the ghost client
 		await this.clientLock.wait(data.userId);
+		this.clientLock.set(data.userId);
 		log.info("Fetching client for " + data.userId);
 		let user = await this.userStore.get(data.puppetId, data.userId);
 		const update = {
@@ -66,7 +67,6 @@ export class UserSyncroniser {
 		let doUpdate = false;
 		if (!user) {
 			log.info("User doesn't exist yet, creating entry...");
-			this.clientLock.set(data.userId);
 			doUpdate = true;
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createUser) {

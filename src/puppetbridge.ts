@@ -5,6 +5,7 @@ import {
 	Intent,
 	MatrixClient,
 	SimpleRetryJoinStrategy,
+	LogService,
 } from "matrix-bot-sdk";
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
@@ -150,6 +151,32 @@ export class PuppetBridge extends EventEmitter {
 		this.typingHandler = new TypingHandler(this, this.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
 
 		this.botProvisioner = new BotProvisioner(this);
+
+		// pipe matrix-bot-sdk logging int ours
+		const logMap = new Map<string, Log>();
+		const logFunc = (level: string, module: string, args: any[]) => {
+			if (!Array.isArray(args)) {
+				args = [args];
+			}
+			if (args.find((s) => s.includes && s.includes("M_USER_IN_USE"))) {
+				// Spammy logs begon
+				return;
+			}
+			const mod =  "bot-sdk-" + module;
+			let logger = logMap.get(mod);
+			if (!logger) {
+				logger = new Log(mod);
+				logMap.set(mod, logger);
+			}
+			logger[level](args);
+		};
+
+		LogService.setLogger({
+			debug: (mod: string, args: any[]) => logFunc("silly", mod, args),
+			error: (mod: string, args: any[]) => logFunc("error", mod, args),
+			info: (mod: string, args: any[]) => logFunc("info", mod, args),
+			warn: (mod: string, args: any[]) => logFunc("warn", mod, args),
+		});
 	}
 
 	public generateRegistration(opts: IPuppetBridgeRegOpts) {
