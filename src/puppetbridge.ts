@@ -29,6 +29,7 @@ const log = new Log("PuppetBridge");
 
 // tslint:disable-next-line:no-magic-numbers
 const PUPPET_INVITE_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
+const DEFAULT_TYPING_TIMEOUT = 30000;
 
 interface ISendInfo {
 	client: MatrixClient;
@@ -141,7 +142,7 @@ export class PuppetBridge extends EventEmitter {
 		this.userSync = new UserSyncroniser(this);
 		this.provisioner = new Provisioner(this);
 		this.presenceHandler = new PresenceHandler(this);
-		this.typingHandler = new TypingHandler(this, this.features.typingTimeout || 30000);
+		this.typingHandler = new TypingHandler(this, this.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
 
 		this.botProvisioner = new BotProvisioner(this);
 	}
