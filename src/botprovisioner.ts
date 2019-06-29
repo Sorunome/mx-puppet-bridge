@@ -77,8 +77,25 @@ export class BotProvisioner {
 				await this.sendMessage(roomId, sendStr, html);
 				break;
 			}
+			case "setmatrixtoken": {
+				if (!param || !param.trim()) {
+					await this.provisioner.setToken(sender, null);
+					await this.sendMessage(roomId, `Removed matrix token!`);
+					break;
+				}
+				const token = param.trim();
+				const tokenParts = this.provisioner.parseToken(sender, token);
+				const client = await this.bridge.userSync.getClientFromTokenCallback(tokenParts);
+				if (!client) {
+					await this.sendMessage(roomId, "ERROR: Invalid matrix token");
+					break;
+				}
+				await this.provisioner.setToken(sender, token);
+				await this.sendMessage(roomId, `Set matrix token`);
+				break;
+			}
 			default:
-				await this.sendMessage(roomId, `Available commands: help, list, link, unlink`);
+				await this.sendMessage(roomId, `Available commands: help, list, link, unlink, setmatrixtoken`);
 		}
 	}
 

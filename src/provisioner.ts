@@ -39,6 +39,16 @@ export class Provisioner {
 		return await this.puppetStore.getMxid(puppetId);
 	}
 
+	public parseToken(mxid: string, token: string): ITokenResponse {
+		let hsUrl = mxid.split(":")[1];
+		if (hsUrl === "localhost") {
+			hsUrl = "http://" + hsUrl;
+		} else {
+			hsUrl = "https://" + hsUrl;
+		}
+		return { token, hsUrl } as ITokenResponse;
+	}
+
 	public async getToken(puppetId: number | string): Promise<ITokenResponse | null> {
 		let mxid = "";
 		if (typeof puppetId === "string") {
@@ -50,14 +60,13 @@ export class Provisioner {
 		if (!info || !info.token) {
 			return null;
 		}
-		const token = info.token;
-		let hsUrl = mxid.split(":")[1];
-		if (hsUrl === "localhost") {
-			hsUrl = "http://" + hsUrl;
-		} else {
-			hsUrl = "https://" + hsUrl;
-		}
-		return { token, hsUrl } as ITokenResponse;
+		return this.parseToken(mxid, info.token);
+	}
+
+	public async setToken(mxid: string, token: string | null) {
+		const info = await this.puppetStore.getOrCreateMxidInfo(mxid);
+		info.token = token;
+		await this.puppetStore.setMxidInfo(info);
 	}
 
 	public async setUserId(puppetId: number, userId: string) {
