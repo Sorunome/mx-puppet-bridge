@@ -128,9 +128,14 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async readConfig() {
-		this.config = new MxBridgeConfig();
-		this.config.applyConfig(yaml.safeLoad(fs.readFileSync(this.configPath, "utf8")));
-		Log.Configure(this.config.logging);
+		try {
+			this.config = new MxBridgeConfig();
+			this.config.applyConfig(yaml.safeLoad(fs.readFileSync(this.configPath, "utf8")));
+			Log.Configure(this.config.logging);
+		} catch (err) {
+			log.error("Failed to load config file", err);
+			process.exit(-1);
+		}
 	}
 
 	public async init() {
@@ -204,13 +209,23 @@ export class PuppetBridge extends EventEmitter {
 
 	public async start() {
 		log.info("Starting application service....");
-		const registration = yaml.safeLoad(fs.readFileSync(this.registrationPath, "utf8")) as IAppserviceRegistration;
+		let registration: IAppserviceRegistration | null = null;
+		try {
+			registration = yaml.safeLoad(fs.readFileSync(this.registrationPath, "utf8")) as IAppserviceRegistration;
+		} catch (err) {
+			log.error("Failed to load registration file", err);
+			process.exit(-1);
+		}
+		if (!registration) {
+			log.error("Registration file seems blank");
+			process.exit(-1);
+		}
 		this.appservice = new Appservice({
 			bindAddress: this.config.bridge.bindAddress,
 			homeserverName: this.config.bridge.domain,
 			homeserverUrl: this.config.bridge.homeserverUrl,
 			port: this.config.bridge.port,
-			registration,
+			registration: registration as IAppserviceRegistration,
 			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
 		this.appservice.on("room.event", this.handleRoomEvent.bind(this));
