@@ -193,6 +193,18 @@ presence: "online" | "offline" | "unavailable";
 chan: IRemoteChan;
 ```
 
+### unbridgeChannel
+`unbridgeChannel` triggers a channel to be unbridged, e.g. if in a 1:1 conversation the remote user left the room
+```ts
+chan: IRemoteChan;
+```
+
+### unbridgeChannelByMxid
+same as unbridgeChannel but it takes the mxid of a channel
+```ts
+mxid: string;
+```
+
 ### updateUser
 `updateUser` triggers a remote updating of a user
 ```ts

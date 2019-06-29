@@ -261,6 +261,19 @@ export class PuppetBridge extends EventEmitter {
 		await this.chanSync.getMxid(chan);
 	}
 
+	public async unbridgeChannelByMxid(mxid: string) {
+		const chan = await this.chanSync.getRemoteHandler(mxid);
+		await this.unbridgeChannel(chan);
+	}
+
+	public async unbridgeChannel(chan: IRemoteChan | null) {
+		if (!chan) {
+			return;
+		}
+		log.info(`Got request to unbridge channel puppetId=${chan.puppetId} roomId=${chan.roomId}`);
+		await this.chanSync.delete(chan);
+	}
+
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
 		const client = await this.userSync.getClient(user);
 		const userId = await client.getUserId();
@@ -612,7 +625,7 @@ export class PuppetBridge extends EventEmitter {
 		if (this.appservice.isNamespacedUser(userId)) {
 			if (userId !== event.sender) {
 				// puppet got kicked, unbridging room
-				await this.chanSync.deleteForMxid(roomId);
+				await this.unbridgeChannelByMxid(roomId);
 			}
 			return;
 		}
@@ -627,7 +640,7 @@ export class PuppetBridge extends EventEmitter {
 			return; // it wasn't us
 		}
 		log.verbose(`Received leave event from ${puppetMxid}`);
-		await this.chanSync.deleteForMxid(roomId);
+		await this.unbridgeChannel(room);
 	}
 
 	private async handleInviteEvent(roomId: string, event: any) {

@@ -55,10 +55,14 @@ export class ChannelSyncroniser {
 		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
 	}
 
-	public async maybeGetMxid(data: IRemoteChan): Promise<string | null> {
+	public async maybeGet(data: IRemoteChan): Promise<IChanStoreEntry | null> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
-		const chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
+		return await this.chanStore.getByRemote(data.puppetId, data.roomId);
+	}
+
+	public async maybeGetMxid(data: IRemoteChan): Promise<string | null> {
+		const chan = await this.maybeGet(data);
 		if (!chan) {
 			return null;
 		}
@@ -184,6 +188,14 @@ export class ChannelSyncroniser {
 		return { mxid, created };
 	}
 
+	public async delete(data: IRemoteChan) {
+		const chan = await this.maybeGet(data);
+		if (!chan) {
+			return;
+		}
+		await this.deleteEntries([ chan ]);
+	}
+
 	public async deleteForMxid(mxid: string) {
 		const chan = await this.chanStore.getByMxid(mxid);
 		if (!chan) {
@@ -201,23 +213,21 @@ export class ChannelSyncroniser {
 		log.info("Deleting entries", entries);
 		for (const entry of entries) {
 			// delete from DB (also OP store), cache and trigger ghosts to quit
-			const mxid = await this.maybeGetMxid(entry);
 			await this.chanStore.delete(entry);
-			if (mxid) {
-				const ghosts = await this.bridge.puppetStore.getGhostsInChan(mxid);
-				log.info("Removing ghosts from room....");
-				for (const ghost of ghosts) {
-					const intent = await this.bridge.userSync.deleteForMxid(ghost);
-					if (intent) {
-						try {
-							await intent.underlyingClient.leaveRoom(mxid);
-						} catch (err) {
-							log.warn("Failed to trigger client leave room", err);
-						}
+
+			const ghosts = await this.bridge.puppetStore.getGhostsInChan(entry.mxid);
+			log.info("Removing ghosts from room....");
+			for (const ghost of ghosts) {
+				const intent = await this.bridge.userSync.deleteForMxid(ghost);
+				if (intent) {
+					try {
+						await intent.underlyingClient.leaveRoom(entry.mxid);
+					} catch (err) {
+						log.warn("Failed to trigger client leave room", err);
 					}
 				}
-				await this.bridge.puppetStore.emptyGhostsInChan(mxid);
 			}
+			await this.bridge.puppetStore.emptyGhostsInChan(entry.mxid);
 		}
 	}
 }
