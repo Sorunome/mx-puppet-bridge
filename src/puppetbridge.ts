@@ -68,7 +68,7 @@ export interface IReceiveParams {
 export interface IMessageEvent {
 	body: string;
 	formatted_body?: string;
-	emote: boolean;
+	emote?: boolean;
 	notice?: boolean;
 }
 
@@ -406,6 +406,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
+		log.verbose(`Received message to send`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
 		if (opts.emote) {
@@ -426,6 +427,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
+		log.verbose(`Received file to send. thing=${thing} name=${name}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let buffer: Buffer;
 		if (typeof thing === "string") {
@@ -481,6 +483,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
+		log.verbose(`Preparing send parameters`, params);
 		const puppetMxid = await this.provisioner.getMxid(params.chan.puppetId);
 		const client = await this.userSync.getClient(params.user);
 		const userId = await client.getUserId();
