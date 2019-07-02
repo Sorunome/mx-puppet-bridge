@@ -79,7 +79,7 @@ This object holds the main data for a message event
 ```ts
 {
 	body: string; // the plain text body
-	formatted_body: string; (optional) // if present, the html formatting of the message
+	formattedBody: string; (optional) // if present, the html formatting of the message
 	emote: boolean;  (optional) // if the messgae is an emote (/me) message
 	notice: boolean; (optional) // if the message is a bot message
 	eventId: string; (optional) // the event ID. When receiving to send to remote, the matrix one, when sending to matrix, the remote one
