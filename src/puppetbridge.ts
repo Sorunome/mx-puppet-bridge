@@ -18,6 +18,7 @@ import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
 import { DbPuppetStore, IMxidInfo } from "./db/puppetstore";
+import { DbEventStore } from "./db/eventstore";
 import { Provisioner } from "./provisioner";
 import { Store } from "./store";
 import { TimedCache } from "./structures/timedcache";
@@ -63,13 +64,15 @@ export interface IPuppetBridgeFeatures {
 export interface IReceiveParams {
 	chan: IRemoteChan;
 	user: IRemoteUser;
+	eventId?: string;
 }
 
 export interface IMessageEvent {
 	body: string;
-	formatted_body?: string;
+	formattedBody?: string;
 	emote?: boolean;
 	notice?: boolean;
+	eventId?: string;
 }
 
 export interface IFileEvent {
@@ -82,6 +85,7 @@ export interface IFileEvent {
 	};
 	mxc: string;
 	url: string;
+	eventId?: string;
 }
 
 export interface IRetData {
@@ -228,6 +232,10 @@ export class PuppetBridge extends EventEmitter {
 
 	get puppetStore(): DbPuppetStore {
 		return this.store.puppetStore;
+	}
+
+	get eventStore(): DbEventStore {
+		return this.store.eventStore;
 	}
 
 	get Config(): MxBridgeConfig {
@@ -419,11 +427,63 @@ export class PuppetBridge extends EventEmitter {
 			body: opts.body,
 			source: "remote",
 		} as any;
-		if (opts.formatted_body) {
+		if (opts.formattedBody) {
 			send.format = "org.matrix.custom.html";
-			send.formatted_body = opts.formatted_body;
+			send.formatted_body = opts.formattedBody;
 		}
-		await client.sendMessage(mxid, send);
+		const matrixEventId = await client.sendMessage(mxid, send);
+		if (matrixEventId && params.eventId) {
+			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+		}
+	}
+
+	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent) {
+		log.verbose(`Received edit to send`);
+		const { client, mxid } = await this.prepareSend(params);
+		let msgtype = "m.text";
+		if (opts.emote) {
+			msgtype = "m.emote";
+		} else if (opts.notice) {
+			msgtype = "m.notice";
+		}
+		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		const origEvent = origEvents[0];
+		const send = {
+			"msgtype": msgtype,
+			"body": `* ${opts.body}`,
+			"source": "remote",
+			"m.new_content": {
+				body: opts.body,
+				msgtype,
+			},
+		} as any;
+		if (origEvent) {
+			send["m.relates_to"] = {
+				event_id: origEvent,
+				rel_type: "m.replace",
+			}
+		} else {
+			log.warn("Couldn't find event, sending as normal message...");
+		}
+		if (opts.formattedBody) {
+			send.format = "org.matrix.custom.html";
+			send.formatted_body = `* ${opts.formattedBody}`;
+			send["m.new_content"].format = "org.matrix.custom.html";
+			send["m.new_content"].formatted_body = opts.formattedBody;
+		}
+		const matrixEventId = await client.sendMessage(mxid, send);
+		if (matrixEventId && params.eventId) {
+			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+		}
+	}
+
+	public async sendRedact(params: IReceiveParams, eventId: string) {
+		log.verbose("Received redact to send");
+		const { client, mxid } = await this.prepareSend(params);
+		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		for (const origEvent of origEvents) {
+			await client.redactEvent(mxid, origEvent);
+		}
 	}
 
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
@@ -470,7 +530,10 @@ export class PuppetBridge extends EventEmitter {
 		if (typeof thing === "string") {
 			sendData.external_url = thing;
 		}
-		await client.sendMessage(mxid, sendData);
+		const matrixEventId = await client.sendMessage(mxid, sendData);
+		if (matrixEventId && params.eventId) {
+			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+		}
 	}
 
 	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {
@@ -576,15 +639,16 @@ export class PuppetBridge extends EventEmitter {
 		if (event.type === "m.sticker") {
 			msgtype = "m.sticker";
 		}
-		if (msgtype === "m.emote" || msgtype === "m.text") {
+		if (msgtype === "m.emote" || msgtype === "m.notice" || msgtype === "m.text") {
 			// short-circuit text stuff
 			const msgData = {
 				body: event.content.body,
 				emote: msgtype === "m.emote",
 				notice: msgtype === "m.notice",
+				eventId: event.event_id,
 			} as IMessageEvent;
 			if (event.content.format) {
-				msgData.formatted_body = event.content.formatted_body;
+				msgData.formattedBody = event.content.formatted_body;
 			}
 			this.emit("message", room, msgData, event);
 			return;
@@ -595,6 +659,7 @@ export class PuppetBridge extends EventEmitter {
 			filename: event.content.body,
 			mxc: event.content.url,
 			url,
+			eventId: event.event_id,
 		} as IFileEvent;
 		if (event.content.info) {
 			data.info = event.content.info;
@@ -627,6 +692,7 @@ export class PuppetBridge extends EventEmitter {
 		const textData = {
 			body: `New ${emitEvent}: ${data.url}`,
 			emote: false,
+			eventId: event.event_id,
 		} as IMessageEvent;
 		this.emit("message", room, textData, event);
 	}
