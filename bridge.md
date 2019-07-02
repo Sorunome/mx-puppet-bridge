@@ -16,6 +16,10 @@ video // video sending implemented
 sticker // sticker sending implemented
 
 presence // presence handling implemented
+
+typingTimeout (number) // timeout for typing in ms
+
+edit // if the protocol imlementation has edit support
 ```
 
 Pro-Tip: if your protocol implementation auto-detects file types, only set the feature `file`! That will cause `image`, `audio`, `video` and `sticker` to fall back to that.
@@ -66,6 +70,7 @@ This object is a combination of `IRemoteChan` and `IRemoteUser`. Used to combind
 {
 	chan: IRemoteChan; // channel to send to
 	user: IRemoteUser; // user which sent something
+	eventId: string; (optional) // the remote event ID
 }
 ```
 
@@ -75,8 +80,9 @@ This object holds the main data for a message event
 {
 	body: string; // the plain text body
 	formatted_body: string; (optional) // if present, the html formatting of the message
-	emote: boolean; // if the messgae is an emote (/me) message
+	emote: boolean;  (optional) // if the messgae is an emote (/me) message
 	notice: boolean; (optional) // if the message is a bot message
+	eventId: string; (optional) // the event ID. When receiving to send to remote, the matrix one, when sending to matrix, the remote one
 }
 ```
 
@@ -93,6 +99,7 @@ This object holds the main data for a file event
 	};
 	mxc: string; // the mxc content uri of the file
 	url: string; // an accessible URL of the file
+	eventId: string; (optional) // the event ID. When receiving to send to remote, the matrix one, when sending to matrix, the remote one
 }
 ```
 
@@ -105,6 +112,25 @@ Event parameters:
 room: IRemoteChan; // the room where to send to
 data: IMessageEvent; // the data on the message
 event: any; // the raw message event
+```
+
+### edit
+If feature enabled, an edit has been made from matrix
+Event parameters:
+```ts
+room: IRemoteChan; // the room where the edit happened
+eventId: string; // the remote event ID of the original event
+data: IMessageEvent; // the data on the new message
+event: any; // the raw message event
+```
+
+### redact
+A redact happened from matrix
+Event parameters:
+```ts
+room: IRemoteChan; // the room where the redact happened
+eventId: string; // the remote event ID that got redacted
+event: any; // the raw redact event
 ```
 
 ### file events
@@ -150,6 +176,21 @@ mxc: string;
 ```ts
 params: IReceiveParams; // channel and user where/who sent something
 opts: IMessageEvent; // what to send
+```
+
+### sendEdit
+`sendEdit` sends an edit over to matrix. Parameters are:
+```ts
+params: IReceiveParams; // channel and user who made the edit
+eventId: string; // the remote event ID that got edited
+opts: IMessageEvent; // the new message
+```
+
+### sendRedact
+`sendRedact` sends a redact over to matrix. Parameters are:
+```ts
+params: IReceiveParams; // channel and user who made the redact
+eventId: string; // the remote event ID that got redacted
 ```
 
 ### file sending
@@ -218,11 +259,22 @@ puppetId: number;
 data: any;
 ```
 
-## setUserId
+### setUserId
 `setUserId` sets what the remote user ID of the puppet is
 ```ts
 puppetId: number;
 data: any;
+```
+
+## Event store methods
+These are needed to insert events the protocol implementation sends out to the remote protocol into the event store. They are called with `eventStore.method`, e.g. `eventStore.insert`
+
+### insert
+`insert` inserts a new event into the event store. Parameters are:
+```ts
+puppetId: number;
+matrixId: string; // you have this from the IMessageEvent and IFileEvent received from the bridge
+remoteId: string; // the remote event Id
 ```
 
 ## Hooks
