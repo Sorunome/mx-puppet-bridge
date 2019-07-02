@@ -8,3 +8,4 @@ A puppeting bridge is a bridge which logs into a remote account of a service for
 ## Current protocol implementations
  - [Slack](https://github.com/Sorunome/mx-puppet-slack)
  - [Tox](https://github.com/Sorunome/mx-puppet-tox)
+ - [Discord](https://github.com/matrix-discord/mx-puppet-discord)
