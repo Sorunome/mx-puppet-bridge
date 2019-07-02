@@ -135,7 +135,7 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks = {} as IPuppetBridgeHooks;
 	}
 
-	public async readConfig() {
+	public readConfig() {
 		try {
 			this.config = new MxBridgeConfig();
 			this.config.applyConfig(yaml.safeLoad(fs.readFileSync(this.configPath, "utf8")));
@@ -147,7 +147,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async init() {
-		await this.readConfig();
+		this.readConfig();
 		this.store = new Store(this.config.database);
 		await this.store.init();
 
@@ -464,7 +464,7 @@ export class PuppetBridge extends EventEmitter {
 			send["m.relates_to"] = {
 				event_id: origEvent,
 				rel_type: "m.replace",
-			}
+			};
 		} else {
 			log.warn("Couldn't find event, sending as normal message...");
 		}
