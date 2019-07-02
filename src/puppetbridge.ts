@@ -59,6 +59,9 @@ export interface IPuppetBridgeFeatures {
 
 	// typing
 	typingTimeout?: number;
+
+	// edits
+	edit?: boolean;
 }
 
 export interface IReceiveParams {
@@ -600,6 +603,67 @@ export class PuppetBridge extends EventEmitter {
 		} as ISendInfo;
 	}
 
+	private async handleRedactEvent(roomId: string, event: any) {
+		if (this.appservice.isNamespacedUser(event.sender)) {
+			return; // we don't handle things from our own namespace
+		}
+		log.verbose("got matrix redact event to apss on");
+		const room = await this.chanSync.getRemoteHandler(event.room_id);
+		if (!room) {
+			// this isn't a room we handle....so let's do provisioning!
+			await this.botProvisioner.processEvent(event);
+			return;
+		}
+		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
+		if (event.sender !== puppetMxid) {
+			return; // this isn't our puppeted user, so let's not do anything
+		}
+		log.info(`New redact by ${event.sender} to process!`);
+		if (event.content.source === "remote") {
+			log.verbose("Dropping event due to de-duping...");
+			return;
+		}
+		const eventIds = await this.eventStore.getRemote(room.puppetId, event.redacts);
+		for (const eventId of eventIds) {
+			this.emit("redact", room, eventId, event);
+		}
+	}
+
+	private async handleTextEvent(room: IRemoteChan, event: any) {
+		const msgtype = event.content.msgtype;
+		const relate = event.content["m.relates_to"];
+		if (relate) {
+			// relation events
+			const relEvent = (await this.eventStore.getRemote(room.puppetId, relate.event_id))[0];
+			if (relEvent) {
+				if (this.features.edit && relate.rel_type === "m.replace") {
+					const newContent = event.content["m.new_content"];
+					const relData = {
+						body: newContent.body,
+						emote: newContent.msgtype === "m.emote",
+						notice: newContent.msgtype === "m.notice",
+						eventId: event.event_id,
+					} as IMessageEvent;
+					if (newContent.format) {
+						relData.formattedBody = newContent.formatted_body;
+					}
+					this.emit("edit", room, relEvent, relData, event);
+					return;
+				}
+			}
+		}
+		const msgData = {
+			body: event.content.body,
+			emote: msgtype === "m.emote",
+			notice: msgtype === "m.notice",
+			eventId: event.event_id,
+		} as IMessageEvent;
+		if (event.content.format) {
+			msgData.formattedBody = event.content.formatted_body;
+		}
+		this.emit("message", room, msgData, event);
+	}
+
 	private async handleRoomEvent(roomId: string, event: any) {
 		if (event.type === "m.room.member" && event.content) {
 			switch (event.content.membership) {
@@ -611,6 +675,10 @@ export class PuppetBridge extends EventEmitter {
 					await this.handleLeaveEvent(roomId, event);
 					return;
 			}
+		}
+		if (event.type === "m.room.redaction") {
+			await this.handleRedactEvent(roomId, event);
+			return;
 		}
 		const validTypes = ["m.room.message", "m.sticker"];
 		if (!validTypes.includes(event.type)) {
@@ -641,16 +709,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 		if (msgtype === "m.emote" || msgtype === "m.notice" || msgtype === "m.text") {
 			// short-circuit text stuff
-			const msgData = {
-				body: event.content.body,
-				emote: msgtype === "m.emote",
-				notice: msgtype === "m.notice",
-				eventId: event.event_id,
-			} as IMessageEvent;
-			if (event.content.format) {
-				msgData.formattedBody = event.content.formatted_body;
-			}
-			this.emit("message", room, msgData, event);
+			await this.handleTextEvent(room, event);
 			return;
 		}
 		// this is a file!
