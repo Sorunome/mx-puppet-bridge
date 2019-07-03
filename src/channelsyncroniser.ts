@@ -127,7 +127,7 @@ export class ChannelSyncroniser {
 				},
 				is_direct: data.isDirect,
 				invite: invites,
-			};
+			} as any;
 			if (!data.isDirect) {
 				// we also want to set an alias for later reference
 				createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
@@ -200,6 +200,28 @@ export class ChannelSyncroniser {
 		this.mxidLock.release(lockKey);
 
 		return { mxid, created };
+	}
+
+	public getPartsFromMxid(mxid: string): IRemoteChan | null {
+		const suffix = this.bridge.AS.getSuffixForAlias(mxid);
+		if (!suffix) {
+			return null;
+		}
+		const MXID_MATCH_PUPPET_ID = 1;
+		const MXID_MATCH_ROOM_ID = 2;
+		const matches = suffix.match(/^(\d+)_(.*)/);
+		if (!matches) {
+			return null;
+		}
+		const puppetId = Number(matches[MXID_MATCH_PUPPET_ID]);
+		const roomId = Util.mxid2str(matches[MXID_MATCH_ROOM_ID]);
+		if (isNaN(puppetId)) {
+			return null;
+		}
+		return {
+			puppetId,
+			roomId,
+		};
 	}
 
 	public async delete(data: IRemoteChan) {

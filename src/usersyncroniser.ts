@@ -127,7 +127,7 @@ export class UserSyncroniser {
 		return client;
 	}
 
-	public getPartsFromMxid(mxid: string): {puppetId: number; userId: string} | null {
+	public getPartsFromMxid(mxid: string): IRemoteUser | null {
 		const suffix = this.bridge.AS.getSuffixForUserId(mxid);
 		if (!suffix) {
 			return null;
