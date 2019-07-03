@@ -495,7 +495,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
-		log.verbose(`Received file to send. thing=${thing} name=${name}`);
+		log.verbose(`Received file to send. thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let buffer: Buffer;
 		if (typeof thing === "string") {
@@ -612,7 +612,7 @@ export class PuppetBridge extends EventEmitter {
 		if (this.appservice.isNamespacedUser(event.sender)) {
 			return; // we don't handle things from our own namespace
 		}
-		log.verbose("got matrix redact event to apss on");
+		log.verbose("got matrix redact event to pass on");
 		const room = await this.chanSync.getRemoteHandler(event.room_id);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
