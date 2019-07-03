@@ -200,14 +200,15 @@ export class PuppetBridge extends EventEmitter {
 			hs_token: uuid(),
 			id: opts.id,
 			namespaces: {
-				users: [
-					{
-						exclusive: true,
-						regex: `@${opts.prefix}.*`,
-					},
-				],
+				users: [{
+					exclusive: true,
+					regex: `@${opts.prefix}.*`,
+				}],
 				rooms: [ ],
-				aliases: [ ],
+				aliases: [{
+					exclusive: true,
+					regex: `#${opts.prefix}.*`,
+				}],
 			},
 			protocols: [ ],
 			rate_limit: false,
@@ -357,6 +358,10 @@ export class PuppetBridge extends EventEmitter {
 			return puppetData.puppetMxid;
 		}
 		return this.appservice.getUserIdForSuffix(`${user.puppetId}_${Util.str2mxid(user.userId)}`);
+	}
+
+	public async getMxidForChan(chan: IRemoteChan): Promise<string> {
+		return this.appservice.getAliasForSuffix(`${chan.puppetId}_${Util.str2mxid(chan.roomId)}`);
 	}
 
 	public getUrlFromMxc(mxc: string): string {

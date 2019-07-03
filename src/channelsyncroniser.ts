@@ -117,7 +117,7 @@ export class ChannelSyncroniser {
 			update.avatar = data.avatarUrl ? true : false;
 			update.topic = data.topic ? true : false;
 			// ooookay, we need to create this channel
-			mxid = await client!.createRoom({
+			const createParams = {
 				visibility: "private",
 				preset: "private_chat",
 				power_level_content_override: {
@@ -127,7 +127,13 @@ export class ChannelSyncroniser {
 				},
 				is_direct: data.isDirect,
 				invite: invites,
-			});
+			};
+			if (!data.isDirect) {
+				// we also want to set an alias for later reference
+				createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
+					`${data.puppetId}_${Util.str2mxid(data.roomId)}`);
+			}
+			mxid = await client!.createRoom(createParams);
 			await this.chanStore.setChanOp(mxid, await client!.getUserId());
 			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
 			created = true;
