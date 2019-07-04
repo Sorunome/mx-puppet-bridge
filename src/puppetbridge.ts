@@ -98,12 +98,19 @@ export interface IRetData {
 	userId?: string;
 }
 
+export interface IRetListUsers {
+	name: string;
+	id?: string;
+	category?: boolean;
+}
+
 export type CreateChanHook = (chan: IRemoteChan) => Promise<IRemoteChan | null>;
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
 export type GetDescHook = (puppetId: number, data: any, html: boolean) => Promise<string>;
 export type BotHeaderMsgHook = () => string;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;
+export type ListUsersHook = (puppetId: number) => Promise<IRetListUsers[]>;
 
 export interface IPuppetBridgeHooks {
 	createChan?: CreateChanHook;
@@ -112,6 +119,7 @@ export interface IPuppetBridgeHooks {
 	botHeaderMsg?: BotHeaderMsgHook;
 	getDataFromStr?: GetDataFromStrHook;
 	getDmRoomId?: GetDmRoomIdHook;
+	listUsers?: ListUsersHook;
 }
 
 export class PuppetBridge extends EventEmitter {
@@ -307,6 +315,10 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.getDmRoomId = hook;
 	}
 
+	public setListUsersHook(hook: ListUsersHook) {
+		this.hooks.listUsers = hook;
+	}
+
 	public async setUserId(puppetId: number, userId: string) {
 		await this.provisioner.setUserId(puppetId, userId);
 	}
@@ -358,10 +370,12 @@ export class PuppetBridge extends EventEmitter {
 		await this.typingHandler.set(await ret.client.getUserId(), ret.mxid, typing);
 	}
 
-	public async getMxidForUser(user: IRemoteUser): Promise<string> {
-		const puppetData = await this.provisioner.get(user.puppetId);
-		if (puppetData && puppetData.userId === user.userId) {
-			return puppetData.puppetMxid;
+	public async getMxidForUser(user: IRemoteUser, doublePuppetCheck: boolean = true): Promise<string> {
+		if (doublePuppetCheck) {
+			const puppetData = await this.provisioner.get(user.puppetId);
+			if (puppetData && puppetData.userId === user.userId) {
+				return puppetData.puppetMxid;
+			}
 		}
 		return this.appservice.getUserIdForSuffix(`${user.puppetId}_${Util.str2mxid(user.userId)}`);
 	}

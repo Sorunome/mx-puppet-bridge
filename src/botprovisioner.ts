@@ -1,6 +1,7 @@
 import { PuppetBridge } from "./puppetbridge";
 import { Provisioner } from "./provisioner";
 import { Log } from "./log";
+import * as escapeHtml from "escape-html";
 
 const log = new Log("BotProvisioner");
 
@@ -94,8 +95,44 @@ export class BotProvisioner {
 				await this.sendMessage(roomId, `Set matrix token`);
 				break;
 			}
+			case "listusers": {
+				if (!this.bridge.hooks.listUsers) {
+					await this.sendMessage(roomId, "Feature not implemented!");
+					break;
+				}
+				const puppets = await this.provisioner.getForMxid(sender);
+				if (puppets.length === 0) {
+					await this.sendMessage(roomId, "Nothing linked yet!");
+					break;
+				}
+				let reply = "";
+				let replyHtml = "";
+				for (const p of puppets) {
+					const users = await this.bridge.hooks.listUsers(p.puppetId);
+					reply += `${p.puppetId}:\n\n`;
+					replyHtml += `<h2>${p.puppetId}:</h2><ul>`;
+					for (const u of users) {
+					const nameHtml = escapeHtml(u.name);
+						if (u.category) {
+							reply += `${u.name}:\n`;
+							replyHtml += `</ul><h3>${nameHtml}</h3><ul>`;
+							continue;
+						}
+						reply += ` - ${u.name}\n`;
+						const mxid = await this.bridge.getMxidForUser({
+							puppetId: p.puppetId,
+							userId: u.id!,
+						}, false);
+						const pill = `<a href="https://matrix.to/#/${escapeHtml(mxid)}">${nameHtml}</a>`;
+						replyHtml += `<li>${nameHtml}: ${pill}</li>`;
+					}
+					replyHtml += "</ul>";
+				}
+				await this.sendMessage(roomId, reply, replyHtml);
+				break;
+			}
 			default:
-				await this.sendMessage(roomId, `Available commands: help, list, link, unlink, setmatrixtoken`);
+				await this.sendMessage(roomId, `Available commands: help, list, link, unlink, setmatrixtoken, listusers, listchannels`);
 		}
 	}
 
