@@ -112,7 +112,7 @@ export class BotProvisioner {
 					reply += `${d.puppetId}: ${d.desc}:\n\n`;
 					replyHtml += `<h2>${d.puppetId}: ${d.html}:</h2><ul>`;
 					for (const u of users) {
-					const nameHtml = escapeHtml(u.name);
+						const nameHtml = escapeHtml(u.name);
 						if (u.category) {
 							reply += `${u.name}:\n`;
 							replyHtml += `</ul><h3>${nameHtml}</h3><ul>`;
@@ -148,7 +148,7 @@ export class BotProvisioner {
 					reply += `${d.puppetId}: ${d.desc}:\n\n`;
 					replyHtml += `<h2>${d.puppetId}: ${d.html}:</h2><ul>`;
 					for (const c of chans) {
-					const nameHtml = escapeHtml(c.name);
+						const nameHtml = escapeHtml(c.name);
 						if (c.category) {
 							reply += `${c.name}:\n`;
 							replyHtml += `</ul><h3>${nameHtml}</h3><ul>`;
@@ -168,7 +168,8 @@ export class BotProvisioner {
 				break;
 			}
 			default:
-				await this.sendMessage(roomId, `Available commands: help, list, link, unlink, setmatrixtoken, listusers, listchannels`);
+				await this.sendMessage(roomId, "Available commands: help, list, link, " +
+					"unlink, setmatrixtoken, listusers, listchannels");
 		}
 	}
 
