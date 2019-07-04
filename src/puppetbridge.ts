@@ -928,20 +928,28 @@ export class PuppetBridge extends EventEmitter {
 
 	private async handleRoomQuery(alias: string, createRoom: any) {
 		log.info(`Got room query for alias ${alias}`);
-		// get room ID and check if ti is valid
+		// we deny room creation and then create it later on ourself
+		await createRoom(false);
+		if (!this.hooks.createChan) {
+			return;
+		}
+		// get room ID and check if it is valid
 		const parts = this.chanSync.getPartsFromMxid(alias);
 		if (!parts) {
-			await createRoom(false);
 			return;
 		}
 		// get puppetMxid for this puppetId
 		const puppet = await this.provisioner.get(parts.puppetId);
 		if (!puppet) {
-			await createRoom(false);
 			return;
 		}
-		// reject the lookup and create the room with invite manually instead
-		await createRoom(false);
+
+		// check if this is a valid room at all
+		const room = this.hooks.createChan(parts);
+		if (!room) {
+			return;
+		}
+
 		// this will also only create the room if it doesn't exist already
 		await this.chanSync.getMxid(parts, undefined, [puppet.puppetMxid]);
 	}
