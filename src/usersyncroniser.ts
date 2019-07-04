@@ -71,7 +71,7 @@ export class UserSyncroniser {
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createUser) {
 				log.verbose("Fetching new override data...");
-				const newData = await this.bridge.hooks.createUser(data.puppetId, data.userId);
+				const newData = await this.bridge.hooks.createUser(data);
 				if (newData && newData.userId === data.userId && newData.puppetId === data.puppetId) {
 					data = newData;
 				} else {
@@ -149,14 +149,12 @@ export class UserSyncroniser {
 		};
 	}
 
-	public async deleteForMxid(mxid: string): Promise<Intent | null> {
+	public async deleteForMxid(mxid: string) {
 		const user = this.getPartsFromMxid(mxid);
 		if (!user) {
-			return null;
+			return;
 		}
 		log.info(`Deleting ghost ${mxid}`);
 		await this.userStore.delete(user);
-		const intent = this.bridge.AS.getIntentForUserId(mxid);
-		return intent;
 	}
 }

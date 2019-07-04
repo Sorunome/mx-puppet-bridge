@@ -98,11 +98,12 @@ export interface IRetData {
 	userId?: string;
 }
 
-export type CreateChanHook = (puppetId: number, chanId: string) => Promise<IRemoteChan | null>;
-export type CreateUserHook = (puppetId: number, userId: string) => Promise<IRemoteUser | null>;
+export type CreateChanHook = (chan: IRemoteChan) => Promise<IRemoteChan | null>;
+export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
 export type GetDescHook = (puppetId: number, data: any, html: boolean) => Promise<string>;
-export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type BotHeaderMsgHook = () => string;
+export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
+export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;
 
 export interface IPuppetBridgeHooks {
 	createChan?: CreateChanHook;
@@ -110,6 +111,7 @@ export interface IPuppetBridgeHooks {
 	getDesc?: GetDescHook;
 	botHeaderMsg?: BotHeaderMsgHook;
 	getDataFromStr?: GetDataFromStrHook;
+	getDmRoomId?: GetDmRoomIdHook;
 }
 
 export class PuppetBridge extends EventEmitter {
@@ -301,6 +303,10 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.getDataFromStr = hook;
 	}
 
+	public setGetDmRoomIdHook(hook: GetDmRoomIdHook) {
+		this.hooks.getDmRoomId = hook;
+	}
+
 	public async setUserId(puppetId: number, userId: string) {
 		await this.provisioner.setUserId(puppetId, userId);
 	}
@@ -329,7 +335,7 @@ export class PuppetBridge extends EventEmitter {
 			return;
 		}
 		log.info(`Got request to unbridge channel puppetId=${chan.puppetId} roomId=${chan.roomId}`);
-		await this.chanSync.delete(chan);
+		await this.chanSync.delete(chan, true);
 	}
 
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
@@ -841,9 +847,58 @@ export class PuppetBridge extends EventEmitter {
 
 	private async handleInviteEvent(roomId: string, event: any) {
 		const userId = event.state_key;
-		const intent = this.appservice.botIntent;
-		if (userId === intent.userId) {
-			await intent.joinRoom(roomId);
+		const inviteId = event.sender;
+		if (userId === this.appservice.botIntent.userId) {
+			await this.appservice.botIntent.joinRoom(roomId);
 		}
+		if (!this.appservice.isNamespacedUser(userId)) {
+			return; // we are only handling ghost invites
+		}
+		log.info(`Processing invite for ${userId} by ${inviteId}`);
+		const intent = this.appservice.getIntentForUserId(userId);
+		if (!this.hooks.getDmRoomId || !this.hooks.createChan) {
+			// no hook set, rejecting the invite
+			await intent.leaveRoom(roomId);
+			return;
+		}
+		// check if the mxid validates
+		const parts = this.userSync.getPartsFromMxid(userId);
+		if (!parts) {
+			await intent.leaveRoom(roomId);
+			return;
+		}
+		// check if we actually own that puppet
+		const puppet = await this.provisioner.get(parts.puppetId);
+		if (!puppet || puppet.puppetMxid !== inviteId) {
+			await intent.leaveRoom(roomId);
+			return;
+		}
+		// fetch new room id
+		const newRoomId = await this.hooks.getDmRoomId(parts);
+		if (!newRoomId) {
+			await intent.leaveRoom(roomId);
+			return;
+		}
+		// check if it already exists
+		const roomExists = await this.chanSync.maybeGet({
+			puppetId: parts.puppetId,
+			roomId: newRoomId,
+		});
+		if (roomExists) {
+			await intent.leaveRoom(roomId);
+			return;
+		}
+		// check if it is a direct room
+		const roomData = await this.hooks.createChan({
+			puppetId: parts.puppetId,
+			roomId: newRoomId,
+		});
+		if (!roomData || roomData.puppetId !== parts.puppetId || roomData.roomId !== newRoomId || !roomData.isDirect) {
+			await intent.leaveRoom(roomId);
+			return;
+		}
+		// FINALLY join back and accept the invite
+		await this.chanSync.insert(roomId, roomData);
+		await intent.joinRoom(roomId);
 	}
 }

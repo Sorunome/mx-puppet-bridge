@@ -94,6 +94,7 @@ export class ChannelSyncroniser {
 		let created = false;
 		if (!chan) {
 			if (!doCreate) {
+				this.mxidLock.release(lockKey);
 				return {
 					mxid: "",
 					created: false,
@@ -104,7 +105,7 @@ export class ChannelSyncroniser {
 			// let's fetch the create data via hook
 			if (this.bridge.hooks.createChan) {
 				log.verbose("Fetching new override data...");
-				const newData = await this.bridge.hooks.createChan(data.puppetId, data.roomId);
+				const newData = await this.bridge.hooks.createChan(data);
 				if (newData && newData.puppetId === data.puppetId && newData.roomId === data.roomId) {
 					data = newData;
 				} else {
@@ -202,6 +203,19 @@ export class ChannelSyncroniser {
 		return { mxid, created };
 	}
 
+	public async insert(mxid: string, roomData: IRemoteChan) {
+		const lockKey = `${roomData.puppetId};${roomData.roomId}`;
+		await this.mxidLock.wait(lockKey);
+		this.mxidLock.set(lockKey);
+		const entry = {
+			mxid,
+			roomId: roomData.roomId,
+			puppetId: roomData.puppetId,
+		} as IChanStoreEntry;
+		await this.chanStore.set(entry);
+		this.mxidLock.release(lockKey);
+	}
+
 	public getPartsFromMxid(mxid: string): IRemoteChan | null {
 		const suffix = this.bridge.AS.getSuffixForAlias(mxid);
 		if (!suffix) {
@@ -224,12 +238,12 @@ export class ChannelSyncroniser {
 		};
 	}
 
-	public async delete(data: IRemoteChan) {
+	public async delete(data: IRemoteChan, keepUsers: boolean = false) {
 		const chan = await this.maybeGet(data);
 		if (!chan) {
 			return;
 		}
-		await this.deleteEntries([ chan ]);
+		await this.deleteEntries([ chan ], keepUsers);
 	}
 
 	public async deleteForMxid(mxid: string) {
@@ -245,7 +259,7 @@ export class ChannelSyncroniser {
 		await this.deleteEntries(entries);
 	}
 
-	private async deleteEntries(entries: IChanStoreEntry[]) {
+	private async deleteEntries(entries: IChanStoreEntry[], keepUsers: boolean = false) {
 		log.info("Deleting entries", entries);
 		for (const entry of entries) {
 			// delete from DB (also OP store), cache and trigger ghosts to quit
@@ -265,7 +279,10 @@ export class ChannelSyncroniser {
 			log.info("Removing ghosts from room....");
 			const ghosts = await this.bridge.puppetStore.getGhostsInChan(entry.mxid);
 			for (const ghost of ghosts) {
-				const intent = await this.bridge.userSync.deleteForMxid(ghost);
+				if (!keepUsers) {
+					await this.bridge.userSync.deleteForMxid(ghost);
+				}
+				const intent = this.bridge.AS.getIntentForUserId(ghost);
 				if (intent) {
 					try {
 						await intent.underlyingClient.leaveRoom(entry.mxid);
