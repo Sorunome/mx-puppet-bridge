@@ -946,7 +946,7 @@ export class PuppetBridge extends EventEmitter {
 
 		// check if this is a valid room at all
 		const room = this.hooks.createChan(parts);
-		if (!room) {
+		if (!room || room.puppetId !== parts.puppetId || room.roomId !== parts.roomId || room.isDirect) {
 			return;
 		}
 
