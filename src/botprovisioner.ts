@@ -100,17 +100,17 @@ export class BotProvisioner {
 					await this.sendMessage(roomId, "Feature not implemented!");
 					break;
 				}
-				const puppets = await this.provisioner.getForMxid(sender);
-				if (puppets.length === 0) {
+				const descs = await this.provisioner.getDescMxid(sender);
+				if (descs.length === 0) {
 					await this.sendMessage(roomId, "Nothing linked yet!");
 					break;
 				}
 				let reply = "";
 				let replyHtml = "";
-				for (const p of puppets) {
-					const users = await this.bridge.hooks.listUsers(p.puppetId);
-					reply += `${p.puppetId}:\n\n`;
-					replyHtml += `<h2>${p.puppetId}:</h2><ul>`;
+				for (const d of descs) {
+					const users = await this.bridge.hooks.listUsers(d.puppetId);
+					reply += `${d.puppetId}: ${d.desc}:\n\n`;
+					replyHtml += `<h2>${d.puppetId}: ${d.html}:</h2><ul>`;
 					for (const u of users) {
 					const nameHtml = escapeHtml(u.name);
 						if (u.category) {
@@ -120,9 +120,45 @@ export class BotProvisioner {
 						}
 						reply += ` - ${u.name}\n`;
 						const mxid = await this.bridge.getMxidForUser({
-							puppetId: p.puppetId,
+							puppetId: d.puppetId,
 							userId: u.id!,
 						}, false);
+						const pill = `<a href="https://matrix.to/#/${escapeHtml(mxid)}">${nameHtml}</a>`;
+						replyHtml += `<li>${nameHtml}: ${pill}</li>`;
+					}
+					replyHtml += "</ul>";
+				}
+				await this.sendMessage(roomId, reply, replyHtml);
+				break;
+			}
+			case "listchannels": {
+				if (!this.bridge.hooks.listChans) {
+					await this.sendMessage(roomId, "Feature not implemented!");
+					break;
+				}
+				const descs = await this.provisioner.getDescMxid(sender);
+				if (descs.length === 0) {
+					await this.sendMessage(roomId, "Nothing linked yet!");
+					break;
+				}
+				let reply = "";
+				let replyHtml = "";
+				for (const d of descs) {
+					const chans = await this.bridge.hooks.listChans(d.puppetId);
+					reply += `${d.puppetId}: ${d.desc}:\n\n`;
+					replyHtml += `<h2>${d.puppetId}: ${d.html}:</h2><ul>`;
+					for (const c of chans) {
+					const nameHtml = escapeHtml(c.name);
+						if (c.category) {
+							reply += `${c.name}:\n`;
+							replyHtml += `</ul><h3>${nameHtml}</h3><ul>`;
+							continue;
+						}
+						reply += ` - ${c.name}\n`;
+						const mxid = await this.bridge.getMxidForChan({
+							puppetId: d.puppetId,
+							roomId: c.id!,
+						});
 						const pill = `<a href="https://matrix.to/#/${escapeHtml(mxid)}">${nameHtml}</a>`;
 						replyHtml += `<li>${nameHtml}: ${pill}</li>`;
 					}

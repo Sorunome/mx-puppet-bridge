@@ -98,7 +98,7 @@ export interface IRetData {
 	userId?: string;
 }
 
-export interface IRetListUsers {
+export interface IRetList {
 	name: string;
 	id?: string;
 	category?: boolean;
@@ -110,7 +110,8 @@ export type GetDescHook = (puppetId: number, data: any, html: boolean) => Promis
 export type BotHeaderMsgHook = () => string;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;
-export type ListUsersHook = (puppetId: number) => Promise<IRetListUsers[]>;
+export type ListUsersHook = (puppetId: number) => Promise<IRetList[]>;
+export type ListChansHook = (puppetId: number) => Promise<IRetList[]>;
 
 export interface IPuppetBridgeHooks {
 	createChan?: CreateChanHook;
@@ -120,6 +121,7 @@ export interface IPuppetBridgeHooks {
 	getDataFromStr?: GetDataFromStrHook;
 	getDmRoomId?: GetDmRoomIdHook;
 	listUsers?: ListUsersHook;
+	listChans?: ListChansHook;
 }
 
 export class PuppetBridge extends EventEmitter {
@@ -279,6 +281,7 @@ export class PuppetBridge extends EventEmitter {
 		});
 		this.appservice.on("room.event", this.handleRoomEvent.bind(this));
 		this.appservice.on("room.invite", this.handleInviteEvent.bind(this));
+		this.appservice.on("query.room", this.handleRoomQuery.bind(this));
 		await this.appservice.begin();
 		log.info("Application service started!");
 		log.info("Activating users...");
@@ -317,6 +320,10 @@ export class PuppetBridge extends EventEmitter {
 
 	public setListUsersHook(hook: ListUsersHook) {
 		this.hooks.listUsers = hook;
+	}
+
+	public setListChansHook(hook: ListChansHook) {
+		this.hooks.listChans = hook;
 	}
 
 	public async setUserId(puppetId: number, userId: string) {
@@ -868,6 +875,9 @@ export class PuppetBridge extends EventEmitter {
 		if (!this.appservice.isNamespacedUser(userId)) {
 			return; // we are only handling ghost invites
 		}
+		if (this.appservice.isNamespacedUser(inviteId)) {
+			return; // our bridge did the invite, ignore additional handling
+		}
 		log.info(`Processing invite for ${userId} by ${inviteId}`);
 		const intent = this.appservice.getIntentForUserId(userId);
 		if (!this.hooks.getDmRoomId || !this.hooks.createChan) {
@@ -914,5 +924,25 @@ export class PuppetBridge extends EventEmitter {
 		// FINALLY join back and accept the invite
 		await this.chanSync.insert(roomId, roomData);
 		await intent.joinRoom(roomId);
+	}
+
+	private async handleRoomQuery(alias: string, createRoom: any) {
+		log.info(`Got room query for alias ${alias}`);
+		// get room ID and check if ti is valid
+		const parts = this.chanSync.getPartsFromMxid(alias);
+		if (!parts) {
+			await createRoom(false);
+			return;
+		}
+		// get puppetMxid for this puppetId
+		const puppet = await this.provisioner.get(parts.puppetId);
+		if (!puppet) {
+			await createRoom(false);
+			return;
+		}
+		// reject the lookup and create the room with invite manually instead
+		await createRoom(false);
+		// this will also only create the room if it doesn't exist already
+		await this.chanSync.getMxid(parts, undefined, [puppet.puppetMxid]);
 	}
 }
