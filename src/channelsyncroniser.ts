@@ -79,128 +79,136 @@ export class ChannelSyncroniser {
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
 		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
-		if (!client) {
-			client = this.bridge.botIntent.underlyingClient;
-		}
-		let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
-		log.silly(chan);
-		const update = {
-			name: false,
-			avatar: false,
-			topic: false,
-		};
-		let mxid = "";
-		let doUpdate = false;
-		let created = false;
-		if (!chan) {
-			if (!doCreate) {
-				this.mxidLock.release(lockKey);
-				return {
-					mxid: "",
-					created: false,
-				};
+		try {
+			if (!client) {
+				client = this.bridge.botIntent.underlyingClient;
 			}
-			log.info("Channel doesn't exist yet, creating entry...");
-			doUpdate = true;
-			// let's fetch the create data via hook
-			if (this.bridge.hooks.createChan) {
-				log.verbose("Fetching new override data...");
-				const newData = await this.bridge.hooks.createChan(data);
-				if (newData && newData.puppetId === data.puppetId && newData.roomId === data.roomId) {
-					data = newData;
-				} else {
-					log.warn("Override data is malformed! Old data:", data, "New data:", newData);
+			let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
+			log.silly(chan);
+			const update = {
+				name: false,
+				avatar: false,
+				topic: false,
+			};
+			let mxid = "";
+			let doUpdate = false;
+			let created = false;
+			if (!chan) {
+				if (!doCreate) {
+					this.mxidLock.release(lockKey);
+					return {
+						mxid: "",
+						created: false,
+					};
+				}
+				log.info("Channel doesn't exist yet, creating entry...");
+				doUpdate = true;
+				// let's fetch the create data via hook
+				if (this.bridge.hooks.createChan) {
+					log.verbose("Fetching new override data...");
+					const newData = await this.bridge.hooks.createChan(data);
+					if (newData && newData.puppetId === data.puppetId && newData.roomId === data.roomId) {
+						data = newData;
+					} else {
+						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
+					}
+				}
+				log.verbose("Creation data:", data);
+				log.verbose("Initial invites:", invites);
+				update.name = data.name ? true : false;
+				update.avatar = data.avatarUrl ? true : false;
+				update.topic = data.topic ? true : false;
+				// ooookay, we need to create this channel
+				const createParams = {
+					visibility: "private",
+					preset: "private_chat",
+					power_level_content_override: {
+						notifications: {
+							room: 0,
+						},
+					},
+					is_direct: data.isDirect,
+					invite: invites,
+				} as any;
+				if (!data.isDirect) {
+					// we also want to set an alias for later reference
+					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
+						`${data.puppetId}_${Util.str2mxid(data.roomId)}`);
+				}
+				mxid = await client!.createRoom(createParams);
+				await this.chanStore.setChanOp(mxid, await client!.getUserId());
+				chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
+				created = true;
+			} else {
+				update.name = data.name !== undefined && data.name !== chan.name;
+				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl;
+				update.topic = data.topic !== undefined && data.topic !== chan.topic;
+				mxid = chan.mxid;
+
+				// set new client for potential updates
+				const newClient = await this.getChanOp(mxid);
+				if (newClient) {
+					client = newClient;
 				}
 			}
-			log.verbose("Creation data:", data);
-			log.verbose("Initial invites:", invites);
-			update.name = data.name ? true : false;
-			update.avatar = data.avatarUrl ? true : false;
-			update.topic = data.topic ? true : false;
-			// ooookay, we need to create this channel
-			const createParams = {
-				visibility: "private",
-				preset: "private_chat",
-				power_level_content_override: {
-					notifications: {
-						room: 0,
-					},
-				},
-				is_direct: data.isDirect,
-				invite: invites,
-			} as any;
-			if (!data.isDirect) {
-				// we also want to set an alias for later reference
-				createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
-					`${data.puppetId}_${Util.str2mxid(data.roomId)}`);
-			}
-			mxid = await client!.createRoom(createParams);
-			await this.chanStore.setChanOp(mxid, await client!.getUserId());
-			chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
-			created = true;
-		} else {
-			update.name = data.name !== undefined && data.name !== chan.name;
-			update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl;
-			update.topic = data.topic !== undefined && data.topic !== chan.topic;
-			mxid = chan.mxid;
-
-			// set new client for potential updates
-			const newClient = await this.getChanOp(mxid);
-			if (newClient) {
-				client = newClient;
-			}
-		}
-		if (update.name) {
-			log.verbose("Updating name");
-			await client!.sendStateEvent(
-				mxid,
-				"m.room.name",
-				"",
-				{ name: data.name },
-			);
-			chan.name = data.name;
-		}
-		if (update.avatar || data.avatarBuffer) {
-			log.verbose("Updating avatar");
-			const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
-			if (updateAvatar) {
-				update.avatar = true;
-				chan.avatarUrl = data.avatarUrl;
-				chan.avatarHash = hash;
-				chan.avatarMxc = mxcUrl;
+			if (update.name) {
+				log.verbose("Updating name");
 				await client!.sendStateEvent(
 					mxid,
-					"m.room.avatar",
+					"m.room.name",
 					"",
-					{ url: chan.avatarMxc },
+					{ name: data.name },
 				);
+				chan.name = data.name;
 			}
-		}
-		if (update.topic) {
-			log.verbose("updating topic");
-			await client!.sendStateEvent(
-				mxid,
-				"m.room.topic",
-				"",
-				{ topic: data.topic },
-			);
-			chan.topic = data.topic;
-		}
-
-		for (const k of Object.keys(update)) {
-			if (update[k]) {
-				doUpdate = true;
-				break;
+			if (update.avatar || data.avatarBuffer) {
+				log.verbose("Updating avatar");
+				const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
+				if (updateAvatar) {
+					update.avatar = true;
+					chan.avatarUrl = data.avatarUrl;
+					chan.avatarHash = hash;
+					chan.avatarMxc = mxcUrl;
+					await client!.sendStateEvent(
+						mxid,
+						"m.room.avatar",
+						"",
+						{ url: chan.avatarMxc },
+					);
+				}
 			}
-		}
+			if (update.topic) {
+				log.verbose("updating topic");
+				await client!.sendStateEvent(
+					mxid,
+					"m.room.topic",
+					"",
+					{ topic: data.topic },
+				);
+				chan.topic = data.topic;
+			}
 
-		if (doUpdate) {
-			log.verbose("Storing update to DB");
-			await this.chanStore.set(chan);
-		}
-		this.mxidLock.release(lockKey);
+			for (const k of Object.keys(update)) {
+				if (update[k]) {
+					doUpdate = true;
+					break;
+				}
+			}
 
-		return { mxid, created };
+			if (doUpdate) {
+				log.verbose("Storing update to DB");
+				await this.chanStore.set(chan);
+			}
+
+			this.mxidLock.release(lockKey);
+
+			log.verbose("Returning mxid");
+			return { mxid, created };
+		} catch (err) {
+			log.error("Error fetching mxid:", err);
+			this.mxidLock.release(lockKey);
+			throw err;
+		}
 	}
 
 	public async insert(mxid: string, roomData: IRemoteChan) {

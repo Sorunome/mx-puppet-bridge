@@ -358,18 +358,21 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
+		log.verbose(`Setting user presence for userId=${user.userId} to ${presence}`);
 		const client = await this.userSync.getClient(user);
 		const userId = await client.getUserId();
 		this.presenceHandler.set(userId, presence);
 	}
 
 	public async setUserStatus(user: IRemoteUser, status: string) {
+		log.verbose(`Setting user status for userId=${user.userId} to ${status}`);
 		const client = await this.userSync.getClient(user);
 		const userId = await client.getUserId();
 		this.presenceHandler.setStatus(userId, status);
 	}
 
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {
+		log.verbose(`Setting user typing for userId=${params.user.userId} in roomId=${params.chan.roomId} to ${typing}`);
 		const ret = await this.maybePrepareSend(params);
 		if (!ret) {
 			return;
@@ -572,11 +575,12 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {
-		const client = await this.userSync.getClient(params.user);
+		log.verbose(`Maybe preparing send parameters`, params);
 		const mxid = await this.chanSync.maybeGetMxid(params.chan);
 		if (!mxid) {
 			return null;
 		}
+		const client = await this.userSync.getClient(params.user);
 		return { client, mxid };
 	}
 
@@ -945,7 +949,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 
 		// check if this is a valid room at all
-		const room = this.hooks.createChan(parts);
+		const room = await this.hooks.createChan(parts);
 		if (!room || room.puppetId !== parts.puppetId || room.roomId !== parts.roomId || room.isDirect) {
 			return;
 		}
