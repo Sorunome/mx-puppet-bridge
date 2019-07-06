@@ -62,7 +62,7 @@ export interface IPuppetBridgeFeatures {
 
 	// event types
 	edit?: boolean;
-	reply?: boolean
+	reply?: boolean;
 }
 
 export interface IReceiveParams {
@@ -537,9 +537,9 @@ export class PuppetBridge extends EventEmitter {
 		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
 		const origEvent = origEvents[0];
 		const send = {
-			"msgtype": msgtype,
-			"body": opts.body,
-			"source": "remote",
+			msgtype,
+			body: opts.body,
+			source: "remote",
 		} as any;
 		if (origEvent) {
 			send["m.relates_to"] = {
@@ -555,6 +555,27 @@ export class PuppetBridge extends EventEmitter {
 			send.formatted_body = opts.formattedBody;
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
+		if (matrixEventId && params.eventId) {
+			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+		}
+	}
+
+	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
+		log.verbose(`Received reaction to send`);
+		const { client, mxid } = await this.prepareSend(params);
+		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		const origEvent = origEvents[0];
+		if (!origEvent) {
+			return; // nothing to do
+		}
+		const send = {
+			"m.relates_to": {
+				rel_type: "m.annotation",
+				event_id: origEvent,
+				key: reaction,
+			},
+		};
+		const matrixEventId = await client.sendEvent(mxid, "m.reaction", send);
 		if (matrixEventId && params.eventId) {
 			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
 		}
@@ -712,7 +733,9 @@ export class PuppetBridge extends EventEmitter {
 		} as IMessageEvent;
 		if (relate) {
 			// relation events
-			const relEvent = (await this.eventStore.getRemote(room.puppetId, relate.event_id || relate["m.in_reply_to"].event_id))[0];
+			const relEvent = (await this.eventStore.getRemote(room.puppetId,
+				relate.event_id || relate["m.in_reply_to"].event_id))[0];
+			log.silly(relEvent);
 			if (relEvent) {
 				if (this.features.edit && relate.rel_type === "m.replace") {
 					const newContent = event.content["m.new_content"];
@@ -729,8 +752,12 @@ export class PuppetBridge extends EventEmitter {
 					return;
 				}
 				if (this.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
-					
 					this.emit("reply", room, relEvent, msgData, event);
+					return;
+				}
+				if (relate.rel_type === "m.annotation") {
+					// no feature setting as reactions are hidden if they aren't supported
+					this.emit("reaction", room, relEvent, relate.key, event);
 					return;
 				}
 			}
@@ -757,7 +784,7 @@ export class PuppetBridge extends EventEmitter {
 			await this.handleRedactEvent(roomId, event);
 			return;
 		}
-		const validTypes = ["m.room.message", "m.sticker"];
+		const validTypes = ["m.room.message", "m.sticker", "m.reaction"];
 		if (!validTypes.includes(event.type)) {
 			return; // we don't handle this here, silently drop the event
 		}
@@ -781,10 +808,10 @@ export class PuppetBridge extends EventEmitter {
 			return;
 		}
 		let msgtype = event.content.msgtype;
-		if (event.type === "m.sticker") {
-			msgtype = "m.sticker";
+		if (event.type !== "m.room.message") {
+			msgtype = event.type;
 		}
-		if (msgtype === "m.emote" || msgtype === "m.notice" || msgtype === "m.text") {
+		if (!["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(msgtype)) {
 			// short-circuit text stuff
 			await this.handleTextEvent(room, event);
 			return;
