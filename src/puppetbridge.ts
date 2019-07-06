@@ -525,6 +525,41 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	public async sendReply(params: IReceiveParams, eventId: string, opts: IMessageEvent) {
+		log.verbose(`Received reply to send`);
+		const { client, mxid } = await this.prepareSend(params);
+		let msgtype = "m.text";
+		if (opts.emote) {
+			msgtype = "m.emote";
+		} else if (opts.notice) {
+			msgtype = "m.notice";
+		}
+		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		const origEvent = origEvents[0];
+		const send = {
+			"msgtype": msgtype,
+			"body": opts.body,
+			"source": "remote",
+		} as any;
+		if (origEvent) {
+			send["m.relates_to"] = {
+				"m.in_reply_to": {
+					event_id: origEvent,
+				},
+			};
+		} else {
+			log.warn("Couldn't find event, sending as normal message...");
+		}
+		if (opts.formattedBody) {
+			send.format = "org.matrix.custom.html";
+			send.formatted_body = opts.formattedBody;
+		}
+		const matrixEventId = await client.sendMessage(mxid, send);
+		if (matrixEventId && params.eventId) {
+			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+		}
+	}
+
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
 		log.verbose(`Received file to send. thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
 		const { client, mxid } = await this.prepareSend(params);
