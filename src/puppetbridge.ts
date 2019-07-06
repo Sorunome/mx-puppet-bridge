@@ -60,8 +60,9 @@ export interface IPuppetBridgeFeatures {
 	// typing
 	typingTimeout?: number;
 
-	// edits
+	// event types
 	edit?: boolean;
+	reply?: boolean
 }
 
 export interface IReceiveParams {
@@ -668,9 +669,15 @@ export class PuppetBridge extends EventEmitter {
 	private async handleTextEvent(room: IRemoteChan, event: any) {
 		const msgtype = event.content.msgtype;
 		const relate = event.content["m.relates_to"];
+		const msgData = {
+			body: event.content.body,
+			emote: msgtype === "m.emote",
+			notice: msgtype === "m.notice",
+			eventId: event.event_id,
+		} as IMessageEvent;
 		if (relate) {
 			// relation events
-			const relEvent = (await this.eventStore.getRemote(room.puppetId, relate.event_id))[0];
+			const relEvent = (await this.eventStore.getRemote(room.puppetId, relate.event_id || relate["m.in_reply_to"].event_id))[0];
 			if (relEvent) {
 				if (this.features.edit && relate.rel_type === "m.replace") {
 					const newContent = event.content["m.new_content"];
@@ -686,14 +693,13 @@ export class PuppetBridge extends EventEmitter {
 					this.emit("edit", room, relEvent, relData, event);
 					return;
 				}
+				if (this.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
+					
+					this.emit("reply", room, relEvent, msgData, event);
+					return;
+				}
 			}
 		}
-		const msgData = {
-			body: event.content.body,
-			emote: msgtype === "m.emote",
-			notice: msgtype === "m.notice",
-			eventId: event.event_id,
-		} as IMessageEvent;
 		if (event.content.format) {
 			msgData.formattedBody = event.content.formatted_body;
 		}
