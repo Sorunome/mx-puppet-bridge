@@ -102,6 +102,7 @@ export class UserSyncroniser {
 			if (update.avatar || data.avatarBuffer) {
 				log.verbose("Updating avatar");
 				const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client, data, user.avatarHash);
+				log.silly(`Should update avatar? ${updateAvatar}`);
 				if (updateAvatar) {
 					update.avatar = true;
 					user.avatarUrl = data.avatarUrl;

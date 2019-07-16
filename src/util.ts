@@ -5,6 +5,7 @@ import { Buffer } from "buffer";
 import * as hasha from "hasha";
 import { MatrixClient } from "matrix-bot-sdk";
 import { Log } from "./log";
+import * as request from "request-promise";
 
 const log = new Log("Util");
 
@@ -17,29 +18,12 @@ export interface IMakeUploadFileData {
 
 export class Util {
 	public static async DownloadFile(url: string, options: any = {}): Promise<Buffer> {
-		return new Promise((resolve, reject) => {
-			let ht;
-			if (url.startsWith("https")) {
-				ht = https;
-			} else {
-				ht = http;
-			}
-			const req = ht.get(url, options, (res) => {
-				let buffer = Buffer.alloc(0);
-				if (res.statusCode !== HTTP_OK) {
-					reject(`Non 200 status code (${res.statusCode})`);
-				}
-				res.on("data", (d) => {
-					buffer = Buffer.concat([buffer, d]);
-				});
-				res.on("end", () => {
-					resolve(buffer);
-				});
-			});
-			req.on("error", (err) => {
-				reject(`Failed to download. ${err.code}`);
-			});
-		}) as Promise<Buffer>;
+		if (!options.method) {
+			options.method = "GET";
+		}
+		options.url = url;
+		options.encoding = null;
+		return await request(options);
 	}
 
 	public static GetMimeType(buffer: Buffer): string | undefined {
@@ -125,21 +109,25 @@ export class Util {
 				hash: "",
 			};
 		}
-		if (!buffer) {
-			buffer = await Util.DownloadFile(data.avatarUrl!);
-		}
-		const hash = hasha(buffer!, {
-			algorithm: "sha512",
-		});
-		if (hash === oldHash) {
-			// image didn't change, short-circuit out of here
-			return {
-				doUpdate: false,
-				mxcUrl: undefined,
-				hash,
-			};
-		}
 		try {
+			log.silly(data.avatarUrl);
+			if (!buffer) {
+				log.silly("fetching avatar...");
+				buffer = await Util.DownloadFile(data.avatarUrl!);
+				log.silly("avatar fetched!");
+			}
+			const hash = hasha(buffer!, {
+				algorithm: "sha512",
+			});
+			if (hash === oldHash) {
+				// image didn't change, short-circuit out of here
+				return {
+					doUpdate: false,
+					mxcUrl: undefined,
+					hash,
+				};
+			}
+
 			const avatarMxc = await client!.uploadContent(
 				buffer,
 				Util.GetMimeType(buffer), // TOOD: mimetype
@@ -154,7 +142,7 @@ export class Util {
 			return {
 				doUpdate: false,
 				mxcUrl: undefined,
-				hash,
+				hash: "",
 			};
 		}
 	}
