@@ -583,6 +583,9 @@ export class PuppetBridge extends EventEmitter {
 
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
 		log.verbose(`Received file to send. thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
+		if (!name) {
+			name = "remote_file";
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		let buffer: Buffer;
 		if (typeof thing === "string") {
