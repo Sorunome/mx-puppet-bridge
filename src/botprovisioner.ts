@@ -19,7 +19,7 @@ export class BotProvisioner {
 		}
 		const roomId = event.room_id;
 		const sender = event.sender;
-		const [_, arg, param] = event.content.body.split(/([^ ]*)(:? (.*))?/);
+		const [_, arg, param] = event.content.body.split(/([^ ]*)(?: (.*))?/);
 		log.info(`Got message to process with arg=${arg}`);
 		if (this.bridge.hooks.botHeaderMsg) {
 			await this.sendMessage(roomId, this.bridge.hooks.botHeaderMsg());
