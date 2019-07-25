@@ -946,6 +946,7 @@ export class PuppetBridge extends EventEmitter {
 		const inviteId = event.sender;
 		if (userId === this.appservice.botIntent.userId) {
 			await this.appservice.botIntent.joinRoom(roomId);
+			return;
 		}
 		if (!this.appservice.isNamespacedUser(userId)) {
 			return; // we are only handling ghost invites
