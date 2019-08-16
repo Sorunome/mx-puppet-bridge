@@ -1,16 +1,22 @@
-import { PuppetBridge } from "./puppetbridge";
+import { PuppetBridge, RetDataFn, IRetData } from "./puppetbridge";
 import { Provisioner } from "./provisioner";
 import { Log } from "./log";
+import { TimedCache } from "./structures/timedcache";
 import * as escapeHtml from "escape-html";
+
+// tslint:disable-next-line:no-magic-numbers
+const MESSAGE_COLLECT_TIMEOUT = 1000 * 60;
 
 const log = new Log("BotProvisioner");
 
 export class BotProvisioner {
 	private provisioner: Provisioner;
+	private fnCollectListeners: TimedCache<string, RetDataFn>;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
 		this.provisioner = this.bridge.provisioner;
+		this.fnCollectListeners = new TimedCache(MESSAGE_COLLECT_TIMEOUT);
 	}
 
 	public async processEvent(event: any) {
@@ -21,10 +27,11 @@ export class BotProvisioner {
 		const sender = event.sender;
 		const [_, arg, param] = event.content.body.split(/([^ ]*)(?: (.*))?/);
 		log.info(`Got message to process with arg=${arg}`);
-		if (this.bridge.hooks.botHeaderMsg) {
+		const fnCollect = this.fnCollectListeners.get(sender);
+		if (this.bridge.hooks.botHeaderMsg && !fnCollect) {
 			await this.sendMessage(roomId, this.bridge.hooks.botHeaderMsg());
 		}
-		switch (arg) {
+		switch (fnCollect ? "link" : arg) {
 			case "link": {
 				if (!this.provisioner.canCreate(sender)) {
 					await this.sendMessage(roomId, "ERROR: You don't have permission to use this bridge");
@@ -34,8 +41,19 @@ export class BotProvisioner {
 					await this.sendMessage(roomId, "ERROR: The bridge is still starting up, please try again shortly");
 					break;
 				}
-				const retData = await this.bridge.hooks.getDataFromStr(param);
+				let retData: IRetData;
+				if (fnCollect) {
+					retData = await fnCollect(event.content.body);
+					this.fnCollectListeners.delete(sender);
+				} else {
+					retData = await this.bridge.hooks.getDataFromStr(param);
+				}
 				if (!retData.success) {
+					if (retData.fn) {
+						await this.sendMessage(roomId, `${retData.error}`);
+						this.fnCollectListeners.set(sender, retData.fn);
+						break;
+					}
 					await this.sendMessage(roomId, `ERROR: ${retData.error}`);
 					break;
 				}

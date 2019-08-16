@@ -92,11 +92,14 @@ export interface IFileEvent {
 	eventId?: string;
 }
 
+export type RetDataFn = (line: string) => Promise<IRetData>;
+
 export interface IRetData {
 	success: boolean;
 	error?: string;
 	data?: any;
 	userId?: string;
+	fn?: RetDataFn;
 }
 
 export interface IRetList {
