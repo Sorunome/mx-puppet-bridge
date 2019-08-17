@@ -205,7 +205,7 @@ export class BotProvisioner {
 		log.info(`Sending status message for puppetId ${puppetId}...`);
 		const mxid = await this.provisioner.getMxid(puppetId);
 		const info = await this.bridge.puppetStore.getOrCreateMxidInfo(mxid);
-		if (!info.statusRoom){
+		if (!info.statusRoom) {
 			// no status room present, nothing to do
 			log.info("No status room found");
 			return;
