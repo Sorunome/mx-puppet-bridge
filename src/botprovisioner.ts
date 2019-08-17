@@ -216,8 +216,8 @@ export class BotProvisioner {
 			log.error("Description is not found, this is very odd");
 			return;
 		}
-		const sendStr = `[Status] ${desc.desc}: ${msg}`;
-		const sendStrHtml = `[Status] ${desc.html}: ${md.render(msg)}`;
+		const sendStr = `[Status] ${puppetId}: ${desc.desc}: ${msg}`;
+		const sendStrHtml = `[Status] ${puppetId}: ${desc.html}: ${md.render(msg)}`;
 		await this.sendMessage(info.statusRoom, sendStr, sendStrHtml);
 	}
 
