@@ -3,6 +3,9 @@ import { Provisioner } from "./provisioner";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
 import * as escapeHtml from "escape-html";
+import * as MarkdownIt from "markdown-it";
+
+const md = new MarkdownIt();
 
 // tslint:disable-next-line:no-magic-numbers
 const MESSAGE_COLLECT_TIMEOUT = 1000 * 60;
@@ -25,6 +28,13 @@ export class BotProvisioner {
 		}
 		const roomId = event.room_id;
 		const sender = event.sender;
+		// update the status room entry, if needed
+		const senderInfo = await this.bridge.puppetStore.getOrCreateMxidInfo(sender);
+		if (senderInfo.statusRoom !== roomId) {
+			senderInfo.statusRoom = roomId;
+			await this.bridge.puppetStore.setMxidInfo(senderInfo);
+		}
+		// parse the argument and parameters of the message
 		const [_, arg, param] = event.content.body.split(/([^ ]*)(?: (.*))?/);
 		log.info(`Got message to process with arg=${arg}`);
 		const fnCollect = this.fnCollectListeners.get(sender);
@@ -189,6 +199,26 @@ export class BotProvisioner {
 				await this.sendMessage(roomId, "Available commands: help, list, link, " +
 					"unlink, setmatrixtoken, listusers, listchannels");
 		}
+	}
+
+	public async sendStatusMessage(puppetId: number, msg: string) {
+		log.info(`Sending status message for puppetId ${puppetId}...`);
+		const mxid = await this.provisioner.getMxid(puppetId);
+		const info = await this.bridge.puppetStore.getOrCreateMxidInfo(mxid);
+		if (!info.statusRoom){
+			// no status room present, nothing to do
+			log.info("No status room found");
+			return;
+		}
+		const desc = await this.provisioner.getDesc(mxid, puppetId);
+		if (!desc) {
+			// something went wrong
+			log.error("Description is not found, this is very odd");
+			return;
+		}
+		const sendStr = `[Status] ${desc.desc}: ${msg}`;
+		const sendStrHtml = `[Status] ${desc.html}: ${md.render(msg)}`;
+		await this.sendMessage(info.statusRoom, sendStr, sendStrHtml);
 	}
 
 	private async sendMessage(roomId: string, message: string, html?: string) {

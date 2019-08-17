@@ -23,6 +23,7 @@ export interface IMxidInfo {
 	avatarMxc: string | null;
 	avatarUrl: string | null;
 	token: string | null;
+	statusRoom: string | null;
 }
 
 export class DbPuppetStore {
@@ -45,6 +46,7 @@ export class DbPuppetStore {
 			name: row.name as string | null,
 			avatarMxc: row.avatar_mxc as string | null,
 			token: row.token as string | null,
+			statusRoom: row.status_room as string | null,
 		} as IMxidInfo;
 	}
 
@@ -61,6 +63,7 @@ export class DbPuppetStore {
 			name: null,
 			avatarMxc: null,
 			token: null,
+			statusRoom: null,
 		} as IMxidInfo;
 		await this.setMxidInfo(p);
 		this.mxidInfoLock.release(puppetMxid);
@@ -75,18 +78,21 @@ export class DbPuppetStore {
 				puppet_mxid,
 				name,
 				avatar_mxc,
-				token
+				token,
+				status_room
 			) VALUES (
 				$puppetMxid,
 				$name,
 				$avatarMxc,
-				$token
+				$token,
+				$statusRoom
 			)`;
 		} else {
 			query = `UPDATE puppet_mxid_store SET
 				name = $name,
 				avatar_mxc = $avatarMxc,
-				token = $token
+				token = $token,
+				status_room = $statusRoom
 				WHERE puppet_mxid = $puppetMxid`;
 		}
 		await this.db.Run(query, {
@@ -94,6 +100,7 @@ export class DbPuppetStore {
 			name: puppet.name || null,
 			avatarMxc: puppet.avatarMxc || null,
 			token: puppet.token || null,
+			statusRoom: puppet.statusRoom || null,
 		});
 	}
 

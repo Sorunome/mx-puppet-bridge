@@ -435,6 +435,10 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	public async sendStatusMessage(puppetId: number, msg: string) {
+		await this.botProvisioner.sendStatusMessage(puppetId, msg);
+	}
+
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("detect", params, thing, name);
 	}

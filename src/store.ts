@@ -10,7 +10,7 @@ import { DbEventStore } from "./db/eventstore";
 import { IDatabaseConnector } from "./db/connector";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 5;
+export const CURRENT_SCHEMA = 6;
 
 export class Store {
 	public db: IDatabaseConnector;
