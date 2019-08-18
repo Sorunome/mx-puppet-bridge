@@ -109,6 +109,22 @@ export class Provisioner {
 		return puppetId;
 	}
 
+	public async update(puppetMxid: string, puppetId: number, data: any, userId?: string) {
+		if (!this.canCreate(puppetMxid)) {
+			return;
+		}
+		const d = await this.get(puppetId);
+		if (!d || d.puppetMxid !== puppetMxid) {
+			return;
+		}
+		await this.setData(puppetId, data);
+		if (userId) {
+			await this.setUserId(puppetId, userId);
+		}
+		log.info(`Updating puppet with id ${puppetId}`);
+		this.bridge.emit("puppetNew", puppetId, data);
+	}
+
 	public async delete(puppetMxid: string, puppetId: number) {
 		log.info(`Deleting puppet with id ${puppetId}`);
 		const data = await this.get(puppetId);

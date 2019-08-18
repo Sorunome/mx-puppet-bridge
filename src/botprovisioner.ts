@@ -12,9 +12,14 @@ const MESSAGE_COLLECT_TIMEOUT = 1000 * 60;
 
 const log = new Log("BotProvisioner");
 
+interface IFnCollect {
+	fn: RetDataFn;
+	puppetId: number;
+}
+
 export class BotProvisioner {
 	private provisioner: Provisioner;
-	private fnCollectListeners: TimedCache<string, RetDataFn>;
+	private fnCollectListeners: TimedCache<string, IFnCollect>;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
@@ -42,7 +47,32 @@ export class BotProvisioner {
 			await this.sendMessage(roomId, this.bridge.hooks.botHeaderMsg());
 		}
 		switch (fnCollect ? "link" : arg) {
+			case "relink":
 			case "link": {
+				let puppetId = -1;
+				let parseParam = param;
+				if (fnCollect) {
+					puppetId = fnCollect.puppetId;
+				} else if (arg === "relink") {
+					const [__, pidStr, p] = param.split(/([^ ]*)(?: (.*))?/);
+					if (!param) {
+						await this.sendMessage(roomId, "ERROR: Need to specify parameters");
+						break;
+					}
+					const pid = parseInt(pidStr, 10);
+					// now we need to check if that pid is ours
+					const d = await this.provisioner.get(pid);
+					if (!d || d.puppetMxid !== sender) {
+						await this.sendMessage(roomId, "ERROR: PuppetID not found");
+						break;
+					}
+					puppetId = pid;
+					parseParam = p;
+				}
+				if (!parseParam) {
+					await this.sendMessage(roomId, "ERROR: Need to specify parameters");
+					break;
+				}
 				if (!this.provisioner.canCreate(sender)) {
 					await this.sendMessage(roomId, "ERROR: You don't have permission to use this bridge");
 					break;
@@ -53,22 +83,32 @@ export class BotProvisioner {
 				}
 				let retData: IRetData;
 				if (fnCollect) {
-					retData = await fnCollect(event.content.body);
+					retData = await fnCollect.fn(event.content.body);
 					this.fnCollectListeners.delete(sender);
 				} else {
-					retData = await this.bridge.hooks.getDataFromStr(param);
+					retData = await this.bridge.hooks.getDataFromStr(parseParam);
 				}
 				if (!retData.success) {
 					if (retData.fn) {
 						await this.sendMessage(roomId, `${retData.error}`);
-						this.fnCollectListeners.set(sender, retData.fn);
+						this.fnCollectListeners.set(sender, {
+							fn: retData.fn,
+							puppetId: -1,
+						});
 						break;
 					}
 					await this.sendMessage(roomId, `ERROR: ${retData.error}`);
 					break;
 				}
-				const puppetId = await this.provisioner.new(sender, retData.data, retData.userId);
-				await this.sendMessage(roomId, `Created new link with ID ${puppetId}`);
+				if (puppetId === -1) {
+					// we need to create a new link
+					puppetId = await this.provisioner.new(sender, retData.data, retData.userId);
+					await this.sendMessage(roomId, `Created new link with ID ${puppetId}`);
+				} else {
+					// we need to update an existing link
+					await this.provisioner.update(sender, puppetId, retData.data, retData.userId);
+					await this.sendMessage(roomId, `Updated link with ID ${puppetId}`);
+				}
 				break;
 			}
 			case "unlink": {
@@ -197,7 +237,7 @@ export class BotProvisioner {
 			}
 			default:
 				await this.sendMessage(roomId, "Available commands: help, list, link, " +
-					"unlink, setmatrixtoken, listusers, listchannels");
+					"unlink, relink, setmatrixtoken, listusers, listchannels");
 		}
 	}
 
