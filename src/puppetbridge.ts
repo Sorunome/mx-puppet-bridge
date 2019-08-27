@@ -362,17 +362,27 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
-		log.verbose(`Setting user presence for userId=${user.userId} to ${presence}`);
-		const client = await this.userSync.getClient(user);
-		const userId = await client.getUserId();
-		this.presenceHandler.set(userId, presence);
+		if (this.features.presence && this.config.presence.enabled) {
+			log.verbose(`Setting user presence for userId=${user.userId} to ${presence}`);
+			const client = await this.userSync.maybeGetClient(user);
+			if (!client) {
+				return;
+			}
+			const userId = await client.getUserId();
+			this.presenceHandler.set(userId, presence);
+		}
 	}
 
 	public async setUserStatus(user: IRemoteUser, status: string) {
-		log.verbose(`Setting user status for userId=${user.userId} to ${status}`);
-		const client = await this.userSync.getClient(user);
-		const userId = await client.getUserId();
-		this.presenceHandler.setStatus(userId, status);
+		if (this.features.presence && this.config.presence.enabled) {
+			log.verbose(`Setting user status for userId=${user.userId} to ${status}`);
+			const client = await this.userSync.maybeGetClient(user);
+			if (!client) {
+				return;
+			}
+			const userId = await client.getUserId();
+			this.presenceHandler.setStatus(userId, status);
+		}
 	}
 
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {
@@ -647,7 +657,10 @@ export class PuppetBridge extends EventEmitter {
 		if (!mxid) {
 			return null;
 		}
-		const client = await this.userSync.getClient(params.user);
+		const client = await this.userSync.maybeGetClient(params.user);
+		if (!client) {
+			return null;
+		}
 		return { client, mxid };
 	}
 

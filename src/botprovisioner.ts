@@ -53,12 +53,9 @@ export class BotProvisioner {
 				let parseParam = param;
 				if (fnCollect) {
 					puppetId = fnCollect.puppetId;
+					parseParam = event.content.body;
 				} else if (arg === "relink") {
 					const [__, pidStr, p] = param.split(/([^ ]*)(?: (.*))?/);
-					if (!param) {
-						await this.sendMessage(roomId, "ERROR: Need to specify parameters");
-						break;
-					}
 					const pid = parseInt(pidStr, 10);
 					// now we need to check if that pid is ours
 					const d = await this.provisioner.get(pid);
@@ -70,8 +67,7 @@ export class BotProvisioner {
 					parseParam = p;
 				}
 				if (!parseParam) {
-					await this.sendMessage(roomId, "ERROR: Need to specify parameters");
-					break;
+					parseParam = "";
 				}
 				if (!this.provisioner.canCreate(sender)) {
 					await this.sendMessage(roomId, "ERROR: You don't have permission to use this bridge");
