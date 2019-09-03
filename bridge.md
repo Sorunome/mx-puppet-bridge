@@ -221,6 +221,12 @@ params: IReceiveParams;
 typing: boolean;
 ```
 
+### sendReadReceipt
+`sendReadReceipt` senda a read receipt
+```ts
+params: IReceiveParams; // eventId is required in this case
+```
+
 ### setUserPresence
 `setUserPresence` sets the presence of a user
 ```ts

@@ -394,6 +394,18 @@ export class PuppetBridge extends EventEmitter {
 		await this.typingHandler.set(await ret.client.getUserId(), ret.mxid, typing);
 	}
 
+	public async sendReadReceipt(params: IReceiveParams) {
+		log.verbose(`Got request to send read indicators for userId=${params.user.userId} in roomId=${params.chan.roomId}`);
+		const ret = await this.maybePrepareSend(params);
+		if (!ret || !params.eventId) {
+			return;
+		}
+		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, params.eventId);
+		for (const origEvent of origEvents) {
+			await ret.client.sendReadReceipt(ret.mxid, origEvent);
+		}
+	}
+
 	public async getMxidForUser(user: IRemoteUser, doublePuppetCheck: boolean = true): Promise<string> {
 		if (doublePuppetCheck) {
 			const puppetData = await this.provisioner.get(user.puppetId);

@@ -10,3 +10,4 @@ A puppeting bridge is a bridge which logs into a remote account of a service for
  - [Tox](https://github.com/Sorunome/mx-puppet-tox)
  - [Discord](https://github.com/matrix-discord/mx-puppet-discord)
  - [Instagram](https://github.com/Sorunome/mx-puppet-instagram)
+ - [Twitter](https://github.com/Sorunome/mx-puppet-twitter)
