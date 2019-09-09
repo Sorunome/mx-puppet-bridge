@@ -106,12 +106,12 @@ export class Store {
 	}
 
 	private async openDatabase(): Promise<void|Error> {
-		if (this.config.filename) {
-			log.info("Filename present in config, using sqlite");
-			this.db = new SQLite3(this.config.filename);
-		} else if (this.config.connString) {
+		if (this.config.connString) {
 			log.info("connString present in config, using postgres");
 			this.db = new Postgres(this.config.connString);
+		} else if (this.config.filename) {
+			log.info("Filename present in config, using sqlite");
+			this.db = new SQLite3(this.config.filename);
 		}
 		try {
 			this.db.Open();

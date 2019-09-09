@@ -185,13 +185,20 @@ export class PuppetBridge extends EventEmitter {
 				// Spammy logs begon
 				return;
 			}
-			const mod =  "bot-sdk-" + module;
+			let mod = "bot-sdk-" + module;
+			const modParts = module.match(/^(\S+)\s(.*)/)
+			if (modParts) {
+				if (modParts[2]) {
+					args.unshift(modParts[2]);
+				}
+				mod = "bot-sdk-" + modParts[1];
+			}
 			let logger = logMap.get(mod);
 			if (!logger) {
 				logger = new Log(mod);
 				logMap.set(mod, logger);
 			}
-			logger[level](args);
+			logger[level](...args);
 		};
 
 		LogService.setLogger({
