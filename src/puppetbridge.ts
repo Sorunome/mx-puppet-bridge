@@ -993,6 +993,10 @@ export class PuppetBridge extends EventEmitter {
 		if (this.appservice.isNamespacedUser(inviteId)) {
 			return; // our bridge did the invite, ignore additional handling
 		}
+		const room = await this.chanSync.getRemoteHandler(event.room_id);
+		if (room) {
+			return; // we are an existing room, meaning a double-puppeted user probably auto-invited. Do nothing
+		}
 		log.info(`Processing invite for ${userId} by ${inviteId}`);
 		const intent = this.appservice.getIntentForUserId(userId);
 		if (!this.hooks.getDmRoomId || !this.hooks.createChan) {
