@@ -8,7 +8,6 @@ const log = new Log("Provisioner");
 export interface IProvisionerDesc {
 	puppetId: number;
 	desc: string;
-	html: string;
 }
 
 export interface ITokenResponse {
@@ -158,13 +157,11 @@ export class Provisioner {
 			return {
 				puppetId: data.puppetId,
 				desc: `${data.puppetMxid} (${data.puppetId})`,
-				html: `${data.puppetMxid} (${data.puppetId})`,
 			} as IProvisionerDesc;
 		}
 		return {
 			puppetId: data.puppetId,
-			desc: await this.bridge.hooks.getDesc(data.puppetId, data.data, false),
-			html: await this.bridge.hooks.getDesc(data.puppetId, data.data, true),
+			desc: await this.bridge.hooks.getDesc(data.puppetId, data.data),
 		} as IProvisionerDesc;
 	}
 }

@@ -1,6 +1,6 @@
 {
   "name": "mx-puppet-bridge",
-  "version": "0.0.12-1",
+  "version": "0.0.13",
   "description": "Matrix Puppeting Bridge library",
   "repository": {
     "type": "git",
@@ -19,7 +19,6 @@
   "author": "Sorunome",
   "dependencies": {
     "better-sqlite3": "^5.4.0",
-    "escape-html": "^1.0.3",
     "events": "^3.0.0",
     "file-type": "^12.0.0",
     "hasha": "^5.0.0",

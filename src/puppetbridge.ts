@@ -110,7 +110,7 @@ export interface IRetList {
 
 export type CreateChanHook = (chan: IRemoteChan) => Promise<IRemoteChan | null>;
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
-export type GetDescHook = (puppetId: number, data: any, html: boolean) => Promise<string>;
+export type GetDescHook = (puppetId: number, data: any) => Promise<string>;
 export type BotHeaderMsgHook = () => string;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;
@@ -186,12 +186,14 @@ export class PuppetBridge extends EventEmitter {
 				return;
 			}
 			let mod = "bot-sdk-" + module;
-			const modParts = module.match(/^(\S+)\s(.*)/)
+			const modParts = module.match(/^(\S+)\s(.*)/);
+			const MOD_PART_MODULE = 1;
+			const MOD_PART_EXTRA = 2;
 			if (modParts) {
-				if (modParts[2]) {
-					args.unshift(modParts[2]);
+				if (modParts[MOD_PART_EXTRA]) {
+					args.unshift(modParts[MOD_PART_EXTRA]);
 				}
-				mod = "bot-sdk-" + modParts[1];
+				mod = "bot-sdk-" + modParts[MOD_PART_MODULE];
 			}
 			let logger = logMap.get(mod);
 			if (!logger) {

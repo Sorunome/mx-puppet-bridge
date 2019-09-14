@@ -2,7 +2,6 @@ import { PuppetBridge, RetDataFn, IRetData } from "./puppetbridge";
 import { Provisioner } from "./provisioner";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
-import * as escapeHtml from "escape-html";
 import * as MarkdownIt from "markdown-it";
 
 const md = new MarkdownIt();
@@ -133,13 +132,10 @@ export class BotProvisioner {
 					break;
 				}
 				let sendStr = "Links:\n";
-				let html = "<p>Links:</p><ul>";
 				for (const d of descs) {
-					sendStr += `${d.puppetId}: ${d.desc}\n`;
-					html += `<li>${d.puppetId}: ${d.html}</li>`;
+					sendStr += ` - ${d.puppetId}: ${d.desc}\n`;
 				}
-				html += "</ul>";
-				await this.sendMessage(roomId, sendStr, html);
+				await this.sendMessage(roomId, sendStr);
 				break;
 			}
 			case "setmatrixtoken": {
@@ -170,29 +166,22 @@ export class BotProvisioner {
 					break;
 				}
 				let reply = "";
-				let replyHtml = "";
 				for (const d of descs) {
 					const users = await this.bridge.hooks.listUsers(d.puppetId);
-					reply += `${d.puppetId}: ${d.desc}:\n\n`;
-					replyHtml += `<h2>${d.puppetId}: ${d.html}:</h2><ul>`;
+					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
 					for (const u of users) {
-						const nameHtml = escapeHtml(u.name);
 						if (u.category) {
-							reply += `${u.name}:\n`;
-							replyHtml += `</ul><h3>${nameHtml}</h3><ul>`;
+							reply += `\n### ${u.name}:\n\n`;
 							continue;
 						}
-						reply += ` - ${u.name}\n`;
 						const mxid = await this.bridge.getMxidForUser({
 							puppetId: d.puppetId,
 							userId: u.id!,
 						}, false);
-						const pill = `<a href="https://matrix.to/#/${escapeHtml(mxid)}">${nameHtml}</a>`;
-						replyHtml += `<li>${nameHtml}: ${pill}</li>`;
+						reply += ` - [${u.name}](https://matrix.to/#/${mxid})\n`;
 					}
-					replyHtml += "</ul>";
 				}
-				await this.sendMessage(roomId, reply, replyHtml);
+				await this.sendMessage(roomId, reply);
 				break;
 			}
 			case "listchannels": {
@@ -206,29 +195,22 @@ export class BotProvisioner {
 					break;
 				}
 				let reply = "";
-				let replyHtml = "";
 				for (const d of descs) {
 					const chans = await this.bridge.hooks.listChans(d.puppetId);
-					reply += `${d.puppetId}: ${d.desc}:\n\n`;
-					replyHtml += `<h2>${d.puppetId}: ${d.html}:</h2><ul>`;
+					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
 					for (const c of chans) {
-						const nameHtml = escapeHtml(c.name);
 						if (c.category) {
-							reply += `${c.name}:\n`;
-							replyHtml += `</ul><h3>${nameHtml}</h3><ul>`;
+							reply += `\n### ${c.name}:\n\n`;
 							continue;
 						}
-						reply += ` - ${c.name}\n`;
 						const mxid = await this.bridge.getMxidForChan({
 							puppetId: d.puppetId,
 							roomId: c.id!,
 						});
-						const pill = `<a href="https://matrix.to/#/${escapeHtml(mxid)}">${nameHtml}</a>`;
-						replyHtml += `<li>${nameHtml}: ${pill}</li>`;
+						reply += ` - [${c.name}](https://matrix.to/#/${mxid})\n`;
 					}
-					replyHtml += "</ul>";
 				}
-				await this.sendMessage(roomId, reply, replyHtml);
+				await this.sendMessage(roomId, reply);
 				break;
 			}
 			default:
@@ -253,20 +235,16 @@ export class BotProvisioner {
 			return;
 		}
 		const sendStr = `[Status] ${puppetId}: ${desc.desc}: ${msg}`;
-		const sendStrHtml = `[Status] ${puppetId}: ${desc.html}: ${md.render(msg)}`;
-		await this.sendMessage(info.statusRoom, sendStr, sendStrHtml);
+		await this.sendMessage(info.statusRoom, sendStr);
 	}
 
-	private async sendMessage(roomId: string, message: string, html?: string) {
-		if (!html) {
-			await this.bridge.botIntent.sendText(roomId, message, "m.notice");
-		} else {
-			await this.bridge.botIntent.underlyingClient.sendMessage(roomId, {
-				msgtype: "m.notice",
-				body: message,
-				formatted_body: html,
-				format: "org.matrix.custom.html",
-			});
-		}
+	private async sendMessage(roomId: string, message: string) {
+		const html = md.render(message);
+		await this.bridge.botIntent.underlyingClient.sendMessage(roomId, {
+			msgtype: "m.notice",
+			body: message,
+			formatted_body: html,
+			format: "org.matrix.custom.html",
+		});
 	}
 }
