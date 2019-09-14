@@ -64,13 +64,18 @@ export class UserSyncroniser {
 		return client;
 	}
 
+	public async getPuppetClient(puppetId: number): Promise<MatrixClient | null> {
+		const token = await this.bridge.provisioner.getToken(puppetId);
+		const puppetClient = await this.getClientFromTokenCallback(token);
+		return puppetClient ? puppetClient : null;
+	}
+
 	public async getClient(data: IRemoteUser): Promise<MatrixClient> {
 		// first we look if we can puppet this user to the matrix side
 		log.silly("Start of getClient request");
 		const puppetData = await this.bridge.provisioner.get(data.puppetId);
 		if (puppetData && puppetData.userId === data.userId) {
-			const token = await this.bridge.provisioner.getToken(data.puppetId);
-			const puppetClient = await this.getClientFromTokenCallback(token);
+			const puppetClient = await this.getPuppetClient(data.puppetId);
 			if (puppetClient) {
 				return puppetClient;
 			}

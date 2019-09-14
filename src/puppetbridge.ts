@@ -700,16 +700,13 @@ export class PuppetBridge extends EventEmitter {
 
 		// ensure that the intent is in the room
 		if (this.appservice.isNamespacedUser(userId)) {
+			log.silly("Joining ghost to room...");
 			const intent = this.appservice.getIntentForUserId(userId);
 			await intent.ensureRegisteredAndJoined(mxid);
 		}
 
 		// ensure our puppeted user is in the room
 		const cacheKey = `${params.chan.puppetId}_${mxid}`;
-		if (created) {
-			// we just invited if we freshly created
-			this.ghostInviteCache.set(cacheKey, true);
-		}
 		try {
 			const cache = this.ghostInviteCache.get(cacheKey);
 			if (!cache) {
@@ -719,8 +716,19 @@ export class PuppetBridge extends EventEmitter {
 				}
 				// we can't really invite ourself...
 				if (await inviteClient.getUserId() !== puppetMxid) {
-					await client.inviteUser(puppetMxid, mxid);
+					// we just invited if we created, don't try to invite again
+					if (!created) {
+						log.silly("Inviting puppet to room...");
+						await client.inviteUser(puppetMxid, mxid);
+					}
 					this.ghostInviteCache.set(cacheKey, true);
+
+					// let's try to also join the room, if we use double-puppeting
+					const puppetClient = await this.userSync.getPuppetClient(params.chan.puppetId);
+					if (puppetClient) {
+						log.silly("Joining the room...");
+						await puppetClient.joinRoom(mxid);
+					}
 				}
 			}
 		} catch (err) {
