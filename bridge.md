@@ -184,6 +184,7 @@ opts: IMessageEvent; // what to send
 params: IReceiveParams; // channel and user who made the edit
 eventId: string; // the remote event ID that got edited
 opts: IMessageEvent; // the new message
+ix: number = 0; // optional, index of the message to edit, if multiple are found
 ```
 
 ### sendRedact

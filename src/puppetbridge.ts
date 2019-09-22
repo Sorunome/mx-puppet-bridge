@@ -514,7 +514,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent) {
+	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
 		log.verbose(`Received edit to send`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
@@ -524,7 +524,15 @@ export class PuppetBridge extends EventEmitter {
 			msgtype = "m.notice";
 		}
 		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
-		const origEvent = origEvents[0];
+		if (ix < 0) {
+			// negative indexes are from the back
+			ix = origEvents.length + ix;
+		}
+		if (ix >= origEvents.length) {
+			// sanity check on the index
+			ix = 0;
+		}
+		const origEvent = origEvents[ix];
 		const send = {
 			"msgtype": msgtype,
 			"body": `* ${opts.body}`,
