@@ -207,7 +207,7 @@ export class BotProvisioner {
 							puppetId: d.puppetId,
 							roomId: c.id!,
 						});
-						reply += ` - [${c.name}](https://matrix.to/#/${mxid})\n`;
+						reply += ` - ${c.name}: [${c.name}](https://matrix.to/#/${mxid})\n`;
 					}
 				}
 				await this.sendMessage(roomId, reply);
