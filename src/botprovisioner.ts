@@ -32,6 +32,7 @@ export class BotProvisioner {
 		}
 		const roomId = event.room_id;
 		const sender = event.sender;
+		const maxMsgSize = 4000;
 		// update the status room entry, if needed
 		const senderInfo = await this.bridge.puppetStore.getOrCreateMxidInfo(sender);
 		if (senderInfo.statusRoom !== roomId) {
@@ -133,7 +134,12 @@ export class BotProvisioner {
 				}
 				let sendStr = "Links:\n";
 				for (const d of descs) {
-					sendStr += ` - ${d.puppetId}: ${d.desc}\n`;
+					const sendStrPart = ` - ${d.puppetId}: ${d.desc}\n`;
+					if (sendStr.length + sendStrPart.length > maxMsgSize) {
+						await this.sendMessage(roomId, sendStr);
+						sendStr = "";
+					}
+					sendStr += sendStrPart;
 				}
 				await this.sendMessage(roomId, sendStr);
 				break;
@@ -170,15 +176,21 @@ export class BotProvisioner {
 					const users = await this.bridge.hooks.listUsers(d.puppetId);
 					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
 					for (const u of users) {
+						let replyPart = "";
 						if (u.category) {
-							reply += `\n### ${u.name}:\n\n`;
-							continue;
+							replyPart = `\n### ${u.name}:\n\n`;
+						} else {
+							const mxid = await this.bridge.getMxidForUser({
+								puppetId: d.puppetId,
+								userId: u.id!,
+							}, false);
+							replyPart = ` - [${u.name}](https://matrix.to/#/${mxid})\n`;
 						}
-						const mxid = await this.bridge.getMxidForUser({
-							puppetId: d.puppetId,
-							userId: u.id!,
-						}, false);
-						reply += ` - [${u.name}](https://matrix.to/#/${mxid})\n`;
+						if (reply.length + replyPart.length > maxMsgSize) {
+							await this.sendMessage(roomId, reply);
+							reply = "";
+						}
+						reply += replyPart;
 					}
 				}
 				await this.sendMessage(roomId, reply);
@@ -199,15 +211,21 @@ export class BotProvisioner {
 					const chans = await this.bridge.hooks.listChans(d.puppetId);
 					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
 					for (const c of chans) {
+						let replyPart = "";
 						if (c.category) {
-							reply += `\n### ${c.name}:\n\n`;
-							continue;
+							replyPart = `\n### ${c.name}:\n\n`;
+						} else {
+							const mxid = await this.bridge.getMxidForChan({
+								puppetId: d.puppetId,
+								roomId: c.id!,
+							});
+							replyPart = ` - ${c.name}: [${c.name}](https://matrix.to/#/${mxid})\n`;
 						}
-						const mxid = await this.bridge.getMxidForChan({
-							puppetId: d.puppetId,
-							roomId: c.id!,
-						});
-						reply += ` - ${c.name}: [${c.name}](https://matrix.to/#/${mxid})\n`;
+						if (reply.length + replyPart.length > maxMsgSize) {
+							await this.sendMessage(roomId, reply);
+							reply = "";
+						}
+						reply += replyPart;
 					}
 				}
 				await this.sendMessage(roomId, reply);
