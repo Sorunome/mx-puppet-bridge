@@ -8,6 +8,7 @@ const md = new MarkdownIt();
 
 // tslint:disable-next-line:no-magic-numbers
 const MESSAGE_COLLECT_TIMEOUT = 1000 * 60;
+const MAX_MSG_SIZE = 4000;
 
 const log = new Log("BotProvisioner");
 
@@ -32,7 +33,6 @@ export class BotProvisioner {
 		}
 		const roomId = event.room_id;
 		const sender = event.sender;
-		const maxMsgSize = 4000;
 		// update the status room entry, if needed
 		const senderInfo = await this.bridge.puppetStore.getOrCreateMxidInfo(sender);
 		if (senderInfo.statusRoom !== roomId) {
@@ -135,7 +135,7 @@ export class BotProvisioner {
 				let sendStr = "Links:\n";
 				for (const d of descs) {
 					const sendStrPart = ` - ${d.puppetId}: ${d.desc}\n`;
-					if (sendStr.length + sendStrPart.length > maxMsgSize) {
+					if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 						await this.sendMessage(roomId, sendStr);
 						sendStr = "";
 					}
@@ -186,7 +186,7 @@ export class BotProvisioner {
 							}, false);
 							replyPart = ` - [${u.name}](https://matrix.to/#/${mxid})\n`;
 						}
-						if (reply.length + replyPart.length > maxMsgSize) {
+						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
 							await this.sendMessage(roomId, reply);
 							reply = "";
 						}
@@ -221,7 +221,7 @@ export class BotProvisioner {
 							});
 							replyPart = ` - ${c.name}: [${c.name}](https://matrix.to/#/${mxid})\n`;
 						}
-						if (reply.length + replyPart.length > maxMsgSize) {
+						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
 							await this.sendMessage(roomId, reply);
 							reply = "";
 						}
