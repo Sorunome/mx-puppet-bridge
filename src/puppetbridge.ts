@@ -134,8 +134,8 @@ export class PuppetBridge extends EventEmitter {
 	public hooks: IPuppetBridgeHooks;
 	public config: MxBridgeConfig;
 	public provisioner: Provisioner;
+	public store: Store;
 	private appservice: Appservice;
-	private store: Store;
 	private ghostInviteCache: TimedCache<string, boolean>;
 	private botProvisioner: BotProvisioner;
 	private presenceHandler: PresenceHandler;

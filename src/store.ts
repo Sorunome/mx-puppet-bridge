@@ -12,6 +12,8 @@ const log = new Log("Store");
 
 export const CURRENT_SCHEMA = 6;
 
+type GetSchemaClass = (version: number) => IDbSchema;
+
 export class Store {
 	public db: IDatabaseConnector;
 	private pChanStore: DbChanStore;
@@ -37,15 +39,24 @@ export class Store {
 		return this.pEventStore;
 	}
 
-	public async init(overrideSchema: number = 0): Promise<void> {
+	public async init(
+		overrideSchema: number = 0,
+		table: string = "schema",
+		getSchemaClass?: GetSchemaClass,
+	): Promise<void> {
 		log.info("Starting DB Init");
 		await this.openDatabase();
-		let version = await this.getSchemaVersion();
+		let version = await this.getSchemaVersion(table);
 		const targetSchema = overrideSchema || CURRENT_SCHEMA;
 		log.info(`Database schema version is ${version}, latest version is ${targetSchema}`);
 		while (version < targetSchema) {
 			version++;
-			const schemaClass = require(`./db/schema/v${version}.js`).Schema;
+			let schemaClass;
+			if (getSchemaClass) {
+				schemaClass = getSchemaClass(version);
+			} else {
+				schemaClass = require(`./db/schema/v${version}.js`).Schema;
+			}
 			const schema = new schemaClass();
 			log.info(`Updating database to v${version}, "${schema.description}"`);
 			try {
@@ -63,7 +74,7 @@ export class Store {
 				}
 				throw Error("Failure to update to latest schema.");
 			}
-			await this.setSchemaVersion(version);
+			await this.setSchemaVersion(version, table);
 		}
 	}
 
@@ -83,11 +94,12 @@ export class Store {
 		}
 	}
 
-	private async getSchemaVersion(): Promise<number> {
-		log.silly("_get_schema_version");
+	private async getSchemaVersion(table: string = "schema"): Promise<number> {
+		log.silly(`_get_${table}_version`);
 		let version = 0;
 		try {
-			const versionReply = await this.db.Get(`SELECT version FROM schema`);
+			// insecurely adding the table as it is in-code
+			const versionReply = await this.db.Get(`SELECT version FROM ${table}`);
 			version = versionReply!.version as number;
 		} catch (er) {
 			log.warn("Couldn't fetch schema version, defaulting to 0");
@@ -95,11 +107,12 @@ export class Store {
 		return version;
 	}
 
-	private async setSchemaVersion(ver: number): Promise<void> {
-		log.silly("_set_schema_version => ", ver);
+	private async setSchemaVersion(ver: number, table: string = "schema"): Promise<void> {
+		log.silly(`_set_${table}_version => `, ver);
+		// insecurely adding the table as it is in-code
 		await this.db.Run(
 			`
-			UPDATE schema
+			UPDATE ${table}
 			SET version = $ver
 			`, {ver},
 		);
