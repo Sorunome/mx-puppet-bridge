@@ -292,9 +292,27 @@ export class PuppetBridge extends EventEmitter {
 			registration: registration as IAppserviceRegistration,
 			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
-		this.appservice.on("room.event", this.handleRoomEvent.bind(this));
-		this.appservice.on("room.invite", this.handleInviteEvent.bind(this));
-		this.appservice.on("query.room", this.handleRoomQuery.bind(this));
+		this.appservice.on("room.event", async (roomId: string, event: any) => {
+			try {
+				await this.handleRoomEvent(roomId, event);
+			} catch (err) {
+				log.error("Error handling appservice room.event", err);
+			}
+		});
+		this.appservice.on("room.invite", async (roomId: string, event: any) => {
+			try {
+				await this.handleInviteEvent(roomId, event);
+			} catch (err) {
+				log.error("Error handling appservice room.invite", err);
+			}
+		});
+		this.appservice.on("query.room", async (alias: string, createRoom: any) => {
+			try {
+				await this.handleRoomQuery(alias, createRoom);
+			} catch (err) {
+				log.error("Error handling appservice query.room", err);
+			}
+		});
 		await this.appservice.begin();
 		log.info("Application service started!");
 		log.info("Activating users...");
