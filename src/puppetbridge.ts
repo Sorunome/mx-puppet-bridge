@@ -236,7 +236,7 @@ export class PuppetBridge extends EventEmitter {
 				}],
 			},
 			protocols: [ ],
-			rate_limit: false,
+			rate_limited: false,
 			sender_localpart: opts.botUser,
 			url: opts.url,
 		} as IAppserviceRegistration;
