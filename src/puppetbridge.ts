@@ -10,6 +10,7 @@ import {
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
+import * as escapeHtml from "escape-html";
 import { ChannelSyncroniser, IRemoteChan } from "./channelsyncroniser";
 import { UserSyncroniser, IRemoteUser } from "./usersyncroniser";
 import { MxBridgeConfig } from "./config";
@@ -846,6 +847,27 @@ export class PuppetBridge extends EventEmitter {
 		this.emit("message", room, msgData, event);
 	}
 
+	private applyRelaybotFormatting(sender: string, content: any) {
+		if (content["m.new_content"]) {
+			this.applyRelaybotFormatting(sender, content["m.new_content"]);
+			return;
+		}
+		if (content.msgtype === "m.text" || content.msgtype === "m.notice") {
+			const formattedBody = content.formatted_body || escapeHtml(content.body).replace("\n", "<br>");
+			content.formatted_body = `<strong>${sender}</strong>: ${formattedBody}`;
+			content.body = `${sender}: ${content.body}`;
+		} else {
+			const typeMap = {
+				"m.image": "an image",
+				"m.file": "a file",
+				"m.video": "a video",
+				"m.sticker": "a sticker",
+				"m.audio": "an audio file",
+			};
+			content.body = `${sender} sent ${typeMap[content.msgtype]}`;
+		}
+	}
+
 	private async handleRoomEvent(roomId: string, event: any) {
 		if (event.type === "m.room.member" && event.content) {
 			switch (event.content.membership) {
@@ -878,7 +900,13 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
 		if (event.sender !== puppetMxid) {
-			return; // this isn't our puppeted user, so let's not do anything
+			if (!this.config.relay) {
+				return; // relaying not enabled, don't allow message from other user
+			} else if (!this.provisioner.canCreate(event.sender)) {
+				return; // no permissions to be relayed
+			}
+			this.applyRelaybotFormatting(event.sender, event.content);
+			event.sender = puppetMxid;
 		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		if (event.content.source === "remote") {
