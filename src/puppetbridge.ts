@@ -900,7 +900,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
 		if (event.sender !== puppetMxid) {
-			if (!this.config.relay) {
+			if (!this.config.relay.enabled) {
 				return; // relaying not enabled, don't allow message from other user
 			} else if (!this.provisioner.canCreate(event.sender)) {
 				return; // no permissions to be relayed

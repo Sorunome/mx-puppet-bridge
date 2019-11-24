@@ -4,7 +4,7 @@ export class MxBridgeConfig {
 	public database: MxBridgeConfigDatabase = new MxBridgeConfigDatabase();
 	public provisioning: MxBridgeConfigProvisioning = new MxBridgeConfigProvisioning();
 	public presence: MxBridgeConfigPresence = new MxBridgeConfigPresence();
-	public relay: boolean = false;
+	public relay: MxBridgeConfigRelay = new MxBridgeConfigRelay();
 
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
 		Object.keys(newConfig).forEach((key) => {
@@ -53,4 +53,8 @@ class MxBridgeConfigProvisioning {
 class MxBridgeConfigPresence {
 	public enabled: boolean = true;
 	public interval: number = 500;
+}
+
+class MxBridgeConfigRelay {
+	public enabled: boolean = false;
 }
