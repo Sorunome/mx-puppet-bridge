@@ -660,7 +660,8 @@ export class PuppetBridge extends EventEmitter {
 		if (userId in roomDisplaynameCache) {
 			return roomDisplaynameCache[userId];
 		}
-		const memberInfo = await this.appservice.botClient.getRoomStateEvent(roomId, "m.room.member", userId);
+		const client = await this.chanSync.getChanOp(roomId) || this.appservice.botClient;
+		const memberInfo = await client.getRoomStateEvent(roomId, "m.room.member", userId);
 		this.updateCachedRoomMemberInfo(roomId, userId, memberInfo);
 		return memberInfo;
 	}
