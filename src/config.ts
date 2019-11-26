@@ -48,8 +48,6 @@ export class MxBridgeConfigDatabase {
 class MxBridgeConfigProvisioning {
 	public whitelist: string[] = [];
 	public blacklist: string[] = [];
-	public relayWhitelist: string[] = [];
-	public relayBlacklist: string[] = [];
 }
 
 class MxBridgeConfigPresence {
@@ -59,4 +57,6 @@ class MxBridgeConfigPresence {
 
 class MxBridgeConfigRelay {
 	public enabled: boolean = false;
+	public whitelist: string[] = [];
+	public blacklist: string[] = [];
 }

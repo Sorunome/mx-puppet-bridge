@@ -88,8 +88,8 @@ export class Provisioner {
 	}
 
 	public canRelay(mxid: string): boolean {
-		return this.isWhitelisted(mxid, this.bridge.config.provisioning.relayWhitelist,
-			this.bridge.config.provisioning.relayBlacklist);
+		return this.isWhitelisted(mxid, this.bridge.config.relay.whitelist,
+			this.bridge.config.relay.blacklist);
 	}
 
 	public async new(puppetMxid: string, data: any, userId?: string): Promise<number> {
