@@ -83,19 +83,13 @@ export class Provisioner {
 	}
 
 	public canCreate(mxid: string): boolean {
-		for (const b of this.bridge.config.provisioning.blacklist) {
-			if (mxid.match(b)) {
-				return false;
-			}
-		}
-		let whitelisted = false;
-		for (const w of this.bridge.config.provisioning.whitelist) {
-			if (mxid.match(w)) {
-				whitelisted = true;
-				break;
-			}
-		}
-		return whitelisted;
+		return this.isWhitelisted(mxid, this.bridge.config.provisioning.whitelist,
+			this.bridge.config.provisioning.blacklist);
+	}
+
+	public canRelay(mxid: string): boolean {
+		return this.isWhitelisted(mxid, this.bridge.config.provisioning.relayWhitelist,
+			this.bridge.config.provisioning.relayBlacklist);
 	}
 
 	public async new(puppetMxid: string, data: any, userId?: string): Promise<number> {
@@ -163,5 +157,21 @@ export class Provisioner {
 			puppetId: data.puppetId,
 			desc: await this.bridge.hooks.getDesc(data.puppetId, data.data),
 		} as IProvisionerDesc;
+	}
+
+	private isWhitelisted(mxid: string, whitelist: string[], blacklist: string[]): boolean {
+		for (const b of blacklist) {
+			if (mxid.match(b)) {
+				return false;
+			}
+		}
+		let whitelisted = false;
+		for (const w of whitelist) {
+			if (mxid.match(w)) {
+				whitelisted = true;
+				break;
+			}
+		}
+		return whitelisted;
 	}
 }
