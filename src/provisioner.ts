@@ -165,13 +165,11 @@ export class Provisioner {
 				return false;
 			}
 		}
-		let whitelisted = false;
 		for (const w of whitelist) {
 			if (mxid.match(w)) {
-				whitelisted = true;
-				break;
+				return true;
 			}
 		}
-		return whitelisted;
+		return false;
 	}
 }
