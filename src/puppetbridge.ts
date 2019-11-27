@@ -935,13 +935,10 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
 		if (event.sender !== puppetMxid) {
-			if (!this.config.relay.enabled) {
-				return; // relaying not enabled, don't allow message from other user
-			} else if (!this.provisioner.canRelay(event.sender)) {
-				return; // no permissions to be relayed
+			if (!this.config.relay.enabled || !this.provisioner.canRelay(event.sender)) {
+				return; // relaying not enabled or no permission to be relayed
 			}
 			await this.applyRelayFormatting(event.room_id, event.sender, event.content);
-			event.sender = puppetMxid;
 		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		if (event.content.source === "remote") {
