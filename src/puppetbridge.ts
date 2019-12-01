@@ -10,6 +10,7 @@ import {
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
+import * as escapeHtml from "escape-html";
 import { ChannelSyncroniser, IRemoteChan } from "./channelsyncroniser";
 import { UserSyncroniser, IRemoteUser } from "./usersyncroniser";
 import { MxBridgeConfig } from "./config";
@@ -92,6 +93,12 @@ export interface IFileEvent {
 	eventId?: string;
 }
 
+export interface IMemberInfo {
+	membership: string;
+	displayname?: string | null;
+	avatar_url?: string | null;
+}
+
 export type RetDataFn = (line: string) => Promise<IRetData>;
 
 export interface IRetData {
@@ -140,6 +147,7 @@ export class PuppetBridge extends EventEmitter {
 	private botProvisioner: BotProvisioner;
 	private presenceHandler: PresenceHandler;
 	private typingHandler: TypingHandler;
+	private memberInfoCache: { [roomId: string]: { [userId: string]: IMemberInfo } };
 
 	constructor(
 		private registrationPath: string,
@@ -174,6 +182,8 @@ export class PuppetBridge extends EventEmitter {
 		this.typingHandler = new TypingHandler(this, this.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
 
 		this.botProvisioner = new BotProvisioner(this);
+
+		this.memberInfoCache = {};
 
 		// pipe matrix-bot-sdk logging int ours
 		const logMap = new Map<string, Log>();
@@ -645,6 +655,32 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	public async getRoomMemberInfo(roomId: string, userId: string): Promise<IMemberInfo> {
+		const roomDisplaynameCache = this.getRoomDisplaynameCache(roomId);
+		if (userId in roomDisplaynameCache) {
+			return roomDisplaynameCache[userId];
+		}
+		const client = await this.chanSync.getChanOp(roomId) || this.appservice.botClient;
+		const memberInfo = await client.getRoomStateEvent(roomId, "m.room.member", userId);
+		this.updateCachedRoomMemberInfo(roomId, userId, memberInfo);
+		return memberInfo;
+	}
+
+	private getRoomDisplaynameCache(roomId: string): { [userId: string]: IMemberInfo } {
+		if (!(roomId in this.memberInfoCache)) {
+			this.memberInfoCache[roomId] = {};
+		}
+		return this.memberInfoCache[roomId];
+	}
+
+	private updateCachedRoomMemberInfo(roomId: string, userId: string, memberInfo: IMemberInfo) {
+		if (!memberInfo.displayname) {
+			// Set localpart as displayname if no displayname is set
+			memberInfo.displayname = userId.substr(1).split(":")[0];
+		}
+		this.getRoomDisplaynameCache(roomId)[userId] = memberInfo;
+	}
+
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
 		log.verbose(`Received file to send. thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
 		if (!name) {
@@ -846,6 +882,27 @@ export class PuppetBridge extends EventEmitter {
 		this.emit("message", room, msgData, event);
 	}
 
+	private async applyRelayFormatting(roomId: string, sender: string, content: any) {
+		if (content["m.new_content"]) {
+			return this.applyRelayFormatting(roomId, sender, content["m.new_content"]);
+		}
+		const member = await this.getRoomMemberInfo(roomId, sender);
+		if (content.msgtype === "m.text" || content.msgtype === "m.notice") {
+			const formattedBody = content.formatted_body || escapeHtml(content.body).replace("\n", "<br>");
+			content.formatted_body = `<strong>${member.displayname}</strong>: ${formattedBody}`;
+			content.body = `${member.displayname}: ${content.body}`;
+		} else {
+			const typeMap = {
+				"m.image": "an image",
+				"m.file": "a file",
+				"m.video": "a video",
+				"m.sticker": "a sticker",
+				"m.audio": "an audio file",
+			};
+			content.body = `${member.displayname} sent ${typeMap[content.msgtype]}`;
+		}
+	}
+
 	private async handleRoomEvent(roomId: string, event: any) {
 		if (event.type === "m.room.member" && event.content) {
 			switch (event.content.membership) {
@@ -878,7 +935,10 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
 		if (event.sender !== puppetMxid) {
-			return; // this isn't our puppeted user, so let's not do anything
+			if (!this.config.relay.enabled || !this.provisioner.canRelay(event.sender)) {
+				return; // relaying not enabled or no permission to be relayed
+			}
+			await this.applyRelayFormatting(event.room_id, event.sender, event.content);
 		}
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		if (event.content.source === "remote") {
@@ -962,6 +1022,7 @@ export class PuppetBridge extends EventEmitter {
 		if (!room) {
 			return; // this isn't a room we handle, just ignore it
 		}
+		this.updateCachedRoomMemberInfo(roomId, event.state_key, event.content);
 		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
 		if (userId !== puppetMxid) {
 			return; // it wasn't us
