@@ -498,7 +498,7 @@ export class PuppetBridge extends EventEmitter {
 		await this.botProvisioner.sendStatusMessage(puppetId, msg);
 	}
 
-	public async registerCommand(name: string, command: ICommand) {
+	public registerCommand(name: string, command: ICommand) {
 		this.botProvisioner.registerCommand(name, command);
 	}
 
