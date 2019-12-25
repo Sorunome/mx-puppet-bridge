@@ -24,7 +24,7 @@ import { Provisioner } from "./provisioner";
 import { Store } from "./store";
 import { TimedCache } from "./structures/timedcache";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
-import { BotProvisioner } from "./botprovisioner";
+import { BotProvisioner, ICommand } from "./botprovisioner";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
 
@@ -496,6 +496,10 @@ export class PuppetBridge extends EventEmitter {
 
 	public async sendStatusMessage(puppetId: number, msg: string) {
 		await this.botProvisioner.sendStatusMessage(puppetId, msg);
+	}
+
+	public async registerCommand(name: string, command: ICommand) {
+		this.botProvisioner.registerCommand(name, command);
 	}
 
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {

@@ -17,14 +17,26 @@ interface IFnCollect {
 	puppetId: number;
 }
 
+export type SendMessageFn = (s: string) => Promise<void>;
+export type PidCommandFn = (pid: number, param: string, sendMessage: SendMessageFn) => Promise<void>;
+export type FullCommandFn = (sender: string, param: string, sendMessage: SendMessageFn) => Promise<void>;
+
+export interface ICommand {
+	fn: PidCommandFn | FullCommandFn;
+	help: string;
+	withPid?: boolean;
+}
+
 export class BotProvisioner {
 	private provisioner: Provisioner;
 	private fnCollectListeners: TimedCache<string, IFnCollect>;
+	private commands: {[key: string]: ICommand} = {};
 	constructor(
 		private bridge: PuppetBridge,
 	) {
 		this.provisioner = this.bridge.provisioner;
 		this.fnCollectListeners = new TimedCache(MESSAGE_COLLECT_TIMEOUT);
+		this.registerDefaultCommands();
 	}
 
 	public async processEvent(event: any) {
@@ -40,7 +52,7 @@ export class BotProvisioner {
 			await this.bridge.puppetStore.setMxidInfo(senderInfo);
 		}
 		// parse the argument and parameters of the message
-		const [_, arg, param] = event.content.body.split(/([^ ]*)(?: (.*))?/);
+		const [, arg, param] = event.content.body.split(/([^ ]*)(?: (.*))?/);
 		log.info(`Got message to process with arg=${arg}`);
 		const fnCollect = this.fnCollectListeners.get(sender);
 		if (this.bridge.hooks.botHeaderMsg && !fnCollect) {
@@ -55,7 +67,7 @@ export class BotProvisioner {
 					puppetId = fnCollect.puppetId;
 					parseParam = event.content.body;
 				} else if (arg === "relink") {
-					const [__, pidStr, p] = param.split(/([^ ]*)(?: (.*))?/);
+					const [, pidStr, p] = (param || "").split(/([^ ]*)(?: (.*))?/);
 					const pid = parseInt(pidStr, 10);
 					// now we need to check if that pid is ours
 					const d = await this.provisioner.get(pid);
@@ -126,114 +138,39 @@ export class BotProvisioner {
 				await this.sendMessage(roomId, `Removed link with ID ${puppetId}`);
 				break;
 			}
-			case "list": {
-				const descs = await this.provisioner.getDescMxid(sender);
-				if (descs.length === 0) {
-					await this.sendMessage(roomId, "Nothing linked yet!");
-					break;
-				}
-				let sendStr = "Links:\n";
-				for (const d of descs) {
-					const sendStrPart = ` - ${d.puppetId}: ${d.desc}\n`;
-					if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
-						await this.sendMessage(roomId, sendStr);
-						sendStr = "";
-					}
-					sendStr += sendStrPart;
-				}
-				await this.sendMessage(roomId, sendStr);
-				break;
-			}
-			case "setmatrixtoken": {
-				if (!param || !param.trim()) {
-					await this.provisioner.setToken(sender, null);
-					await this.sendMessage(roomId, `Removed matrix token!`);
-					break;
-				}
-				const token = param.trim();
-				const tokenParts = await this.provisioner.parseToken(sender, token);
-				const client = await this.bridge.userSync.getClientFromTokenCallback(tokenParts);
-				if (!client) {
-					await this.sendMessage(roomId, "ERROR: Invalid matrix token");
-					break;
-				}
-				await this.provisioner.setToken(sender, token);
-				await this.sendMessage(roomId, `Set matrix token`);
-				break;
-			}
-			case "listusers": {
-				if (!this.bridge.hooks.listUsers) {
-					await this.sendMessage(roomId, "Feature not implemented!");
-					break;
-				}
-				const descs = await this.provisioner.getDescMxid(sender);
-				if (descs.length === 0) {
-					await this.sendMessage(roomId, "Nothing linked yet!");
-					break;
-				}
-				let reply = "";
-				for (const d of descs) {
-					const users = await this.bridge.hooks.listUsers(d.puppetId);
-					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
-					for (const u of users) {
-						let replyPart = "";
-						if (u.category) {
-							replyPart = `\n### ${u.name}:\n\n`;
+			default: {
+				let handled = false;
+				for (const name in this.commands) {
+					if (this.commands.hasOwnProperty(name) && name === arg) {
+						handled = true;
+						const sendMessage: SendMessageFn = async (s: string) => {
+							await this.sendMessage(roomId, s);
+						};
+						if (this.commands[name].withPid) {
+							const [, pidStr, p] = (param || "").split(/([^ ]*)(?: (.*))?/);
+							const pid = parseInt(pidStr, 10);
+							const d = await this.provisioner.get(pid);
+							if (!d || d.puppetMxid !== sender) {
+								await this.sendMessage(roomId, "ERROR: PuppetID not found");
+								break;
+							}
+							await (this.commands[name].fn as PidCommandFn)(pid, p, sendMessage);
 						} else {
-							const mxid = await this.bridge.getMxidForUser({
-								puppetId: d.puppetId,
-								userId: u.id!,
-							}, false);
-							replyPart = ` - [${u.name}](https://matrix.to/#/${mxid})\n`;
+							await (this.commands[name].fn as FullCommandFn)(sender, param, sendMessage);
 						}
-						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
-							await this.sendMessage(roomId, reply);
-							reply = "";
-						}
-						reply += replyPart;
+						break;
 					}
 				}
-				await this.sendMessage(roomId, reply);
-				break;
-			}
-			case "listchannels": {
-				if (!this.bridge.hooks.listChans) {
-					await this.sendMessage(roomId, "Feature not implemented!");
-					break;
-				}
-				const descs = await this.provisioner.getDescMxid(sender);
-				if (descs.length === 0) {
-					await this.sendMessage(roomId, "Nothing linked yet!");
-					break;
-				}
-				let reply = "";
-				for (const d of descs) {
-					const chans = await this.bridge.hooks.listChans(d.puppetId);
-					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
-					for (const c of chans) {
-						let replyPart = "";
-						if (c.category) {
-							replyPart = `\n### ${c.name}:\n\n`;
-						} else {
-							const mxid = await this.bridge.getMxidForChan({
-								puppetId: d.puppetId,
-								roomId: c.id!,
-							});
-							replyPart = ` - ${c.name}: [${c.name}](https://matrix.to/#/${mxid})\n`;
+				if (!handled) {
+					const commands = ["help", "link", "unlink", "relink"];
+					for (const name in this.commands) {
+						if (this.commands.hasOwnProperty(name)) {
+							commands.push(name);
 						}
-						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
-							await this.sendMessage(roomId, reply);
-							reply = "";
-						}
-						reply += replyPart;
 					}
+					await this.sendMessage(roomId, "Available commands: " + commands.join(", "));
 				}
-				await this.sendMessage(roomId, reply);
-				break;
 			}
-			default:
-				await this.sendMessage(roomId, "Available commands: help, list, link, " +
-					"unlink, relink, setmatrixtoken, listusers, listchannels");
 		}
 	}
 
@@ -254,6 +191,133 @@ export class BotProvisioner {
 		}
 		const sendStr = `[Status] ${puppetId}: ${desc.desc}: ${msg}`;
 		await this.sendMessage(info.statusRoom, sendStr);
+	}
+
+	public registerCommand(name: string, command: ICommand) {
+		if (command.withPid === undefined) {
+			command.withPid = true;
+		}
+		this.commands[name] = command;
+	}
+
+	private registerDefaultCommands() {
+		this.registerCommand("list", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				const descs = await this.provisioner.getDescMxid(sender);
+				if (descs.length === 0) {
+					await sendMessage("Nothing linked yet!");
+					return;
+				}
+				let sendStr = "Links:\n";
+				for (const d of descs) {
+					const sendStrPart = ` - ${d.puppetId}: ${d.desc}\n`;
+					if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+						await sendMessage(sendStr);
+						sendStr = "";
+					}
+					sendStr += sendStrPart;
+				}
+				await sendMessage(sendStr);
+			},
+			help: "List all set links",
+			withPid: false,
+		});
+		this.registerCommand("setmatrixtoken", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				if (!param || !param.trim()) {
+					await this.provisioner.setToken(sender, null);
+					await sendMessage(`Removed matrix token!`);
+					return;
+				}
+				const token = param.trim();
+				const tokenParts = await this.provisioner.parseToken(sender, token);
+				const client = await this.bridge.userSync.getClientFromTokenCallback(tokenParts);
+				if (!client) {
+					await sendMessage("ERROR: Invalid matrix token");
+					return;
+				}
+				await this.provisioner.setToken(sender, token);
+				await sendMessage(`Set matrix token`);
+			},
+			help: "Sets a matrix token to enable double-puppeting",
+			withPid: false,
+		});
+		this.registerCommand("listusers", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				if (!this.bridge.hooks.listUsers) {
+					await sendMessage("Feature not implemented!");
+					return;
+				}
+				const descs = await this.provisioner.getDescMxid(sender);
+				if (descs.length === 0) {
+					await sendMessage("Nothing linked yet!");
+					return;
+				}
+				let reply = "";
+				for (const d of descs) {
+					const users = await this.bridge.hooks.listUsers(d.puppetId);
+					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
+					for (const u of users) {
+						let replyPart = "";
+						if (u.category) {
+							replyPart = `\n### ${u.name}:\n\n`;
+						} else {
+							const mxid = await this.bridge.getMxidForUser({
+								puppetId: d.puppetId,
+								userId: u.id!,
+							}, false);
+							replyPart = ` - ${u.name}: [${u.name}](https://matrix.to/#/${mxid})\n`;
+						}
+						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
+							await sendMessage(reply);
+							reply = "";
+						}
+						reply += replyPart;
+					}
+				}
+				await sendMessage(reply);
+			},
+			help: "Lists all users that are linked",
+			withPid: false,
+		});
+		this.registerCommand("listchannels", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				if (!this.bridge.hooks.listChans) {
+					await sendMessage("Feature not implemented!");
+					return;
+				}
+				const descs = await this.provisioner.getDescMxid(sender);
+				if (descs.length === 0) {
+					await sendMessage("Nothing linked yet!");
+					return;
+				}
+				let reply = "";
+				for (const d of descs) {
+					const chans = await this.bridge.hooks.listChans(d.puppetId);
+					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
+					for (const c of chans) {
+						let replyPart = "";
+						if (c.category) {
+							replyPart = `\n### ${c.name}:\n\n`;
+						} else {
+							const mxid = await this.bridge.getMxidForChan({
+								puppetId: d.puppetId,
+								roomId: c.id!,
+							});
+							replyPart = ` - ${c.name}: [${c.name}](https://matrix.to/#/${mxid})\n`;
+						}
+						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
+							await sendMessage(reply);
+							reply = "";
+						}
+						reply += replyPart;
+					}
+				}
+				await sendMessage(reply);
+			},
+			help: "List all channels that are linked",
+			withPid: false,
+		});
 	}
 
 	private async sendMessage(roomId: string, message: string) {

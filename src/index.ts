@@ -6,3 +6,4 @@ export { IRemoteChan } from "./channelsyncroniser";
 export { IRemoteUser } from "./usersyncroniser";
 export { Store } from "./store";
 export { IDbSchema } from "./db/schema/dbschema";
+export { ICommand, SendMessageFn } from "./botprovisioner";
