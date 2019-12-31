@@ -108,6 +108,13 @@ export class BotProvisioner {
 					await this.sendMessage(roomId, `ERROR: ${retData.error}`);
 					break;
 				}
+				if (!senderInfo.token) {
+					const token = await this.provisioner.loginWithSharedSecret(sender);
+					if (token) {
+						await this.provisioner.setToken(sender, token);
+						log.verbose("Enabled double puppeting for", sender, "with shared secret login");
+					}
+				}
 				if (puppetId === -1) {
 					// we need to create a new link
 					puppetId = await this.provisioner.new(sender, retData.data, retData.userId);

@@ -1,3 +1,5 @@
+import crypto from "crypto";
+import { MatrixAuth } from "matrix-bot-sdk";
 import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet } from "./db/puppetstore";
 import { Log } from "./log";
@@ -37,6 +39,26 @@ export class Provisioner {
 
 	public async getMxid(puppetId: number): Promise<string> {
 		return await this.puppetStore.getMxid(puppetId);
+	}
+
+	public async loginWithSharedSecret(mxid: string): Promise<string | null> {
+		if (!this.bridge.config.bridge.loginSharedSecret || !mxid.endsWith(this.bridge.config.bridge.domain)) {
+			// Shared secret login not enabled or user is on another homeserver.
+			return null;
+		}
+
+		const hmac = crypto.createHmac("sha256", this.bridge.config.bridge.loginSharedSecret);
+		const password = hmac.update(new Buffer(mxid, "utf-8")).digest("hex");
+
+		const auth = new MatrixAuth(this.bridge.config.bridge.homeserverUrl);
+		try {
+			const client = await auth.passwordLogin(mxid, password);
+			return client.accessToken;
+		} catch (err) {
+			// Shared secret is probably misconfigured, so make a warning log.
+			log.warn("Failed to log into", mxid, "with shared secret:", err);
+			return null;
+		}
 	}
 
 	public async parseToken(mxid: string, token: string): Promise<ITokenResponse> {

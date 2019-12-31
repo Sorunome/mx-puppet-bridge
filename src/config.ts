@@ -22,6 +22,7 @@ class MxBridgeConfigBridge {
 	public port: number;
 	public domain: string;
 	public homeserverUrl: string;
+	public loginSharedSecret: string;
 }
 
 export class MxBridgeConfigLogging {
