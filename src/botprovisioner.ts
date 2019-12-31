@@ -112,7 +112,7 @@ export class BotProvisioner {
 					const token = await this.provisioner.loginWithSharedSecret(sender);
 					if (token) {
 						await this.provisioner.setToken(sender, token);
-						log.verbose("Enabled double puppeting for", sender, "with shared secret login");
+						log.info("Enabled double puppeting for", sender, "with shared secret login");
 					}
 				}
 				if (puppetId === -1) {

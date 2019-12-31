@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import { createHmac } from "crypto";
 import { MatrixAuth } from "matrix-bot-sdk";
 import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet } from "./db/puppetstore";
@@ -47,7 +47,7 @@ export class Provisioner {
 			return null;
 		}
 
-		const hmac = crypto.createHmac("sha256", this.bridge.config.bridge.loginSharedSecret);
+		const hmac = createHmac("sha512", this.bridge.config.bridge.loginSharedSecret);
 		const password = hmac.update(new Buffer(mxid, "utf-8")).digest("hex");
 
 		const auth = new MatrixAuth(this.bridge.config.bridge.homeserverUrl);
