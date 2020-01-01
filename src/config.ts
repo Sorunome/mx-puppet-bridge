@@ -23,6 +23,7 @@ class MxBridgeConfigBridge {
 	public port: number;
 	public domain: string;
 	public homeserverUrl: string;
+	public loginSharedSecretMap: {[homeserver: string]: string} = {};
 }
 
 export class MxBridgeConfigLogging {
