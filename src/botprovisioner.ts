@@ -230,8 +230,11 @@ export class BotProvisioner {
 					return;
 				}
 				const token = param.trim();
-				const tokenParts = await this.provisioner.parseToken(sender, token);
-				const client = await this.bridge.userSync.getClientFromTokenCallback(tokenParts);
+				const hsUrl = await this.provisioner.getHsUrl(sender);
+				const client = await this.bridge.userSync.getClientFromTokenCallback({
+					token,
+					hsUrl,
+				});
 				if (!client) {
 					await sendMessage("ERROR: Invalid matrix token");
 					return;
