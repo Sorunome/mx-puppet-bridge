@@ -71,6 +71,7 @@ This object is a combination of `IRemoteChan` and `IRemoteUser`. Used to combind
 	chan: IRemoteChan; // channel to send to
 	user: IRemoteUser; // user which sent something
 	eventId: string; (optional) // the remote event ID
+	externalUrl: string; (optional) // an external URL referring to this event
 }
 ```
 

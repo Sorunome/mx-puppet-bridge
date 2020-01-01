@@ -5,6 +5,7 @@ export class MxBridgeConfig {
 	public provisioning: MxBridgeConfigProvisioning = new MxBridgeConfigProvisioning();
 	public presence: MxBridgeConfigPresence = new MxBridgeConfigPresence();
 	public relay: MxBridgeConfigRelay = new MxBridgeConfigRelay();
+	public homeserverUrlMap: {[key: string]: string} = {};
 
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
 		Object.keys(newConfig).forEach((key) => {
@@ -22,7 +23,7 @@ class MxBridgeConfigBridge {
 	public port: number;
 	public domain: string;
 	public homeserverUrl: string;
-	public loginSharedSecret: string;
+	public loginSharedSecretMap: {[homeserver: string]: string} = {};
 }
 
 export class MxBridgeConfigLogging {

@@ -70,6 +70,7 @@ export interface IReceiveParams {
 	chan: IRemoteChan;
 	user: IRemoteUser;
 	eventId?: string;
+	externalUrl?: string;
 }
 
 export interface IMessageEvent {
@@ -540,6 +541,9 @@ export class PuppetBridge extends EventEmitter {
 			send.format = "org.matrix.custom.html";
 			send.formatted_body = opts.formattedBody;
 		}
+		if (params.externalUrl) {
+			send.external_url = params.externalUrl;
+		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
 			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
@@ -588,6 +592,9 @@ export class PuppetBridge extends EventEmitter {
 			send["m.new_content"].format = "org.matrix.custom.html";
 			send["m.new_content"].formatted_body = opts.formattedBody;
 		}
+		if (params.externalUrl) {
+			send.external_url = params.externalUrl;
+		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
 			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
@@ -632,6 +639,9 @@ export class PuppetBridge extends EventEmitter {
 			send.format = "org.matrix.custom.html";
 			send.formatted_body = opts.formattedBody;
 		}
+		if (params.externalUrl) {
+			send.external_url = params.externalUrl;
+		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
 			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
@@ -647,12 +657,16 @@ export class PuppetBridge extends EventEmitter {
 			return; // nothing to do
 		}
 		const send = {
+			"source": "remote",
 			"m.relates_to": {
 				rel_type: "m.annotation",
 				event_id: origEvent,
 				key: reaction,
 			},
-		};
+		} as any;
+		if (params.externalUrl) {
+			send.external_url = params.externalUrl;
+		}
 		const matrixEventId = await client.sendEvent(mxid, "m.reaction", send);
 		if (matrixEventId && params.eventId) {
 			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
@@ -731,6 +745,9 @@ export class PuppetBridge extends EventEmitter {
 		} as any;
 		if (typeof thing === "string") {
 			sendData.external_url = thing;
+		}
+		if (params.externalUrl) {
+			sendData.external_url = params.externalUrl;
 		}
 		const matrixEventId = await client.sendMessage(mxid, sendData);
 		if (matrixEventId && params.eventId) {

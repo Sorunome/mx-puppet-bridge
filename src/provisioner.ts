@@ -42,15 +42,18 @@ export class Provisioner {
 	}
 
 	public async loginWithSharedSecret(mxid: string): Promise<string | null> {
-		if (!this.bridge.config.bridge.loginSharedSecret || !mxid.endsWith(this.bridge.config.bridge.domain)) {
-			// Shared secret login not enabled or user is on another homeserver.
+		const homeserver = mxid.split(":")[1];
+		const sharedSecret = this.bridge.config.bridge.loginSharedSecretMap[homeserver];
+		if (!sharedSecret) {
+			// Shared secret login not enabled for this homeserver.
 			return null;
 		}
 
-		const hmac = createHmac("sha512", this.bridge.config.bridge.loginSharedSecret);
+		const hmac = createHmac("sha512", sharedSecret);
 		const password = hmac.update(new Buffer(mxid, "utf-8")).digest("hex");
 
-		const auth = new MatrixAuth(this.bridge.config.bridge.homeserverUrl);
+		const homeserverUrl = await this.getHsUrl(mxid);
+		const auth = new MatrixAuth(homeserverUrl);
 		try {
 			const client = await auth.passwordLogin(mxid, password);
 			return client.accessToken;
@@ -61,8 +64,14 @@ export class Provisioner {
 		}
 	}
 
-	public async parseToken(mxid: string, token: string): Promise<ITokenResponse> {
+	public async getHsUrl(mxid: string): Promise<string> {
+		log.verbose(`Looking up Homserver URL for mxid ${mxid}...`);
 		let hsUrl = mxid.split(":")[1];
+		if (this.bridge.config.homeserverUrlMap[hsUrl]) {
+			hsUrl = this.bridge.config.homeserverUrlMap[hsUrl];
+			log.verbose(`Override to ${hsUrl}`);
+			return hsUrl;
+		}
 		if (hsUrl === "localhost") {
 			hsUrl = "http://" + hsUrl;
 		} else {
@@ -73,7 +82,8 @@ export class Provisioner {
 			const wellKnown = JSON.parse(wellKnownStr);
 			hsUrl = wellKnown["m.homeserver"].base_url;
 		} catch (err) { } // do nothing
-		return { token, hsUrl } as ITokenResponse;
+		log.verbose(`Resolved to ${hsUrl}`);
+		return hsUrl;
 	}
 
 	public async getToken(puppetId: number | string): Promise<ITokenResponse | null> {
@@ -87,7 +97,11 @@ export class Provisioner {
 		if (!info || !info.token) {
 			return null;
 		}
-		return await this.parseToken(mxid, info.token);
+		const hsUrl = await this.getHsUrl(mxid);
+		return {
+			hsUrl,
+			token: info.token,
+		} as ITokenResponse;
 	}
 
 	public async setToken(mxid: string, token: string | null) {
