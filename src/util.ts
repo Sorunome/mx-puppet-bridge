@@ -128,9 +128,17 @@ export class Util {
 				};
 			}
 
+			let filename = "remote_avatar";
+			if (data.avatarUrl) {
+				const matches = data.avatarUrl.match(/\/([^\.\/]+\.[a-zA-Z0-9]+)(?:$|\?)/);
+				if (matches) {
+					filename = matches[1];
+				}
+			}
 			const avatarMxc = await client!.uploadContent(
 				buffer,
-				Util.GetMimeType(buffer), // TOOD: mimetype
+				Util.GetMimeType(buffer),
+				filename,
 			);
 			return {
 				doUpdate: true,
