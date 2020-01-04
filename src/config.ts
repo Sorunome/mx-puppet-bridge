@@ -24,6 +24,8 @@ class MxBridgeConfigBridge {
 	public domain: string;
 	public homeserverUrl: string;
 	public loginSharedSecretMap: {[homeserver: string]: string} = {};
+	public displayname?: string;
+	public avatarUrl?: string;
 }
 
 export class MxBridgeConfigLogging {

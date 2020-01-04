@@ -57,9 +57,6 @@ export class BotProvisioner {
 		const [, arg, param] = event.content.body.split(/([^ ]*)(?: (.*))?/);
 		log.info(`Got message to process with arg=${arg}`);
 		const fnCollect = this.fnCollectListeners.get(sender);
-		if (this.bridge.hooks.botHeaderMsg && !fnCollect) {
-			await this.sendMessage(roomId, this.bridge.hooks.botHeaderMsg());
-		}
 		switch (fnCollect ? "link" : arg) {
 			case "relink":
 			case "link": {

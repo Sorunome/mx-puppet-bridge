@@ -326,6 +326,17 @@ export class PuppetBridge extends EventEmitter {
 		});
 		await this.appservice.begin();
 		log.info("Application service started!");
+		log.info("Setting bridge user data...");
+		let displayname = this.config.bridge.displayname;
+		if (!displayname && this.hooks.botHeaderMsg) {
+			displayname = this.hooks.botHeaderMsg();
+		}
+		if (displayname) {
+			await this.appservice.botIntent.underlyingClient.setDisplayName(displayname);
+		}
+		if (this.config.bridge.avatarUrl) {
+			await this.appservice.botIntent.underlyingClient.setAvatarUrl(this.config.bridge.avatarUrl);
+		}
 		log.info("Activating users...");
 		const puppets = await this.provisioner.getAll();
 		for (const p of puppets) {
