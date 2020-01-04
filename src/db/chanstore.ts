@@ -140,13 +140,17 @@ export class DbChanStore {
 	}
 
 	public async setChanOp(chanMxid: string, userMxid: string) {
-		const row = await this.db.Get("SELECT * FROM chan_op WHERE chan_mxid=$chan AND user_mxid=$user", {
+		const row = await this.db.Get("SELECT * FROM chan_op WHERE chan_mxid=$chan", {
 			chan: chanMxid,
-			user: userMxid,
 		});
 		if (row) {
-			// nothing to do, we are already one
-			return;
+			if ((row.user_mxid as string) === userMxid) {
+				// nothing to do, we are already set
+				return;
+			}
+			await this.db.Run("DELETE FROM chan_op WHERE chan_mxid=$chan", {
+				chan: chanMxid,
+			});
 		}
 		await this.db.Run("INSERT INTO chan_op (chan_mxid, user_mxid) VALUES ($chan, $user)", {
 			chan: chanMxid,

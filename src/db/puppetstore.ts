@@ -194,15 +194,19 @@ export class DbPuppetStore {
 		this.mxidCache.delete(puppetId);
 	}
 
-	public async joinGhostToChan(ghostMxid: string, chanMxid: string) {
+	public async isGhostInChan(ghostMxid: string, chanMxid: string): Promise<boolean> {
 		const exists = await this.db.Get(
 			"SELECT * FROM ghosts_joined_chans WHERE ghost_mxid = $ghostMxid AND chan_mxid = $chanMxid"
 			, {
 			ghostMxid,
 			chanMxid,
 		});
-		if (exists) {
-			return; // nothing to do
+		return exists ? true : false;
+	}
+
+	public async joinGhostToChan(ghostMxid: string, chanMxid: string) {
+		if (await this.isGhostInChan(ghostMxid, chanMxid)) {
+			return;
 		}
 		await this.db.Run("INSERT INTO ghosts_joined_chans (ghost_mxid, chan_mxid) VALUES ($ghostMxid, $chanMxid)", {
 			ghostMxid,
@@ -221,6 +225,14 @@ export class DbPuppetStore {
 
 	public async emptyGhostsInChan(chan: string) {
 		await this.db.Run("DELETE FROM ghosts_joined_chans WHERE chan_mxid = $chan", { chan });
+	}
+
+	public async leaveGhostFromChan(ghostMxid: string, chanMxid: string) {
+		await this.db.Run("DELETE FROM ghosts_joined_chans " +
+			"WHERE ghost_mxid = $g AND chan_mxid = $c", {
+			g: ghostMxid,
+			c: chanMxid,
+		});
 	}
 
 	private getRow(row: ISqlRow): IPuppet | null {

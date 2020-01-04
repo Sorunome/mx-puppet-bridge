@@ -1050,15 +1050,14 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	private async handleGhostJoinEvent(roomId: string, ghostId: string) {
-		if (ghostId === this.appservice.botIntent.userId) {
-			return; // we don't handle ghost user here
-		}
-
 		// we CAN'T check for if the room exists here, as if we create a new room
 		// the m.room.member event triggers before the room is incerted into the store
 
 		log.verbose("adding ghost to chan cache");
 		await this.store.puppetStore.joinGhostToChan(ghostId, roomId);
+
+		// maybe remove the bot user, if it is present
+		await this.chanSync.maybeLeaveGhost(roomId, this.appservice.botIntent.userId);
 	}
 
 	private async handleJoinEvent(roomId: string, event: any) {
@@ -1108,6 +1107,7 @@ export class PuppetBridge extends EventEmitter {
 	private async handleLeaveEvent(roomId: string, event: any) {
 		const userId = event.state_key;
 		if (this.appservice.isNamespacedUser(userId)) {
+			await this.store.puppetStore.leaveGhostFromChan(userId, roomId);
 			if (userId !== event.sender) {
 				// puppet got kicked, unbridging room
 				await this.unbridgeChannelByMxid(roomId);

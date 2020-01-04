@@ -267,6 +267,48 @@ export class ChannelSyncroniser {
 		};
 	}
 
+	public async maybeLeaveGhost(chanMxid: string, userMxid: string) {
+		log.info(`Maybe leaving ghost ${userMxid} from ${chanMxid}`);
+		const ghosts = await this.bridge.puppetStore.getGhostsInChan(chanMxid);
+		if (!ghosts.includes(userMxid)) {
+			log.verbose("Ghost not in room!");
+			return; // not in chan, nothing to do
+		}
+		if (ghosts.length === 1) {
+			log.verbose("Ghost is the only one in the room!");
+			return; // we are the last ghost in the chan, we can't leave
+		}
+		const client = this.bridge.AS.getIntentForUserId(userMxid).underlyingClient;
+		const oldOp = await this.chanStore.getChanOp(chanMxid);
+		if (oldOp === userMxid) {
+			// we need to get a new OP!
+			log.verbose("We are the OP in the room, we need to pass on OP");
+			const newOp = ghosts.find((element: string) => element !== userMxid);
+			if (!newOp) {
+				log.verbose("Noone to pass OP to!");
+				return; // we can't make a new OP, sorry
+			}
+			log.verbose(`Giving OP to ${newOp}...`);
+			try {
+				// give the user OP
+				const powerLevels = await client.getRoomStateEvent(
+					chanMxid, "m.room.power_levels", "",
+				);
+				powerLevels.users[newOp] = powerLevels.users[oldOp];
+				await client.sendStateEvent(
+					chanMxid, "m.room.power_levels", "", powerLevels,
+				);
+				await this.chanStore.setChanOp(chanMxid, newOp);
+			} catch (err) {
+				log.error("Couldn't set new chan OP", err);
+				return;
+			}
+		}
+		// and finally we passed all checks and can leave
+		await client.leaveRoom(chanMxid);
+		await this.bridge.puppetStore.leaveGhostFromChan(userMxid, chanMxid);
+	}
+
 	public async delete(data: IRemoteChan, keepUsers: boolean = false) {
 		const chan = await this.maybeGet(data);
 		if (!chan) {
