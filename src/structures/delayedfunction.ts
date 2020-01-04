@@ -7,9 +7,13 @@ export class DelayedFunction {
 		this.map = new Map();
 	}
 
-	public set(key: string, fn: DelayedFunctionFn, timeout: number) {
-		// clear the old timeout
-		this.release(key);
+	public set(key: string, fn: DelayedFunctionFn, timeout: number, clearOldTimer: boolean = true) {
+		if (clearOldTimer) {
+			// clear the old timeout
+			this.release(key);
+		} else if (this.map.has(key)) {
+			return;
+		}
 
 		// set the new timeout
 		const i = setTimeout(() => {

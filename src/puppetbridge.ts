@@ -996,13 +996,22 @@ export class PuppetBridge extends EventEmitter {
 			await this.botProvisioner.processEvent(event);
 			return;
 		}
-		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
+
+		const puppetData = await this.provisioner.get(room.puppetId);
+		const puppetMxid = puppetData ? puppetData.puppetMxid : "";
+
 		if (event.sender !== puppetMxid) {
 			if (!this.config.relay.enabled || !this.provisioner.canRelay(event.sender)) {
 				return; // relaying not enabled or no permission to be relayed
 			}
 			await this.applyRelayFormatting(event.room_id, event.sender, event.content);
 		}
+
+		const delayedKey = `${puppetMxid}_${roomId}`;
+		this.delayedFunction.set(delayedKey, async () => {
+			await this.chanSync.maybeLeaveGhost(roomId, puppetMxid);
+		}, GHOST_PUPPET_LEAVE_TIMEOUT, false);
+
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
 		if (event.content.source === "remote") {
 			log.verbose("Dropping event due to de-duping...");
