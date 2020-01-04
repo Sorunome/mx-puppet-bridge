@@ -210,6 +210,13 @@ It takes the parameters:
 puppetId: number;
 ```
 
+### sendStastusMessage
+`sendStatusMessage` sends a status message - either to the status room or into a specified room.
+```ts
+puppetId: number | IRemoteChan; // if it is IRemoteChan then it sends to that room
+msg: string; // markdown formatted string
+```
+
 ### getMxidForUser
 `getMxidForUser` gets the mxid for a given user, obaying puppeting stuff
 ```ts
@@ -238,6 +245,12 @@ presence: "online" | "offline" | "unavailable";
 
 ### updateChannel
 `updateChannel` triggers a remote updating of a channel
+```ts
+chan: IRemoteChan;
+```
+
+### bridgeChannel
+`bridgeChannel` triggers the bridging of a channel, or updates it if it exists
 ```ts
 chan: IRemoteChan;
 ```

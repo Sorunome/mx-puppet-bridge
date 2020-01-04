@@ -386,6 +386,25 @@ export class PuppetBridge extends EventEmitter {
 		await this.chanSync.getMxid(chan, undefined, undefined, false);
 	}
 
+	public async bridgeChannel(chan: IRemoteChan) {
+		if (!this.hooks.createChan) {
+			return;
+		}
+
+		// check if this is a valid room at all
+		const room = await this.hooks.createChan(chan);
+		if (!room || room.puppetId !== chan.puppetId || room.roomId !== chan.roomId || room.isDirect) {
+			return;
+		}
+		// check if the corresponding puppet exists
+		const puppet = await this.provisioner.get(chan.puppetId);
+		if (!puppet) {
+			return;
+		}
+		const invites = [puppet.puppetMxid];
+		await this.chanSync.getMxid(chan, undefined, invites);
+	}
+
 	public async unbridgeChannelByMxid(mxid: string) {
 		const chan = await this.chanSync.getRemoteHandler(mxid);
 		await this.unbridgeChannel(chan);
@@ -1167,27 +1186,13 @@ export class PuppetBridge extends EventEmitter {
 		log.info(`Got room query for alias ${alias}`);
 		// we deny room creation and then create it later on ourself
 		await createRoom(false);
-		if (!this.hooks.createChan) {
-			return;
-		}
+
 		// get room ID and check if it is valid
 		const parts = this.chanSync.getPartsFromMxid(alias);
 		if (!parts) {
 			return;
 		}
-		// get puppetMxid for this puppetId
-		const puppet = await this.provisioner.get(parts.puppetId);
-		if (!puppet) {
-			return;
-		}
 
-		// check if this is a valid room at all
-		const room = await this.hooks.createChan(parts);
-		if (!room || room.puppetId !== parts.puppetId || room.roomId !== parts.roomId || room.isDirect) {
-			return;
-		}
-
-		// this will also only create the room if it doesn't exist already
-		await this.chanSync.getMxid(parts, undefined, [puppet.puppetMxid]);
+		await this.bridgeChannel(parts);
 	}
 }
