@@ -495,7 +495,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	public async sendStatusMessage(puppetId: number, msg: string) {
+	public async sendStatusMessage(puppetId: number | IRemoteChan, msg: string) {
 		await this.botProvisioner.sendStatusMessage(puppetId, msg);
 	}
 

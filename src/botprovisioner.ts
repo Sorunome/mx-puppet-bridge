@@ -3,6 +3,8 @@ import { Provisioner } from "./provisioner";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
 import * as MarkdownIt from "markdown-it";
+import { IRemoteChan } from "./channelsyncroniser";
+import { MatrixClient } from "matrix-bot-sdk";
 
 const md = new MarkdownIt();
 
@@ -181,23 +183,48 @@ export class BotProvisioner {
 		}
 	}
 
-	public async sendStatusMessage(puppetId: number, msg: string) {
+	public async sendStatusMessage(room: number | IRemoteChan, msg: string) {
+		let puppetId = -1;
+		if (isNaN(room as number)) {
+			puppetId = (room as IRemoteChan).puppetId;
+		} else {
+			puppetId = room as number;
+		}
 		log.info(`Sending status message for puppetId ${puppetId}...`);
 		const mxid = await this.provisioner.getMxid(puppetId);
-		const info = await this.bridge.puppetStore.getOrCreateMxidInfo(mxid);
-		if (!info.statusRoom) {
-			// no status room present, nothing to do
-			log.info("No status room found");
-			return;
+		let roomMxid: string = "";
+		let sendStr = "[Status] ";
+		let client: MatrixClient | undefined;
+		if (isNaN(room as number)) {
+			const maybeRoomMxid = await this.bridge.chanSync.maybeGetMxid(room as IRemoteChan);
+			if (!maybeRoomMxid) {
+				log.error("Room MXID is not found, this is very odd");
+				return;
+			}
+			roomMxid = maybeRoomMxid;
+			const ghost = (await this.bridge.puppetStore.getGhostsInChan(roomMxid))[0];
+			if (ghost) {
+				client = this.bridge.AS.getIntentForUserId(ghost).underlyingClient;
+			}
+		} else {
+			const info = await this.bridge.puppetStore.getOrCreateMxidInfo(mxid);
+			if (!info.statusRoom) {
+				// no status room present, nothing to do
+				log.info("No status room found");
+				return;
+			}
+			roomMxid = info.statusRoom;
+
+			const desc = await this.provisioner.getDesc(mxid, puppetId);
+			if (!desc) {
+				// something went wrong
+				log.error("Description is not found, this is very odd");
+				return;
+			}
+			sendStr += `${puppetId}: ${desc.desc}: `;
 		}
-		const desc = await this.provisioner.getDesc(mxid, puppetId);
-		if (!desc) {
-			// something went wrong
-			log.error("Description is not found, this is very odd");
-			return;
-		}
-		const sendStr = `[Status] ${puppetId}: ${desc.desc}: ${msg}`;
-		await this.sendMessage(info.statusRoom, sendStr);
+		sendStr += msg;
+		await this.sendMessage(roomMxid, sendStr, client);
 	}
 
 	public registerCommand(name: string, command: ICommand) {
@@ -330,9 +357,12 @@ export class BotProvisioner {
 		});
 	}
 
-	private async sendMessage(roomId: string, message: string) {
+	private async sendMessage(roomId: string, message: string, client?: MatrixClient) {
 		const html = md.render(message);
-		await this.bridge.botIntent.underlyingClient.sendMessage(roomId, {
+		if (!client) {
+			client = this.bridge.botIntent.underlyingClient;
+		}
+		await client.sendMessage(roomId, {
 			msgtype: "m.notice",
 			body: message,
 			formatted_body: html,
