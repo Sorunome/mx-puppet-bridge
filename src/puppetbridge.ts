@@ -27,12 +27,15 @@ import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner, ICommand } from "./botprovisioner";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
+import { DelayedFunction } from "./structures/delayedfunction";
 
 const log = new Log("PuppetBridge");
 
-// tslint:disable-next-line:no-magic-numbers
+// tslint:disable no-magic-numbers
 const PUPPET_INVITE_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
+const GHOST_PUPPET_LEAVE_TIMEOUT = 1000 * 60 * 60;
 const DEFAULT_TYPING_TIMEOUT = 30000;
+// tslint:enable no-magic-numbers
 
 interface ISendInfo {
 	client: MatrixClient;
@@ -149,6 +152,7 @@ export class PuppetBridge extends EventEmitter {
 	private presenceHandler: PresenceHandler;
 	private typingHandler: TypingHandler;
 	private memberInfoCache: { [roomId: string]: { [userId: string]: IMemberInfo } };
+	private delayedFunction: DelayedFunction;
 
 	constructor(
 		private registrationPath: string,
@@ -158,6 +162,7 @@ export class PuppetBridge extends EventEmitter {
 		super();
 		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
 		this.hooks = {} as IPuppetBridgeHooks;
+		this.delayedFunction = new DelayedFunction();
 	}
 
 	public readConfig() {
@@ -800,7 +805,8 @@ export class PuppetBridge extends EventEmitter {
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
 		log.verbose(`Preparing send parameters`, params);
-		const puppetMxid = await this.provisioner.getMxid(params.chan.puppetId);
+		const puppetData = await this.provisioner.get(params.chan.puppetId);
+		const puppetMxid = puppetData ? puppetData.puppetMxid : "";
 		const client = await this.userSync.getClient(params.user);
 		const userId = await client.getUserId();
 		// we could be the one creating the room, no need to invite ourself
@@ -818,6 +824,12 @@ export class PuppetBridge extends EventEmitter {
 			log.silly("Joining ghost to room...");
 			const intent = this.appservice.getIntentForUserId(userId);
 			await intent.ensureRegisteredAndJoined(mxid);
+			if (puppetData && puppetData.userId === params.user.userId) {
+				const delayedKey = `${userId}_${mxid}`;
+				this.delayedFunction.set(delayedKey, async () => {
+					await this.chanSync.maybeLeaveGhost(mxid, userId);
+				}, GHOST_PUPPET_LEAVE_TIMEOUT);
+			}
 		}
 
 		// ensure our puppeted user is in the room

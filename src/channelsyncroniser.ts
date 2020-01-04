@@ -278,7 +278,8 @@ export class ChannelSyncroniser {
 			log.verbose("Ghost is the only one in the room!");
 			return; // we are the last ghost in the chan, we can't leave
 		}
-		const client = this.bridge.AS.getIntentForUserId(userMxid).underlyingClient;
+		const intent = this.bridge.AS.getIntentForUserId(userMxid);
+		const client = intent.underlyingClient;
 		const oldOp = await this.chanStore.getChanOp(chanMxid);
 		if (oldOp === userMxid) {
 			// we need to get a new OP!
@@ -305,7 +306,7 @@ export class ChannelSyncroniser {
 			}
 		}
 		// and finally we passed all checks and can leave
-		await client.leaveRoom(chanMxid);
+		await intent.leaveRoom(chanMxid);
 		await this.bridge.puppetStore.leaveGhostFromChan(userMxid, chanMxid);
 	}
 
@@ -370,7 +371,7 @@ export class ChannelSyncroniser {
 				const intent = this.bridge.AS.getIntentForUserId(ghost);
 				if (intent) {
 					try {
-						await intent.underlyingClient.leaveRoom(entry.mxid);
+						await intent.leaveRoom(entry.mxid);
 					} catch (err) {
 						log.warn("Failed to trigger client leave room", err);
 					}
