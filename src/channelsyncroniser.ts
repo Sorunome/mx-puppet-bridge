@@ -84,12 +84,6 @@ export class ChannelSyncroniser {
 				client = this.bridge.botIntent.underlyingClient;
 			}
 			let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
-			log.silly(chan);
-			const update = {
-				name: false,
-				avatar: false,
-				topic: false,
-			};
 			let mxid = "";
 			let doUpdate = false;
 			let created = false;
@@ -115,9 +109,6 @@ export class ChannelSyncroniser {
 				}
 				log.verbose("Creation data:", data);
 				log.verbose("Initial invites:", invites);
-				update.name = data.name ? true : false;
-				update.avatar = data.avatarUrl ? true : false;
-				update.topic = data.topic ? true : false;
 				// ooookay, we need to create this channel
 				const createParams = {
 					visibility: "private",
@@ -129,20 +120,55 @@ export class ChannelSyncroniser {
 					},
 					is_direct: data.isDirect,
 					invite: invites,
+					initial_state: [],
 				} as any;
 				if (!data.isDirect) {
 					// we also want to set an alias for later reference
 					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
 						`${data.puppetId}_${Util.str2mxid(data.roomId)}`);
 				}
+				if (data.name) {
+					createParams.name = data.name;
+				}
+				let updateAvatar = false;
+				let avatarHash = "";
+				let avatarMxc = "";
+				if (data.avatarUrl || data.avatarBuffer) {
+					log.verbose("Uploading initial room avatar...");
+					const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data);
+					updateAvatar = doUpdateAvatar;
+					if (updateAvatar) {
+						avatarHash = hash;
+						avatarMxc = mxcUrl as string;
+						createParams.initial_state.push({
+							type: "m.room.avatar",
+							content: { url: mxcUrl },
+						});
+					}
+				}
+				if (data.topic) {
+					createParams.initial_state.push({
+						type: "m.room.topic",
+						content: { topic: data.topic },
+					});
+				}
+				log.verbose("Creating room with create parameters", createParams);
 				mxid = await client!.createRoom(createParams);
 				await this.chanStore.setChanOp(mxid, await client!.getUserId());
 				chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
+				if (data.name) {
+					chan.name = data.name;
+				}
+				if (updateAvatar) {
+					chan.avatarUrl = data.avatarUrl;
+					chan.avatarHash = avatarHash;
+					chan.avatarMxc = avatarMxc;
+				}
+				if (data.topic) {
+					chan.topic = data.topic;
+				}
 				created = true;
 			} else {
-				update.name = data.name !== undefined && data.name !== chan.name;
-				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl;
-				update.topic = data.topic !== undefined && data.topic !== chan.topic;
 				mxid = chan.mxid;
 
 				// set new client for potential updates
@@ -150,48 +176,43 @@ export class ChannelSyncroniser {
 				if (newClient) {
 					client = newClient;
 				}
-			}
-			if (update.name) {
-				log.verbose("Updating name");
-				await client!.sendStateEvent(
-					mxid,
-					"m.room.name",
-					"",
-					{ name: data.name },
-				);
-				chan.name = data.name;
-			}
-			if (update.avatar || data.avatarBuffer) {
-				log.verbose("Updating avatar");
-				const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
-				if (updateAvatar) {
-					update.avatar = true;
-					chan.avatarUrl = data.avatarUrl;
-					chan.avatarHash = hash;
-					chan.avatarMxc = mxcUrl;
+				if (data.name !== undefined && data.name !== chan.name) {
+					doUpdate = true;
+					log.verbose("Updating name");
 					await client!.sendStateEvent(
 						mxid,
-						"m.room.avatar",
+						"m.room.name",
 						"",
-						{ url: chan.avatarMxc },
+						{ name: data.name },
 					);
+					chan.name = data.name;
 				}
-			}
-			if (update.topic) {
-				log.verbose("updating topic");
-				await client!.sendStateEvent(
-					mxid,
-					"m.room.topic",
-					"",
-					{ topic: data.topic },
-				);
-				chan.topic = data.topic;
-			}
-
-			for (const k of Object.keys(update)) {
-				if (update[k]) {
+				if ((data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl) || data.avatarBuffer) {
+					log.verbose("Updating avatar");
+					const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
+					if (updateAvatar) {
+						doUpdate = true;
+						chan.avatarUrl = data.avatarUrl;
+						chan.avatarHash = hash;
+						chan.avatarMxc = mxcUrl;
+						await client!.sendStateEvent(
+							mxid,
+							"m.room.avatar",
+							"",
+							{ url: chan.avatarMxc },
+						);
+					}
+				}
+				if (data.topic !== undefined && data.topic !== chan.topic) {
 					doUpdate = true;
-					break;
+					log.verbose("updating topic");
+					await client!.sendStateEvent(
+						mxid,
+						"m.room.topic",
+						"",
+						{ topic: data.topic },
+					);
+					chan.topic = data.topic;
 				}
 			}
 
