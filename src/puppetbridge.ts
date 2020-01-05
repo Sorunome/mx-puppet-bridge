@@ -13,11 +13,13 @@ import { EventEmitter } from "events";
 import * as escapeHtml from "escape-html";
 import { ChannelSyncroniser, IRemoteChan } from "./channelsyncroniser";
 import { UserSyncroniser, IRemoteUser } from "./usersyncroniser";
+import { GroupSyncroniser, IRemoteGroup } from "./groupsyncroniser";
 import { MxBridgeConfig } from "./config";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
+import { DbGroupStore } from "./db/groupstore";
 import { DbPuppetStore, IMxidInfo } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
 import { Provisioner } from "./provisioner";
@@ -121,6 +123,7 @@ export interface IRetList {
 
 export type CreateChanHook = (chan: IRemoteChan) => Promise<IRemoteChan | null>;
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
+export type CreateGroupHook = (group: IRemoteGroup) => Promise<IRemoteGroup | null>;
 export type GetDescHook = (puppetId: number, data: any) => Promise<string>;
 export type BotHeaderMsgHook = () => string;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
@@ -131,6 +134,7 @@ export type ListChansHook = (puppetId: number) => Promise<IRetList[]>;
 export interface IPuppetBridgeHooks {
 	createChan?: CreateChanHook;
 	createUser?: CreateUserHook;
+	createGroup?: CreateGroupHook;
 	getDesc?: GetDescHook;
 	botHeaderMsg?: BotHeaderMsgHook;
 	getDataFromStr?: GetDataFromStrHook;
@@ -142,6 +146,7 @@ export interface IPuppetBridgeHooks {
 export class PuppetBridge extends EventEmitter {
 	public chanSync: ChannelSyncroniser;
 	public userSync: UserSyncroniser;
+	public groupSync: GroupSyncroniser;
 	public hooks: IPuppetBridgeHooks;
 	public config: MxBridgeConfig;
 	public provisioner: Provisioner;
@@ -183,6 +188,7 @@ export class PuppetBridge extends EventEmitter {
 
 		this.chanSync = new ChannelSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
+		this.groupSync = new GroupSyncroniser(this);
 		this.provisioner = new Provisioner(this);
 		this.presenceHandler = new PresenceHandler(this);
 		this.typingHandler = new TypingHandler(this, this.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
@@ -275,6 +281,10 @@ export class PuppetBridge extends EventEmitter {
 		return this.store.chanStore;
 	}
 
+	get groupStore(): DbGroupStore {
+		return this.store.groupStore;
+	}
+
 	get puppetStore(): DbPuppetStore {
 		return this.store.puppetStore;
 	}
@@ -285,6 +295,10 @@ export class PuppetBridge extends EventEmitter {
 
 	get Config(): MxBridgeConfig {
 		return this.config;
+	}
+
+	get groupSyncEnabled(): boolean {
+		return this.hooks.createGroup && this.config.bridge.enableGroupSync ? true : false;
 	}
 
 	public async start() {
@@ -360,6 +374,10 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.createUser = hook;
 	}
 
+	public setCreateGroupHook(hook: CreateGroupHook) {
+		this.hooks.createGroup = hook;
+	}
+
 	public setGetDescHook(hook: GetDescHook) {
 		this.hooks.getDesc = hook;
 	}
@@ -400,6 +418,11 @@ export class PuppetBridge extends EventEmitter {
 	public async updateChannel(chan: IRemoteChan) {
 		log.verbose("Got request to update a channel");
 		await this.chanSync.getMxid(chan, undefined, undefined, false);
+	}
+
+	public async updateGroup(group: IRemoteGroup) {
+		log.verbose("Got request to update a group");
+		await this.groupSync.getMxid(group, false);
 	}
 
 	public async bridgeChannel(chan: IRemoteChan) {
@@ -719,7 +742,12 @@ export class PuppetBridge extends EventEmitter {
 		return memberInfo;
 	}
 
-	public async uploadContent(client: MatrixClient, thing: string | Buffer, mimetype?: string, filename?: string): Promise<string> {
+	public async uploadContent(
+		client: MatrixClient,
+		thing: string | Buffer,
+		mimetype?: string,
+		filename?: string,
+	): Promise<string> {
 		let buffer: Buffer;
 		if (typeof thing === "string") {
 			const maybeMxcUrl = await this.store.getFileMxc(thing);

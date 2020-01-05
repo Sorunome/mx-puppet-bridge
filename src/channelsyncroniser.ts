@@ -19,6 +19,7 @@ export interface IRemoteChan {
 	avatarBuffer?: Buffer | null;
 	name?: string | null;
 	topic?: string | null;
+	groupId?: string | null;
 	isDirect?: boolean | null;
 }
 
@@ -87,6 +88,8 @@ export class ChannelSyncroniser {
 			let mxid = "";
 			let doUpdate = false;
 			let created = false;
+			let removeGroup: string | undefined | null;
+			let addGroup: string | undefined | null;
 			if (!chan) {
 				if (!doCreate) {
 					this.mxidLock.release(lockKey);
@@ -170,6 +173,10 @@ export class ChannelSyncroniser {
 				if (data.topic) {
 					chan.topic = data.topic;
 				}
+				if (data.groupId) {
+					chan.groupId = data.groupId;
+					addGroup = chan.groupId;
+				}
 				created = true;
 			} else {
 				mxid = chan.mxid;
@@ -220,6 +227,12 @@ export class ChannelSyncroniser {
 					);
 					chan.topic = data.topic;
 				}
+				if (data.groupId !== undefined && data.groupId !== chan.groupId) {
+					doUpdate = true;
+					removeGroup = chan.groupId;
+					addGroup = data.groupId;
+					chan.groupId = data.groupId;
+				}
 			}
 
 			if (doUpdate) {
@@ -228,6 +241,22 @@ export class ChannelSyncroniser {
 			}
 
 			this.mxidLock.release(lockKey);
+
+			// update associated group only after releasing the lock
+			if (this.bridge.groupSyncEnabled) {
+				if (removeGroup) {
+					await this.bridge.groupSync.removeRoomFromGroup({
+						groupId: removeGroup,
+						puppetId: chan.puppetId,
+					}, chan.roomId);
+				}
+				if (addGroup) {
+					await this.bridge.groupSync.addRoomToGroup({
+						groupId: addGroup,
+						puppetId: chan.puppetId,
+					}, chan.roomId);
+				}
+			}
 
 			log.verbose("Returning mxid");
 			return { mxid, created };

@@ -5,6 +5,7 @@ import { Log } from "./log";
 import { MxBridgeConfigDatabase } from "./config";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
+import { DbGroupStore } from "./db/groupstore";
 import { DbPuppetStore } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
 import { IDatabaseConnector } from "./db/connector";
@@ -19,6 +20,7 @@ export class Store {
 	public db: IDatabaseConnector;
 	private pChanStore: DbChanStore;
 	private pUserStore: DbUserStore;
+	private pGroupStore: DbGroupStore;
 	private pPuppetStore: DbPuppetStore;
 	private pEventStore: DbEventStore;
 
@@ -30,6 +32,10 @@ export class Store {
 
 	get userStore() {
 		return this.pUserStore;
+	}
+
+	get groupStore() {
+		return this.pGroupStore;
 	}
 
 	get puppetStore() {
@@ -162,6 +168,7 @@ export class Store {
 			this.db.Open();
 			this.pChanStore = new DbChanStore(this.db);
 			this.pUserStore = new DbUserStore(this.db);
+			this.pGroupStore = new DbGroupStore(this.db);
 			this.pPuppetStore = new DbPuppetStore(this.db);
 			this.pEventStore = new DbEventStore(this.db);
 		} catch (ex) {

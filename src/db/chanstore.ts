@@ -16,6 +16,7 @@ export interface IChanStoreEntry {
 	avatarMxc?: string | null;
 	avatarHash?: string | null;
 	topic?: string | null;
+	groupId?: string | null;
 }
 
 export class DbChanStore {
@@ -91,7 +92,8 @@ export class DbChanStore {
 				avatar_url,
 				avatar_mxc,
 				avatar_hash,
-				topic
+				topic,
+				group_id
 			) VALUES (
 				$mxid,
 				$room_id,
@@ -100,7 +102,8 @@ export class DbChanStore {
 				$avatar_url,
 				$avatar_mxc,
 				$avatar_hash,
-				$topic
+				$topic,
+				$group_id
 			)`;
 		} else {
 			query = `UPDATE chan_store SET
@@ -110,7 +113,8 @@ export class DbChanStore {
 				avatar_url = $avatar_url,
 				avatar_mxc = $avatar_mxc,
 				avatar_hash = $avatar_hash,
-				topic = $topic
+				topic = $topic,
+				group_id = $group_id
 				WHERE mxid = $mxid`;
 		}
 		await this.db.Run(query, {
@@ -122,6 +126,7 @@ export class DbChanStore {
 			avatar_mxc: data.avatarMxc || null,
 			avatar_hash: data.avatarHash || null,
 			topic: data.topic || null,
+			group_id: data.groupId || null,
 		});
 		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);
 		this.mxidCache.set(data.mxid, data);
@@ -189,6 +194,7 @@ export class DbChanStore {
 		data.avatarMxc = row.avatar_mxc as string | null;
 		data.avatarHash = row.avatar_hash as string | null;
 		data.topic = row.topic as string | null;
+		data.groupId = row.group_id as string | null;
 
 		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);
 		this.mxidCache.set(data.mxid, data);

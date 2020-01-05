@@ -26,6 +26,7 @@ class MxBridgeConfigBridge {
 	public loginSharedSecretMap: {[homeserver: string]: string} = {};
 	public displayname?: string;
 	public avatarUrl?: string;
+	public enableGroupSync: boolean = true;
 }
 
 export class MxBridgeConfigLogging {
