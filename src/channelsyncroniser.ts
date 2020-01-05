@@ -135,7 +135,10 @@ export class ChannelSyncroniser {
 				let avatarMxc = "";
 				if (data.avatarUrl || data.avatarBuffer) {
 					log.verbose("Uploading initial room avatar...");
-					const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data);
+					const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
+						async (buffer: Buffer, mimetype?: string, filename?: string) => {
+							return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
+						}, data);
 					updateAvatar = doUpdateAvatar;
 					if (updateAvatar) {
 						avatarHash = hash;
@@ -189,7 +192,10 @@ export class ChannelSyncroniser {
 				}
 				if ((data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl) || data.avatarBuffer) {
 					log.verbose("Updating avatar");
-					const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client!, data, chan.avatarHash);
+					const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
+						async (buffer: Buffer, mimetype?: string, filename?: string) => {
+							return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
+						}, data, chan.avatarHash);
 					if (updateAvatar) {
 						doUpdate = true;
 						chan.avatarUrl = data.avatarUrl;

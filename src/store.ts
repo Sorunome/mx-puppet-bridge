@@ -8,9 +8,10 @@ import { DbChanStore } from "./db/chanstore";
 import { DbPuppetStore } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
 import { IDatabaseConnector } from "./db/connector";
+import { Util } from "./util";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 6;
+export const CURRENT_SCHEMA = 7;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 
@@ -80,6 +81,37 @@ export class Store {
 
 	public async close() {
 		await this.db.Close();
+	}
+
+	public async getFileMxc(thing: string | Buffer): Promise<string | null> {
+		let key = "";
+		if (typeof thing === "string") {
+			key = thing;
+		} else {
+			key = Util.HashBuffer(thing);
+		}
+		const ret = await this.db.Get("SELECT mxc_url FROM file_mxc_map WHERE thing = $key", { key });
+		if (!ret) {
+			return null;
+		}
+		return ret.mxc_url as string;
+	}
+
+	public async setFileMxc(thing: string | Buffer, mxcUrl: string, filename?: string) {
+		let key = "";
+		if (typeof thing === "string") {
+			key = thing;
+		} else {
+			key = Util.HashBuffer(thing);
+		}
+		if ((await this.getFileMxc(key))) {
+			return; // nothing to do
+		}
+		if (!filename) {
+			filename = "";
+		}
+		await this.db.Run("INSERT INTO file_mxc_map (thing, mxc_url, filename) VALUES ($key, $mxcUrl, $filename)",
+			{ key, mxcUrl, filename });
 	}
 
 	public async createTable(statement: string, tablename: string) {

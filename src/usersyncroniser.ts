@@ -126,7 +126,10 @@ export class UserSyncroniser {
 			}
 			if (update.avatar || data.avatarBuffer) {
 				log.verbose("Updating avatar");
-				const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(client, data, user.avatarHash);
+				const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
+					async (buffer: Buffer, mimetype?: string, filename?: string) => {
+						return await this.bridge.uploadContent(client, buffer, mimetype, filename);
+					}, data, user.avatarHash);
 				log.silly(`Should update avatar? ${updateAvatar}`);
 				if (updateAvatar) {
 					update.avatar = true;

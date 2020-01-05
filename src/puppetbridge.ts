@@ -719,6 +719,43 @@ export class PuppetBridge extends EventEmitter {
 		return memberInfo;
 	}
 
+	public async uploadContent(client: MatrixClient, thing: string | Buffer, mimetype?: string, filename?: string): Promise<string> {
+		let buffer: Buffer;
+		if (typeof thing === "string") {
+			const maybeMxcUrl = await this.store.getFileMxc(thing);
+			if (maybeMxcUrl) {
+				return maybeMxcUrl;
+			}
+			if (!filename) {
+				const matches = thing.match(/\/([^\.\/]+\.[a-zA-Z0-9]+)(?:$|\?)/);
+				if (matches) {
+					filename = matches[1];
+				}
+			}
+			buffer = await Util.DownloadFile(thing);
+		} else {
+			buffer = thing;
+		}
+		{
+			const maybeMxcUrl = await this.store.getFileMxc(buffer);
+			if (maybeMxcUrl) {
+				return maybeMxcUrl;
+			}
+		}
+		if (!filename) {
+			filename = "file";
+		}
+		if (!mimetype) {
+			mimetype = Util.GetMimeType(buffer);
+		}
+		const mxcUrl = await client.uploadContent(buffer, mimetype, filename);
+		if (typeof thing === "string") {
+			await this.store.setFileMxc(thing, mxcUrl, filename);
+		}
+		await this.store.setFileMxc(buffer, mxcUrl, filename);
+		return mxcUrl;
+	}
+
 	private getRoomDisplaynameCache(roomId: string): { [userId: string]: IMemberInfo } {
 		if (!(roomId in this.memberInfoCache)) {
 			this.memberInfoCache[roomId] = {};
@@ -762,7 +799,8 @@ export class PuppetBridge extends EventEmitter {
 				msgtype = "m.file";
 			}
 		}
-		const fileMxc = await client.uploadContent(
+		const fileMxc = await this.uploadContent(
+			client,
 			buffer,
 			mimetype,
 			name,

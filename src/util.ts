@@ -95,8 +95,14 @@ export class Util {
 		}
 	}
 
+	public static HashBuffer(b: Buffer): string {
+		return hasha(b, {
+			algorithm: "sha512",
+		});
+	}
+
 	public static async MaybeUploadFile(
-		client: MatrixClient,
+		uploadFn: (b: Buffer, m?: string, f?: string) => Promise<string>,
 		data: IMakeUploadFileData,
 		oldHash?: string | null,
 	): Promise<{ doUpdate: boolean; mxcUrl: string|undefined; hash: string; }> {
@@ -116,9 +122,7 @@ export class Util {
 				buffer = await Util.DownloadFile(data.avatarUrl!);
 				log.silly("avatar fetched!");
 			}
-			const hash = hasha(buffer!, {
-				algorithm: "sha512",
-			});
+			const hash = Util.HashBuffer(buffer!);
 			if (hash === oldHash) {
 				// image didn't change, short-circuit out of here
 				return {
@@ -135,11 +139,7 @@ export class Util {
 					filename = matches[1];
 				}
 			}
-			const avatarMxc = await client!.uploadContent(
-				buffer,
-				Util.GetMimeType(buffer),
-				filename,
-			);
+			const avatarMxc = await uploadFn(buffer, Util.GetMimeType(buffer), filename);
 			return {
 				doUpdate: true,
 				mxcUrl: avatarMxc,
