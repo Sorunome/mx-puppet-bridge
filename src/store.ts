@@ -12,7 +12,7 @@ import { IDatabaseConnector } from "./db/connector";
 import { Util } from "./util";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 7;
+export const CURRENT_SCHEMA = 8;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 

@@ -33,6 +33,7 @@ export class DbGroupStore {
 			mxid,
 			groupId,
 			puppetId,
+			roomIds: [],
 		} as IGroupStoreEntry;
 	}
 
@@ -107,6 +108,7 @@ export class DbGroupStore {
 				$name,
 				$avatarUrl,
 				$avatarMxc,
+				$avatarHash,
 				$shortDescription,
 				$longDescription
 			)`, {
@@ -160,7 +162,7 @@ export class DbGroupStore {
 			// now we need to delete / add room IDs
 			for (const oldRoomId of oldData.roomIds) {
 				const found = data.roomIds.find((r: string) => oldRoomId === r);
-				if (found) {
+				if (!found) {
 					await this.db.Run(`DELETE FROM group_store_rooms WHERE
 						group_id = $groupId AND puppet_id = $puppetId AND room_id = $roomId`, {
 						groupId: data.groupId,

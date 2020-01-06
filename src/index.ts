@@ -4,6 +4,7 @@ export * from "./util";
 export * from "./structures/lock";
 export { IRemoteChan } from "./channelsyncroniser";
 export { IRemoteUser } from "./usersyncroniser";
+export { IRemoteGroup } from "./groupsyncroniser";
 export { Store } from "./store";
 export { IDbSchema } from "./db/schema/dbschema";
 export { ICommand, SendMessageFn } from "./botprovisioner";

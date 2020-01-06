@@ -229,23 +229,44 @@ export class GroupSyncroniser {
 	}
 
 	public async addRoomToGroup(group: IRemoteGroup, roomId: string, recursionStop: boolean = false) {
+		log.verbose(`Adding rooom ${roomId} to group ${group.groupId}`);
+		// here we can't just invoke getMxid with the diff to add the room
+		// as it might already be in the array but not actually part of the group
+		const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+			puppetId: group.puppetId,
+			roomId,
+		});
+		if (!chanMxid) {
+			log.silly("room not found");
+			return;
+		}
+		const mxid = await this.getMxid(group);
 		const dbGroup = await this.maybeGet(group);
 		if (dbGroup) {
-			if (dbGroup.roomIds.includes(roomId)) {
-				return;
+			if (!dbGroup.roomIds.includes(roomId)) {
+				dbGroup.roomIds.push(roomId);
 			}
-			group.roomIds = dbGroup.roomIds;
-			group.roomIds.push(roomId);
-			await this.getMxid(group);
-		} else if (!recursionStop) {
-			await this.getMxid(group); // create the group and try again
-			await this.addRoomToGroup(group, roomId, true);
+			await this.groupStore.set(dbGroup);
 		}
+		const clientUnstable = this.bridge.botIntent.underlyingClient.unstableApis;
+		try {
+			await clientUnstable.addRoomToGroup(mxid, chanMxid, false);
+		} catch (err) { }
 	}
 
 	public async removeRoomFromGroup(group: IRemoteGroup, roomId: string) {
+		log.info(`Removing room ${roomId} from group ${group.groupId}`);
+		// as before, we don't invoke via getMxid as maybe the room is still
+		// wrongfully in the group
+		const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+			puppetId: group.puppetId,
+			roomId,
+		});
+		if (!chanMxid) {
+			return;
+		}
 		const dbGroup = await this.maybeGet(group);
-		if (!dbGroup || !dbGroup.roomIds.includes(roomId)) {
+		if (!dbGroup) {
 			return;
 		}
 		group.roomIds = dbGroup.roomIds;
@@ -254,7 +275,11 @@ export class GroupSyncroniser {
 			return;
 		}
 		group.roomIds.splice(foundIndex, 1);
-		await this.getMxid(group, false);
+		await this.groupStore.set(dbGroup);
+		const clientUnstable = this.bridge.botIntent.underlyingClient.unstableApis;
+		try {
+			await clientUnstable.removeRoomFromGroup(dbGroup.mxid, chanMxid);
+		} catch (err) { }
 	}
 
 	private makeRandomId(length: number): string {

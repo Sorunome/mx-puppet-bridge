@@ -256,6 +256,8 @@ export class ChannelSyncroniser {
 						puppetId: chan.puppetId,
 					}, chan.roomId);
 				}
+			} else {
+				log.verbose("Group sync is disabled");
 			}
 
 			log.verbose("Returning mxid");
