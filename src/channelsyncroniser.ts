@@ -336,7 +336,7 @@ export class ChannelSyncroniser {
 			channel.external_url = chan.externalUrl;
 		}
 		const content: IBridgeInformation = {
-			cretor,
+			creator,
 			protocol,
 			channel,
 		};
