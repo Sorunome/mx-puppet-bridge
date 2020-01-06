@@ -20,6 +20,7 @@ export interface IRemoteGroup {
 	shortDescription?: string | null;
 	longDescription?: string | null;
 	roomIds?: string[] | null;
+	externalUrl?: string | null;
 }
 
 export class GroupSyncroniser {

@@ -21,6 +21,21 @@ export interface IRemoteChan {
 	topic?: string | null;
 	groupId?: string | null;
 	isDirect?: boolean | null;
+	externalUrl?: string | null;
+}
+
+interface ISingleBridgeInformation {
+	id: string;
+	displayname?: string;
+	avatar?: string;
+	external_url?: string;
+}
+
+interface IBridgeInformation {
+	creator?: string;
+	protocol: ISingleBridgeInformation;
+	network?: ISingleBridgeInformation;
+	channel: ISingleBridgeInformation;
 }
 
 export class ChannelSyncroniser {
@@ -280,6 +295,80 @@ export class ChannelSyncroniser {
 		} as IChanStoreEntry;
 		await this.chanStore.set(entry);
 		this.mxidLock.release(lockKey);
+	}
+
+	public async updateBridgeInformation(data: IRemoteChan) {
+		log.info("Updating bridge infromation state event");
+		const chan = await this.maybeGet(data);
+		if (!chan) {
+			log.warn("Channel not found");
+			return; // nothing to do
+		}
+		const client = await this.getChanOp(chan.mxid);
+		if (!client) {
+			log.warn("No OP in channel");
+			return; // no op
+		}
+		const e = (s: string) => encodeURIComponent(Util.str2mxid(s));
+		const stateKey = `de.sorunome.mx-puppet-bridge://${this.bridge.protocol.id}` +
+			`${chan.groupId ? "/" + e(chan.groupId) : ""}/${e(chan.roomId)}`;
+		const creator = await this.bridge.provisioner.getMxid(data.puppetId);
+		const protocol: ISingleBridgeInformation = {
+			id: this.bridge.protocol.id,
+			displayname: this.bridge.protocol.displayname,
+		};
+		if (this.bridge.config.bridge.avatarUrl) {
+			protocol.avatar = this.bridge.config.bridge.avatarUrl;
+		}
+		if (this.bridge.protocol.externalUrl) {
+			protocol.external_url = this.bridge.protocol.external_url;
+		}
+		const channel: ISingleBridgeInformation = {
+			id: Util.str2mxid(chan.roomId),
+		};
+		if (chan.name) {
+			channel.displayname = chan.name;
+		}
+		if (chan.avatarMxc) {
+			channel.avatar = chan.avatarMxc;
+		}
+		if (chan.externalUrl) {
+			channel.external_url = chan.externalUrl;
+		}
+		const content: IBridgeInformation = {
+			cretor,
+			protocol,
+			channel,
+		};
+		if (chan.groupId && this.bridge.groupSyncEnabled) {
+			const group = await this.bridge.groupSync.maybeGet({
+				groupId: chan.groupId,
+				puppetId: chan.puppetId,
+			});
+			if (group) {
+				const network: ISingleBridgeInformation = {
+					id: group.groupId,
+				};
+				if (group.name) {
+					network.displayname = group.name;
+				}
+				if (group.avatarMxc) {
+					network.avatar = group.avatarMxc;
+				}
+				if (group.externalUrl) {
+					network.external_url = group.externalUrl;
+				}
+				content.network = network;
+			}
+		}
+		// finally set the state event
+		log.verbose("sending state event", content, "with state key", stateKey);
+		await client.sendStateEvent(
+			chan.mxid,
+			"m.bridge",
+			stateKey,
+			content,
+		);
 	}
 
 	public getPartsFromMxid(mxid: string): IRemoteChan | null {

@@ -121,6 +121,12 @@ export interface IRetList {
 	category?: boolean;
 }
 
+export interface IProtocolInformation {
+	id?: string;
+	displayname?: string;
+	externalUrl?: string;
+}
+
 export type CreateChanHook = (chan: IRemoteChan) => Promise<IRemoteChan | null>;
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
 export type CreateGroupHook = (group: IRemoteGroup) => Promise<IRemoteGroup | null>;
@@ -151,6 +157,7 @@ export class PuppetBridge extends EventEmitter {
 	public config: MxBridgeConfig;
 	public provisioner: Provisioner;
 	public store: Store;
+	public protocol: IProtocolInformation;
 	private appservice: Appservice;
 	private ghostInviteCache: TimedCache<string, boolean>;
 	private botProvisioner: BotProvisioner;
@@ -181,7 +188,19 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	public async init() {
+	public async init(prot?: IProtocolInformation) {
+		if (!prot) {
+			this.protocol = {
+				id: "unknown-protocol",
+				displayname: "Unknown Protocol",
+			};
+		} else {
+			this.protocol = {
+				id: prot.id || "unknown-protocol",
+				displayname: prot.displayname || "Unknown Protocol",
+				externalUrl: prot.externalUrl,
+			};
+		}
 		this.readConfig();
 		this.store = new Store(this.config.database);
 		await this.store.init();
