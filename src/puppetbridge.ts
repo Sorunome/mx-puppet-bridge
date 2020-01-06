@@ -170,8 +170,21 @@ export class PuppetBridge extends EventEmitter {
 		private registrationPath: string,
 		private configPath: string,
 		private features: IPuppetBridgeFeatures,
+		prot?: IProtocolInformation,
 	) {
 		super();
+		if (!prot) {
+			this.protocol = {
+				id: "unknown-protocol",
+				displayname: "Unknown Protocol",
+			};
+		} else {
+			this.protocol = {
+				id: prot.id || "unknown-protocol",
+				displayname: prot.displayname || "Unknown Protocol",
+				externalUrl: prot.externalUrl,
+			};
+		}
 		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
 		this.hooks = {} as IPuppetBridgeHooks;
 		this.delayedFunction = new DelayedFunction();
@@ -188,19 +201,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	public async init(prot?: IProtocolInformation) {
-		if (!prot) {
-			this.protocol = {
-				id: "unknown-protocol",
-				displayname: "Unknown Protocol",
-			};
-		} else {
-			this.protocol = {
-				id: prot.id || "unknown-protocol",
-				displayname: prot.displayname || "Unknown Protocol",
-				externalUrl: prot.externalUrl,
-			};
-		}
+	public async init() {
 		this.readConfig();
 		this.store = new Store(this.config.database);
 		await this.store.init();
