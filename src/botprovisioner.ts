@@ -155,7 +155,7 @@ export class BotProvisioner {
 						if (this.commands[name].withPid) {
 							const [, pidStr, p] = (param || "").split(/([^ ]*)(?: (.*))?/);
 							const pid = parseInt(pidStr, 10);
-							const d = await this.provisioner.get(pid);
+							const d = isNaN(pid) ? null : await this.provisioner.get(pid);
 							if (!d || d.puppetMxid !== sender) {
 								await this.sendMessage(roomId, "ERROR: PuppetID not found");
 								break;
