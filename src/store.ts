@@ -50,9 +50,12 @@ export class Store {
 		overrideSchema: number = 0,
 		table: string = "schema",
 		getSchemaClass?: GetSchemaClass,
+		openDatabase: boolean = true,
 	): Promise<void> {
 		log.info("Starting DB Init");
-		await this.openDatabase();
+		if (openDatabase) {
+			await this.openDatabase();
+		}
 		let version = await this.getSchemaVersion(table);
 		const targetSchema = overrideSchema || CURRENT_SCHEMA;
 		log.info(`Database schema version is ${version}, latest version is ${targetSchema}`);
