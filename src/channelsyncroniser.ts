@@ -463,14 +463,22 @@ export class ChannelSyncroniser {
 			// first we clean up the room
 			const opClient = await this.getChanOp(entry.mxid);
 			if (opClient) {
-				log.info("Removing old aliases from room...");
-				// first remove the canonical alias
-				await opClient.sendStateEvent(entry.mxid, "m.room.canonical_alias", "", {});
-				// next fetch all aliases and remove the ones we can
-				const aliases = await opClient.getRoomStateEvent(entry.mxid, "m.room.aliases", this.bridge.config.bridge.domain);
-				await opClient.sendStateEvent(entry.mxid, "m.room.aliases", this.bridge.config.bridge.domain, { aliases: [] });
-				for (const alias of aliases.aliases) {
-					await opClient.deleteRoomAlias(alias);
+				// we try...catch this as we *really* want to get to the DB deleting
+				try {
+					log.info("Removing old aliases from room...");
+					// first remove the canonical alias
+					await opClient.sendStateEvent(entry.mxid, "m.room.canonical_alias", "", {});
+					// next fetch all aliases and remove the ones we can
+					try {
+						const aliases = await opClient.getRoomStateEvent(entry.mxid, "m.room.aliases", this.bridge.config.bridge.domain);
+						for (const alias of aliases.aliases) {
+							await opClient.deleteRoomAlias(alias);
+						}
+					} catch (err) {
+						log.info("No aliases set");
+					}
+				} catch (err) {
+					log.error("Error removing old aliases", err);
 				}
 			}
 
