@@ -17,6 +17,7 @@ export interface IChanStoreEntry {
 	avatarHash?: string | null;
 	topic?: string | null;
 	groupId?: string | null;
+	externalUrl?: string | null;
 }
 
 export class DbChanStore {

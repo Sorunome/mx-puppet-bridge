@@ -14,6 +14,7 @@ export interface IUserStoreEntry {
 	avatarUrl?: string | null;
 	avatarMxc?: string | null;
 	avatarHash?: string | null;
+	externalUrl?: string | null;
 }
 
 export class DbUserStore {

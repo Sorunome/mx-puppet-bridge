@@ -18,6 +18,7 @@ export interface IRemoteUser {
 	avatarUrl?: string | null;
 	avatarBuffer?: Buffer | null;
 	name?: string | null;
+	externalUrl?: string | null;
 }
 
 export class UserSyncroniser {

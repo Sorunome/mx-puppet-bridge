@@ -18,6 +18,7 @@ export interface IGroupStoreEntry {
 	shortDescription?: string | null;
 	longDescription?: string | null;
 	roomIds: string[];
+	externalUrl?: string | null;
 }
 
 export class DbGroupStore {

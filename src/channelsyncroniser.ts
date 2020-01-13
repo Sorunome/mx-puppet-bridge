@@ -314,14 +314,14 @@ export class ChannelSyncroniser {
 			`${chan.groupId ? "/" + e(chan.groupId) : ""}/${e(chan.roomId)}`;
 		const creator = await this.bridge.provisioner.getMxid(data.puppetId);
 		const protocol: ISingleBridgeInformation = {
-			id: this.bridge.protocol.id,
+			id: this.bridge.protocol.id!,
 			displayname: this.bridge.protocol.displayname,
 		};
 		if (this.bridge.config.bridge.avatarUrl) {
 			protocol.avatar = this.bridge.config.bridge.avatarUrl;
 		}
 		if (this.bridge.protocol.externalUrl) {
-			protocol.external_url = this.bridge.protocol.external_url;
+			protocol.external_url = this.bridge.protocol.externalUrl;
 		}
 		const channel: ISingleBridgeInformation = {
 			id: Util.str2mxid(chan.roomId),
