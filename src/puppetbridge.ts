@@ -1298,6 +1298,7 @@ export class PuppetBridge extends EventEmitter {
 		// FINALLY join back and accept the invite
 		await this.chanSync.insert(roomId, roomData);
 		await intent.joinRoom(roomId);
+		await this.userSync.getClient(parts); // create user, if it doesn't exist
 	}
 
 	private async handleRoomQuery(alias: string, createRoom: any) {
