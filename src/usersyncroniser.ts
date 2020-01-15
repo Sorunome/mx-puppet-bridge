@@ -2,7 +2,7 @@ import { PuppetBridge } from "./puppetbridge";
 import { MatrixClient, Intent } from "matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
-import { DbUserStore } from "./db/userstore";
+import { DbUserStore, IUserStoreEntry, IUserStoreRoomOverrideEntry } from "./db/userstore";
 import { Lock } from "./structures/lock";
 import { ITokenResponse } from "./provisioner";
 
@@ -10,6 +10,12 @@ const log = new Log("UserSync");
 
 // tslint:disable-next-line:no-magic-numbers
 const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
+
+export interface IRemoteUserRoomOverride {
+	avatarUrl?: string | null;
+	avatarBuffer?: Buffer | null;
+	name?: string | null;
+}
 
 export interface IRemoteUser {
 	userId: string;
@@ -19,6 +25,8 @@ export interface IRemoteUser {
 	avatarBuffer?: Buffer | null;
 	name?: string | null;
 	externalUrl?: string | null;
+
+	roomOverrides?: {[roomId: string]: IRemoteUserRoomOverride} | null;
 }
 
 export class UserSyncroniser {
@@ -117,12 +125,13 @@ export class UserSyncroniser {
 			const intent = this.bridge.AS.getIntentForSuffix(`${data.puppetId}_${Util.str2mxid(data.userId)}`);
 			await intent.ensureRegistered();
 			const client = intent.underlyingClient;
+			const promiseList: Promise<void>[] = [];
 			if (update.name) {
 				log.verbose("Updating name");
 				// we *don't* await here as setting the name might take a
 				// while due to updating all those m.room.member events, we can do that in the BG
 				// tslint:disable-next-line:no-floating-promises
-				client.setDisplayName(data.name || "");
+				promiseList.push(client.setDisplayName(data.name || ""));
 				user.name = data.name;
 			}
 			if (update.avatar || data.avatarBuffer) {
@@ -140,7 +149,7 @@ export class UserSyncroniser {
 					// we *don't* await here as that can take rather long
 					// and we might as well do this in the background
 					// tslint:disable-next-line:no-floating-promises
-					client.setAvatarUrl(user.avatarMxc || "");
+					promiseList.push(client.setAvatarUrl(user.avatarMxc || ""));
 				}
 			}
 
@@ -157,10 +166,42 @@ export class UserSyncroniser {
 
 			this.clientLock.release(lockKey);
 
+			// alright, let's wait for name and avatar changes finishing
+			Promise.all(promiseList).catch((err) => {
+				log.error("Error updating profile", err.body || err);
+			}).then(async () => {
+				const roomIdsNotToUpdate: string[] = [];
+				// alright, now that we are done creating the user, let's check the room overrides
+				if (data.roomOverrides) {
+					for (const roomId in data.roomOverrides) {
+						if (data.roomOverrides.hasOwnProperty(roomId)) {
+							roomIdsNotToUpdate.push(roomId);
+							log.verbose(`Got room override for room ${roomId}`);
+							// there is no need to await these room-specific changes, might as well do them all at once
+							// tslint:disable-next-line:no-floating-promises
+							this.updateRoomOverride(client, data, roomId, data.roomOverrides[roomId], user!);
+						}
+					}
+				}
+
+				if (promiseList.length > 0) {
+					// name or avatar of the real profile changed, we need to re-apply all our room overrides
+					const roomOverrides = await this.userStore.getAllRoomOverrides(data.puppetId, data.userId);
+					for (const roomOverride of roomOverrides) {
+						if (roomIdsNotToUpdate.includes(roomOverride.roomId)) {
+							continue; // nothing to do, we just did this
+						}
+						// there is no need to await these room-specific changes, might as well do them all at once
+						// tslint:disable-next-line:no-floating-promises
+						this.setRoomOverride(user!, roomOverride.roomId, roomOverride, client, user!);
+					}
+				}
+			});
+
 			log.verbose("Returning client");
 			return client;
 		} catch (err) {
-			log.error("Error fetching client:", err);
+			log.error("Error fetching client:", err.body || err);
 			this.clientLock.release(lockKey);
 			throw err;
 		}
@@ -195,5 +236,105 @@ export class UserSyncroniser {
 		}
 		log.info(`Deleting ghost ${mxid}`);
 		await this.userStore.delete(user);
+	}
+
+	public async setRoomOverride(
+		userData: IRemoteUser,
+		roomId: string,
+		roomOverrideData?: IUserStoreRoomOverrideEntry | null,
+		client?: MatrixClient | null,
+		origUserData?: IUserStoreEntry | null,
+	) {
+		if (!client) {
+			client = await this.maybeGetClient(userData);
+		}
+		if (!client) {
+			return;
+		}
+		if (!origUserData) {
+			origUserData = await this.userStore.get(userData.puppetId, userData.userId);
+		}
+		if (!origUserData) {
+			return;
+		}
+		if (!roomOverrideData) {
+			roomOverrideData = await this.userStore.getRoomOverride(userData.puppetId, userData.userId, roomId);
+		}
+		if (!roomOverrideData) {
+			return;
+		}
+		const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+			puppetId: userData.puppetId,
+			roomId,
+		});
+		if (!chanMxid) {
+			return;
+		}
+		log.info("Setting room override...");
+		const memberContent = {
+			membership: "join",
+			displayname: roomOverrideData.name || origUserData.name,
+			avatar_url: roomOverrideData.avatarMxc || origUserData.avatarMxc,
+		};
+		await client.sendStateEvent(chanMxid, "m.room.member", await client.getUserId(), memberContent);
+	}
+
+	public async updateRoomOverride(
+		client: MatrixClient,
+		userData: IRemoteUser,
+		roomId: string,
+		roomOverride: IRemoteUserRoomOverride,
+		origUserData?: IUserStoreEntry,
+	) {
+		try {
+			let user = await this.userStore.getRoomOverride(userData.puppetId, userData.userId, roomId);
+			if (!user) {
+				user = this.userStore.newRoomOverrideData(userData.puppetId, userData.userId, roomId);
+			}
+			let doUpdate = false;
+			// we actually want != and not !== here as undefined, null and "" should all be treated the same
+			// tslint:disable-next-line triple-equals
+			const updateName = roomOverride.name != user.name;
+			const eraseAvatar = user.avatarMxc && !roomOverride.avatarUrl && !roomOverride.avatarBuffer;
+			// tslint:disable-next-line triple-equals
+			const updateAvatar = roomOverride.avatarUrl != user.avatarUrl || roomOverride.avatarBuffer || eraseAvatar;
+			if (updateName) {
+				user.name = roomOverride.name;
+				doUpdate = true;
+			}
+			if (updateAvatar) {
+				if (eraseAvatar) {
+					user.avatarUrl = null;
+					user.avatarHash = null;
+					user.avatarMxc = null;
+					doUpdate = true;
+				} else {
+					const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
+						async (buffer: Buffer, mimetype?: string, filename?: string) => {
+							return await this.bridge.uploadContent(client, buffer, mimetype, filename);
+						}, roomOverride, user.avatarHash);
+					if (doUpdateAvatar) {
+						user.avatarUrl = roomOverride.avatarUrl;
+						user.avatarHash = hash;
+						user.avatarMxc = mxcUrl;
+						doUpdate = true;
+					}
+				}
+			}
+			if (doUpdate) {
+				try {
+					// ok, let's set the override
+					await this.setRoomOverride(userData, roomId, user, client, origUserData);
+				} catch (err) {
+					if (err.body.errcode !== "M_FORBIDDEN") {
+						throw err;
+					}
+				}
+				// aaaaand then update the DB
+				await this.userStore.setRoomOverride(user);
+			}
+		} catch (err) {
+			log.error(`Error setting room overrides for ${userData.userId} in ${roomId}:`, err.body || err);
+		}
 	}
 }

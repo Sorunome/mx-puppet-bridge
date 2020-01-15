@@ -346,21 +346,21 @@ export class PuppetBridge extends EventEmitter {
 			try {
 				await this.handleRoomEvent(roomId, event);
 			} catch (err) {
-				log.error("Error handling appservice room.event", err);
+				log.error("Error handling appservice room.event", err.body || err);
 			}
 		});
 		this.appservice.on("room.invite", async (roomId: string, event: any) => {
 			try {
 				await this.handleInviteEvent(roomId, event);
 			} catch (err) {
-				log.error("Error handling appservice room.invite", err);
+				log.error("Error handling appservice room.invite", err.body || err);
 			}
 		});
 		this.appservice.on("query.room", async (alias: string, createRoom: any) => {
 			try {
 				await this.handleRoomQuery(alias, createRoom);
 			} catch (err) {
-				log.error("Error handling appservice query.room", err);
+				log.error("Error handling appservice query.room", err.body || err);
 			}
 		});
 		await this.appservice.begin();
@@ -910,11 +910,17 @@ export class PuppetBridge extends EventEmitter {
 			log.silly("Joining ghost to room...");
 			const intent = this.appservice.getIntentForUserId(userId);
 			await intent.ensureRegisteredAndJoined(mxid);
+			// if the ghost was ourself, leave it again
 			if (puppetData && puppetData.userId === params.user.userId) {
 				const delayedKey = `${userId}_${mxid}`;
 				this.delayedFunction.set(delayedKey, async () => {
 					await this.chanSync.maybeLeaveGhost(mxid, userId);
 				}, GHOST_PUPPET_LEAVE_TIMEOUT);
+			}
+			// set the correct m.room.member override if the room just got created
+			if (created) {
+				log.verbose("Maybe applying room membership overrides");
+				await this.userSync.setRoomOverride(params.user, params.chan.roomId, null, client);
 			}
 		}
 
@@ -1162,6 +1168,15 @@ export class PuppetBridge extends EventEmitter {
 
 		log.verbose("adding ghost to chan cache");
 		await this.store.puppetStore.joinGhostToChan(ghostId, roomId);
+
+		const ghostParts = await this.userSync.getPartsFromMxid(ghostId);
+		if (ghostParts) {
+			const roomParts = await this.chanSync.getPartsFromMxid(roomId);
+			if (roomParts && roomParts.puppetId === ghostParts.puppetId) {
+				log.verbose("Maybe applying room overrides");
+				await this.userSync.setRoomOverride(ghostParts, roomParts.roomId);
+			}
+		}
 
 		// maybe remove the bot user, if it is present
 		await this.chanSync.maybeLeaveGhost(roomId, this.appservice.botIntent.userId);

@@ -279,7 +279,7 @@ export class ChannelSyncroniser {
 			log.verbose("Returning mxid");
 			return { mxid, created };
 		} catch (err) {
-			log.error("Error fetching mxid:", err);
+			log.error("Error fetching mxid:", err.body || err);
 			this.mxidLock.release(lockKey);
 			throw err;
 		}
@@ -428,7 +428,7 @@ export class ChannelSyncroniser {
 				);
 				await this.chanStore.setChanOp(chanMxid, newOp);
 			} catch (err) {
-				log.error("Couldn't set new chan OP", err);
+				log.error("Couldn't set new chan OP", err.body || err);
 				return;
 			}
 		}
@@ -479,7 +479,7 @@ export class ChannelSyncroniser {
 						log.info("No aliases set");
 					}
 				} catch (err) {
-					log.error("Error removing old aliases", err);
+					log.error("Error removing old aliases", err.body || err);
 				}
 			}
 
@@ -493,7 +493,7 @@ export class ChannelSyncroniser {
 				try {
 					await botIntent.leaveRoom(entry.mxid);
 				} catch (err) {
-					log.warn("Failed to make bot client leave", err);
+					log.warn("Failed to make bot client leave", err.body || err);
 				}
 			}
 
@@ -508,7 +508,7 @@ export class ChannelSyncroniser {
 					try {
 						await intent.leaveRoom(entry.mxid);
 					} catch (err) {
-						log.warn("Failed to trigger client leave room", err);
+						log.warn("Failed to trigger client leave room", err.body || err);
 					}
 				}
 			}
