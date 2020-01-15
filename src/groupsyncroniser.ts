@@ -113,10 +113,12 @@ export class GroupSyncroniser {
 
 				group = this.groupStore.newData(mxid, data.groupId, data.puppetId);
 			} else {
-				update.name = data.name !== undefined && data.name !== group.name;
-				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== group.avatarUrl;
-				update.shortDescription = data.shortDescription !== undefined && data.shortDescription !== group.shortDescription;
-				update.longDescription = data.longDescription !== undefined && data.longDescription !== group.longDescription;
+				update.name = data.name !== undefined && data.name !== null && data.name !== group.name;
+				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== group.avatarUrl;
+				update.shortDescription = data.shortDescription !== undefined && data.shortDescription !== null
+					&& data.shortDescription !== group.shortDescription;
+				update.longDescription = data.longDescription !== undefined && data.longDescription !== null
+					&& data.longDescription !== group.longDescription;
 				if (data.roomIds) {
 					for (const r of data.roomIds) {
 						if (!group.roomIds.includes(r)) {

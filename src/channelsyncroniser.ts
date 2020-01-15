@@ -201,7 +201,7 @@ export class ChannelSyncroniser {
 				if (newClient) {
 					client = newClient;
 				}
-				if (data.name !== undefined && data.name !== chan.name) {
+				if (data.name !== undefined && data.name !== null && data.name !== chan.name) {
 					doUpdate = true;
 					log.verbose("Updating name");
 					await client!.sendStateEvent(
@@ -212,7 +212,8 @@ export class ChannelSyncroniser {
 					);
 					chan.name = data.name;
 				}
-				if ((data.avatarUrl !== undefined && data.avatarUrl !== chan.avatarUrl) || data.avatarBuffer) {
+				if ((data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== chan.avatarUrl)
+					|| data.avatarBuffer) {
 					log.verbose("Updating avatar");
 					const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
 						async (buffer: Buffer, mimetype?: string, filename?: string) => {
@@ -231,7 +232,7 @@ export class ChannelSyncroniser {
 						);
 					}
 				}
-				if (data.topic !== undefined && data.topic !== chan.topic) {
+				if (data.topic !== undefined && data.topic !== null && data.topic !== chan.topic) {
 					doUpdate = true;
 					log.verbose("updating topic");
 					await client!.sendStateEvent(
@@ -242,7 +243,7 @@ export class ChannelSyncroniser {
 					);
 					chan.topic = data.topic;
 				}
-				if (data.groupId !== undefined && data.groupId !== chan.groupId) {
+				if (data.groupId !== undefined && data.groupId !== null && data.groupId !== chan.groupId) {
 					doUpdate = true;
 					removeGroup = chan.groupId;
 					addGroup = data.groupId;

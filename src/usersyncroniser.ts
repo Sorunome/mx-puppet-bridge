@@ -111,8 +111,8 @@ export class UserSyncroniser {
 				update.avatar = data.avatarUrl ? true : false;
 				user = this.userStore.newData(data.puppetId, data.userId);
 			} else {
-				update.name = data.name !== undefined && data.name !== user.name;
-				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== user.avatarUrl;
+				update.name = data.name !== undefined && data.name !== null && data.name !== user.name;
+				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== user.avatarUrl;
 			}
 			const intent = this.bridge.AS.getIntentForSuffix(`${data.puppetId}_${Util.str2mxid(data.userId)}`);
 			await intent.ensureRegistered();
