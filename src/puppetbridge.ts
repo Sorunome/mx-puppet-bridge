@@ -125,7 +125,8 @@ export class PuppetBridge extends EventEmitter {
 			Log.Configure(this.config.logging);
 			// apply name patterns
 			this.protocol.namePatterns.user = this.config.namePatterns.user || this.protocol.namePatterns.user || ":name";
-			this.protocol.namePatterns.userOverride = this.config.namePatterns.userOverride || this.protocol.namePatterns.userOverride || ":name";
+			this.protocol.namePatterns.userOverride = this.config.namePatterns.userOverride ||
+				this.protocol.namePatterns.userOverride || ":name";
 			this.protocol.namePatterns.room = this.config.namePatterns.room || this.protocol.namePatterns.room || ":name";
 			this.protocol.namePatterns.group = this.config.namePatterns.group || this.protocol.namePatterns.group || ":name";
 		} catch (err) {
