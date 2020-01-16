@@ -35,10 +35,15 @@ export class LoggingConfig {
 	public files: LoggingFileConfig[] = [];
 }
 
+export class LoggingInterfaceModuleConfig {
+	public module: string;
+	public regex: string;
+}
+
 export class LoggingInterfaceConfig {
 	public level: string = "info";
-	public enabled: string[] = [];
-	public disabled: string[] = [];
+	public enabled: (string | LoggingInterfaceModuleConfig)[] = [];
+	public disabled: (string | LoggingInterfaceModuleConfig)[] = [];
 }
 
 export class LoggingFileConfig extends LoggingInterfaceConfig {

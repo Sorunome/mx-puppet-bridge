@@ -19,7 +19,7 @@ limitations under the License.
 
 import { createLogger, Logger, format, transports } from "winston";
 import * as Transport from "winston-transport";
-import { LoggingConfig, LoggingFileConfig, LoggingInterfaceConfig } from "./config";
+import { LoggingConfig, LoggingFileConfig, LoggingInterfaceConfig, LoggingInterfaceModuleConfig } from "./config";
 import { inspect } from "util";
 import "winston-daily-rotate-file";
 
@@ -52,10 +52,36 @@ export class Log {
 
 	private static getTransportOpts(config: LoggingInterfaceConfig): Transport.TransportStreamOptions {
 		config = Object.assign(new LoggingInterfaceConfig(), config);
+		const allEnabled: string[] = [];
+		const allDisabled: string[] = [];
+		const enhancedEnabled: {[key: string]: LoggingInterfaceModuleConfig} = {};
+		const enhancedDisabled: {[key: string]: LoggingInterfaceModuleConfig} = {};
+		for (const module of config.enabled) {
+			if (typeof module === "string") {
+				allEnabled.push(module);
+			} else {
+				const mod = module as LoggingInterfaceModuleConfig;
+				allEnabled.push(mod.module);
+				enhancedEnabled[mod.module] = mod;
+			}
+		}
+		for (const module of config.disabled) {
+			if (typeof module === "string") {
+				allDisabled.push(module);
+			} else {
+				const mod = module as LoggingInterfaceModuleConfig;
+				allDisabled.push(mod.module);
+				enhancedDisabled[mod.module] = mod;
+			}
+		}
+		const doEnabled = allEnabled.length > 0;
 		const filterOutMods = format((info, _) => {
-			if (config.disabled.includes(info.module) ||
-				(config.enabled.length > 0 &&
-				!config.enabled.includes(info.module))
+			const module = info.module;
+			if ((allDisabled.includes(module) && 
+				(!enhancedDisabled[module] || info.message.match(enhancedDisabled[module].regex))) ||
+				(doEnabled && (!allEnabled.includes(module) || (
+					enhancedEnabled[module] && !info.message.match(enhancedEnabled[module].regex)
+				)))
 			) {
 				return false;
 			}

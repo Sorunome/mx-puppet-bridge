@@ -246,7 +246,7 @@ export class PuppetBridge extends EventEmitter {
 		};
 
 		LogService.setLogger({
-			debug: (mod: string, args: any[]) => logFunc("silly", mod, args),
+			debug: (mod: string, args: any[]) => logFunc("debug", mod, args),
 			error: (mod: string, args: any[]) => logFunc("error", mod, args),
 			info: (mod: string, args: any[]) => logFunc("info", mod, args),
 			warn: (mod: string, args: any[]) => logFunc("warn", mod, args),
