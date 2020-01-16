@@ -14,7 +14,7 @@ import * as escapeHtml from "escape-html";
 import { ChannelSyncroniser, IRemoteChan } from "./channelsyncroniser";
 import { UserSyncroniser, IRemoteUser } from "./usersyncroniser";
 import { GroupSyncroniser, IRemoteGroup } from "./groupsyncroniser";
-import { MxBridgeConfig } from "./config";
+import { Config } from "./config";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
@@ -154,7 +154,7 @@ export class PuppetBridge extends EventEmitter {
 	public userSync: UserSyncroniser;
 	public groupSync: GroupSyncroniser;
 	public hooks: IPuppetBridgeHooks;
-	public config: MxBridgeConfig;
+	public config: Config;
 	public provisioner: Provisioner;
 	public store: Store;
 	public protocol: IProtocolInformation;
@@ -192,7 +192,7 @@ export class PuppetBridge extends EventEmitter {
 
 	public readConfig() {
 		try {
-			this.config = new MxBridgeConfig();
+			this.config = new Config();
 			this.config.applyConfig(yaml.safeLoad(fs.readFileSync(this.configPath, "utf8")));
 			Log.Configure(this.config.logging);
 		} catch (err) {
@@ -313,7 +313,7 @@ export class PuppetBridge extends EventEmitter {
 		return this.store.eventStore;
 	}
 
-	get Config(): MxBridgeConfig {
+	get Config(): Config {
 		return this.config;
 	}
 

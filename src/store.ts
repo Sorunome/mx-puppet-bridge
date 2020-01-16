@@ -2,7 +2,7 @@ import { IDbSchema } from "./db/schema/dbschema";
 import { SQLite3 } from "./db/sqlite3";
 import { Postgres } from "./db/postgres";
 import { Log } from "./log";
-import { MxBridgeConfigDatabase } from "./config";
+import { DatabaseConfig } from "./config";
 import { DbUserStore } from "./db/userstore";
 import { DbChanStore } from "./db/chanstore";
 import { DbGroupStore } from "./db/groupstore";
@@ -24,7 +24,7 @@ export class Store {
 	private pPuppetStore: DbPuppetStore;
 	private pEventStore: DbEventStore;
 
-	constructor(private config: MxBridgeConfigDatabase) { }
+	constructor(private config: DatabaseConfig) { }
 
 	get chanStore() {
 		return this.pChanStore;

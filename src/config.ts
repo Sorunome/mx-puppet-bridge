@@ -1,10 +1,10 @@
-export class MxBridgeConfig {
-	public bridge: MxBridgeConfigBridge = new MxBridgeConfigBridge();
-	public logging: MxBridgeConfigLogging = new MxBridgeConfigLogging();
-	public database: MxBridgeConfigDatabase = new MxBridgeConfigDatabase();
-	public provisioning: MxBridgeConfigProvisioning = new MxBridgeConfigProvisioning();
-	public presence: MxBridgeConfigPresence = new MxBridgeConfigPresence();
-	public relay: MxBridgeConfigRelay = new MxBridgeConfigRelay();
+export class Config {
+	public bridge: BridgeConfig = new BridgeConfig();
+	public logging: LoggingConfig = new LoggingConfig();
+	public database: DatabaseConfig = new DatabaseConfig();
+	public provisioning: ProvisioningConfig = new ProvisioningConfig();
+	public presence: PresenceConfig = new PresenceConfig();
+	public relay: RelayConfig = new RelayConfig();
 	public homeserverUrlMap: {[key: string]: string} = {};
 
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
@@ -18,7 +18,7 @@ export class MxBridgeConfig {
 	}
 }
 
-class MxBridgeConfigBridge {
+class BridgeConfig {
 	public bindAddress: string = "localhost";
 	public port: number;
 	public domain: string;
@@ -29,38 +29,41 @@ class MxBridgeConfigBridge {
 	public enableGroupSync: boolean = false;
 }
 
-export class MxBridgeConfigLogging {
-	public console: string = "info";
+export class LoggingConfig {
+	public console: string | LoggingInterfaceConfig = "info";
 	public lineDateFormat: string = "MMM-D HH:mm:ss.SSS";
-	public files: LoggingFile[] = [];
+	public files: LoggingFileConfig[] = [];
 }
 
-export class LoggingFile {
-	public file: string;
+export class LoggingInterfaceConfig {
 	public level: string = "info";
-	public maxFiles: string = "14d";
-	public maxSize: string|number = "50m";
-	public datePattern: string = "YYYY-MM-DD";
 	public enabled: string[] = [];
 	public disabled: string[] = [];
 }
 
-export class MxBridgeConfigDatabase {
+export class LoggingFileConfig extends LoggingInterfaceConfig {
+	public file: string;
+	public maxFiles: string = "14d";
+	public maxSize: string|number = "50m";
+	public datePattern: string = "YYYY-MM-DD";
+}
+
+export class DatabaseConfig {
 	public connString: string;
 	public filename: string = "database.db";
 }
 
-class MxBridgeConfigProvisioning {
+class ProvisioningConfig {
 	public whitelist: string[] = [];
 	public blacklist: string[] = [];
 }
 
-class MxBridgeConfigPresence {
+class PresenceConfig {
 	public enabled: boolean = true;
 	public interval: number = 500;
 }
 
-class MxBridgeConfigRelay {
+class RelayConfig {
 	public enabled: boolean = false;
 	public whitelist: string[] = [];
 	public blacklist: string[] = [];

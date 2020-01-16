@@ -18,7 +18,8 @@ limitations under the License.
 */
 
 import { createLogger, Logger, format, transports } from "winston";
-import { MxBridgeConfigLogging, LoggingFile} from "./config";
+import * as Transport from "winston-transport";
+import { LoggingConfig, LoggingFileConfig, LoggingInterfaceConfig } from "./config";
 import { inspect } from "util";
 import "winston-daily-rotate-file";
 
@@ -35,9 +36,9 @@ export class Log {
 		this.logger.level = level;
 	}
 
-	public static Configure(config: MxBridgeConfigLogging) {
+	public static Configure(config: LoggingConfig) {
 		// Merge defaults.
-		Log.config = Object.assign(new MxBridgeConfigLogging(), config);
+		Log.config = Object.assign(new LoggingConfig(), config);
 		Log.setupLogger();
 	}
 
@@ -46,8 +47,28 @@ export class Log {
 		Log.logger.silent = true;
 	}
 
-	private static config: MxBridgeConfigLogging;
+	private static config: LoggingConfig;
 	private static logger: Logger;
+
+	private static getTransportOpts(config: LoggingInterfaceConfig): Transport.TransportStreamOptions {
+		config = Object.assign(new LoggingInterfaceConfig(), config);
+		const filterOutMods = format((info, _) => {
+			if (config.disabled.includes(info.module) ||
+				(config.enabled.length > 0 &&
+				!config.enabled.includes(info.module))
+			) {
+				return false;
+			}
+			return info;
+		});
+		return {
+			level: config.level,
+			format: format.combine(
+				filterOutMods(),
+				FORMAT_FUNC,
+			),
+		};
+	}
 
 	private static setupLogger() {
 		if (Log.logger) {
@@ -56,9 +77,15 @@ export class Log {
 		const tsports: transports.StreamTransportInstance[] = Log.config.files.map((file) =>
 			Log.setupFileTransport(file),
 		);
-		tsports.push(new transports.Console({
-			level: Log.config.console,
-		}));
+		if (typeof Log.config.console === "string") {
+			tsports.push(new transports.Console({
+				level: Log.config.console,
+			}));
+		} else {
+			tsports.push(new transports.Console(
+				Log.getTransportOpts(Log.config.console),
+			));
+		}
 		Log.logger = createLogger({
 			format: format.combine(
 				format.timestamp({
@@ -71,30 +98,14 @@ export class Log {
 		});
 	}
 
-	private static setupFileTransport(config: LoggingFile): transports.FileTransportInstance {
-		config = Object.assign(new LoggingFile(), config);
-		const filterOutMods = format((info, _) => {
-			if (config.disabled.includes(info.module) &&
-				config.enabled.length > 0 &&
-				!config.enabled.includes(info.module)
-			) {
-				return false;
-			}
-			return info;
-		});
-
-		const opts = {
+	private static setupFileTransport(config: LoggingFileConfig): transports.FileTransportInstance {
+		config = Object.assign(new LoggingFileConfig(), config);
+		const opts = Object.assign(Log.getTransportOpts(config), {
 			datePattern: config.datePattern,
 			filename: config.file,
-			format: format.combine(
-				filterOutMods(),
-				FORMAT_FUNC,
-			),
-			level: config.level,
 			maxFiles: config.maxFiles,
 			maxSize: config.maxSize,
-		};
-
+		});
 		// tslint:disable-next-line no-any
 		return new (transports as any).DailyRotateFile(opts);
 	}
@@ -124,6 +135,11 @@ export class Log {
 	}
 
 	// tslint:disable-next-line no-any
+	public debug(...msg: any[]) {
+		this.log("debug", msg);
+	}
+
+	// tslint:disable-next-line no-any
 	public silly(...msg: any[]) {
 		this.log("silly", msg);
 	}
@@ -132,7 +148,7 @@ export class Log {
 	private log(level: string, msg: any[]) {
 		if (!Log.logger) {
 			// We've not configured the logger yet, so create a basic one.
-			Log.config = new MxBridgeConfigLogging();
+			Log.config = new LoggingConfig();
 			Log.setupLogger();
 		}
 		const msgStr = msg.map((item) => {

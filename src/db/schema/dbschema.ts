@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { Store } from "../../store";
-import { MxBridgeConfigDatabase } from "../../config";
+
 export interface IDbSchema {
 	description: string;
 	run(store: Store): Promise<null|void|Error|Error[]>;
