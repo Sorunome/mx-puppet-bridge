@@ -1,9 +1,9 @@
-import { PuppetBridge, RetDataFn, IRetData } from "./puppetbridge";
+import { PuppetBridge } from "./puppetbridge";
+import { RetDataFn, IRetData, IRemoteChan } from "./interfaces";
 import { Provisioner } from "./provisioner";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
 import * as MarkdownIt from "markdown-it";
-import { IRemoteChan } from "./channelsyncroniser";
 import { MatrixClient } from "matrix-bot-sdk";
 
 const md = new MarkdownIt();

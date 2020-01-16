@@ -1,27 +1,16 @@
 import { PuppetBridge } from "./puppetbridge";
+import { IRemoteGroup } from "./interfaces";
 import { DbGroupStore, IGroupStoreEntry } from "./db/groupstore";
 import { Log } from "./log";
 import { Lock } from "./structures/lock";
 import { Util } from "./util";
+import { StringFormatter } from "./structures/stringformatter";
 
 const log = new Log("GroupSync");
 
 // tslint:disable-next-line:no-magic-numbers
 const GROUP_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
 const GROUP_ID_LENGTH = 30;
-
-export interface IRemoteGroup {
-	groupId: string;
-	puppetId: number;
-
-	avatarUrl?: string | null;
-	avatarBuffer?: Buffer | null;
-	name?: string | null;
-	shortDescription?: string | null;
-	longDescription?: string | null;
-	roomIds?: string[] | null;
-	externalUrl?: string | null;
-}
 
 export class GroupSyncroniser {
 	private groupStore: DbGroupStore;
@@ -86,6 +75,9 @@ export class GroupSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
+				if (data.nameVars) {
+					data.name = StringFormatter.format(this.bridge.protocol.namePatterns!.group!, data.nameVars);
+				}
 				log.verbose("Creation data:", data);
 				update.name = data.name ? true : false;
 				update.avatar = data.avatarUrl ? true : false;
@@ -113,6 +105,9 @@ export class GroupSyncroniser {
 
 				group = this.groupStore.newData(mxid, data.groupId, data.puppetId);
 			} else {
+				if (data.nameVars) {
+					data.name = StringFormatter.format(this.bridge.protocol.namePatterns!.group!, data.nameVars);
+				}
 				update.name = data.name !== undefined && data.name !== null && data.name !== group.name;
 				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== group.avatarUrl;
 				update.shortDescription = data.shortDescription !== undefined && data.shortDescription !== null

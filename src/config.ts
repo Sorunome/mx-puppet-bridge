@@ -6,6 +6,7 @@ export class Config {
 	public presence: PresenceConfig = new PresenceConfig();
 	public relay: RelayConfig = new RelayConfig();
 	public homeserverUrlMap: {[key: string]: string} = {};
+	public namePatterns: NamePatternsConfig = new NamePatternsConfig();
 
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
 		Object.keys(newConfig).forEach((key) => {
@@ -72,4 +73,11 @@ class RelayConfig {
 	public enabled: boolean = false;
 	public whitelist: string[] = [];
 	public blacklist: string[] = [];
+}
+
+class NamePatternsConfig {
+	public user: string;
+	public userOverride: string;
+	public room: string;
+	public group: string;
 }

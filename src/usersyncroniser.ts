@@ -1,33 +1,17 @@
 import { PuppetBridge } from "./puppetbridge";
+import { IRemoteUser, IRemoteUserRoomOverride } from "./interfaces";
 import { MatrixClient, Intent } from "matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore, IUserStoreEntry, IUserStoreRoomOverrideEntry } from "./db/userstore";
 import { Lock } from "./structures/lock";
 import { ITokenResponse } from "./provisioner";
+import { StringFormatter } from "./structures/stringformatter";
 
 const log = new Log("UserSync");
 
 // tslint:disable-next-line:no-magic-numbers
 const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
-
-export interface IRemoteUserRoomOverride {
-	avatarUrl?: string | null;
-	avatarBuffer?: Buffer | null;
-	name?: string | null;
-}
-
-export interface IRemoteUser {
-	userId: string;
-	puppetId: number;
-
-	avatarUrl?: string | null;
-	avatarBuffer?: Buffer | null;
-	name?: string | null;
-	externalUrl?: string | null;
-
-	roomOverrides?: {[roomId: string]: IRemoteUserRoomOverride} | null;
-}
 
 export class UserSyncroniser {
 	private userStore: DbUserStore;
@@ -115,10 +99,16 @@ export class UserSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
+				if (data.nameVars) {
+					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.user, data.nameVars);
+				}
 				update.name = data.name ? true : false;
 				update.avatar = data.avatarUrl ? true : false;
 				user = this.userStore.newData(data.puppetId, data.userId);
 			} else {
+				if (data.nameVars) {
+					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.user, data.nameVars);
+				}
 				update.name = data.name !== undefined && data.name !== null && data.name !== user.name;
 				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== user.avatarUrl;
 			}
@@ -177,6 +167,10 @@ export class UserSyncroniser {
 						if (data.roomOverrides.hasOwnProperty(roomId)) {
 							roomIdsNotToUpdate.push(roomId);
 							log.verbose(`Got room override for room ${roomId}`);
+							if (data.roomOverrides[roomId].nameVars) {
+								data.roomOverrides[roomId].name = StringFormatter.format(this.bridge.protocol.namePatterns.userOverride,
+									data.roomOverrides[roomId].nameVars!);
+							}
 							// there is no need to await these room-specific changes, might as well do them all at once
 							// tslint:disable-next-line:no-floating-promises
 							this.updateRoomOverride(client, data, roomId, data.roomOverrides[roomId], user!);

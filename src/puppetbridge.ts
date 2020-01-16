@@ -11,9 +11,9 @@ import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
 import * as escapeHtml from "escape-html";
-import { ChannelSyncroniser, IRemoteChan } from "./channelsyncroniser";
-import { UserSyncroniser, IRemoteUser } from "./usersyncroniser";
-import { GroupSyncroniser, IRemoteGroup } from "./groupsyncroniser";
+import { ChannelSyncroniser } from "./channelsyncroniser";
+import { UserSyncroniser } from "./usersyncroniser";
+import { GroupSyncroniser } from "./groupsyncroniser";
 import { Config } from "./config";
 import { Util } from "./util";
 import { Log } from "./log";
@@ -30,6 +30,12 @@ import { BotProvisioner, ICommand } from "./botprovisioner";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
 import { DelayedFunction } from "./structures/delayedfunction";
+import {
+	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, IMemberInfo, RetDataFn,
+	IRetData, IRetList, IProtocolInformation, CreateChanHook, CreateUserHook, CreateGroupHook, GetDescHook,
+	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListChansHook, IRemoteUser, IRemoteChan,
+	IRemoteGroup,
+} from "./interfaces";
 
 const log = new Log("PuppetBridge");
 
@@ -44,99 +50,6 @@ interface ISendInfo {
 	mxid: string;
 }
 
-export interface IPuppetBridgeRegOpts {
-	prefix: string;
-	id: string;
-	url: string;
-	botUser?: string;
-}
-
-export interface IPuppetBridgeFeatures {
-	// file features
-	file?: boolean;
-	image?: boolean;
-	audio?: boolean;
-	video?: boolean;
-	// stickers
-	sticker?: boolean;
-
-	// presence
-	presence?: boolean;
-
-	// typing
-	typingTimeout?: number;
-
-	// event types
-	edit?: boolean;
-	reply?: boolean;
-}
-
-export interface IReceiveParams {
-	chan: IRemoteChan;
-	user: IRemoteUser;
-	eventId?: string;
-	externalUrl?: string;
-}
-
-export interface IMessageEvent {
-	body: string;
-	formattedBody?: string;
-	emote?: boolean;
-	notice?: boolean;
-	eventId?: string;
-}
-
-export interface IFileEvent {
-	filename: string;
-	info?: {
-		mimetype?: string;
-		size?: number;
-		w?: number;
-		h?: number;
-	};
-	mxc: string;
-	url: string;
-	eventId?: string;
-}
-
-export interface IMemberInfo {
-	membership: string;
-	displayname?: string | null;
-	avatar_url?: string | null;
-}
-
-export type RetDataFn = (line: string) => Promise<IRetData>;
-
-export interface IRetData {
-	success: boolean;
-	error?: string;
-	data?: any;
-	userId?: string;
-	fn?: RetDataFn;
-}
-
-export interface IRetList {
-	name: string;
-	id?: string;
-	category?: boolean;
-}
-
-export interface IProtocolInformation {
-	id?: string;
-	displayname?: string;
-	externalUrl?: string;
-}
-
-export type CreateChanHook = (chan: IRemoteChan) => Promise<IRemoteChan | null>;
-export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
-export type CreateGroupHook = (group: IRemoteGroup) => Promise<IRemoteGroup | null>;
-export type GetDescHook = (puppetId: number, data: any) => Promise<string>;
-export type BotHeaderMsgHook = () => string;
-export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
-export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;
-export type ListUsersHook = (puppetId: number) => Promise<IRetList[]>;
-export type ListChansHook = (puppetId: number) => Promise<IRetList[]>;
-
 export interface IPuppetBridgeHooks {
 	createChan?: CreateChanHook;
 	createUser?: CreateUserHook;
@@ -149,6 +62,18 @@ export interface IPuppetBridgeHooks {
 	listChans?: ListChansHook;
 }
 
+interface ISetProtocolInformation extends IProtocolInformation {
+	id: string;
+	displayname: string;
+	features: IPuppetBridgeFeatures;
+	namePatterns: {
+		user: string;
+		userOverride: string;
+		room: string;
+		group: string;
+	};
+}
+
 export class PuppetBridge extends EventEmitter {
 	public chanSync: ChannelSyncroniser;
 	public userSync: UserSyncroniser;
@@ -157,7 +82,7 @@ export class PuppetBridge extends EventEmitter {
 	public config: Config;
 	public provisioner: Provisioner;
 	public store: Store;
-	public protocol: IProtocolInformation;
+	public protocol: ISetProtocolInformation;
 	private appservice: Appservice;
 	private ghostInviteCache: TimedCache<string, boolean>;
 	private botProvisioner: BotProvisioner;
@@ -169,7 +94,6 @@ export class PuppetBridge extends EventEmitter {
 	constructor(
 		private registrationPath: string,
 		private configPath: string,
-		private features: IPuppetBridgeFeatures,
 		prot?: IProtocolInformation,
 	) {
 		super();
@@ -177,12 +101,16 @@ export class PuppetBridge extends EventEmitter {
 			this.protocol = {
 				id: "unknown-protocol",
 				displayname: "Unknown Protocol",
+				features: {},
+				namePatterns: { user: "", userOverride: "", room: "", group: "" },
 			};
 		} else {
 			this.protocol = {
 				id: prot.id || "unknown-protocol",
 				displayname: prot.displayname || "Unknown Protocol",
 				externalUrl: prot.externalUrl,
+				features: prot.features || {},
+				namePatterns: Object.assign({ user: "", userOverride: "", room: "", group: "" }, prot.namePatterns),
 			};
 		}
 		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
@@ -195,6 +123,11 @@ export class PuppetBridge extends EventEmitter {
 			this.config = new Config();
 			this.config.applyConfig(yaml.safeLoad(fs.readFileSync(this.configPath, "utf8")));
 			Log.Configure(this.config.logging);
+			// apply name patterns
+			this.protocol.namePatterns.user = this.config.namePatterns.user || this.protocol.namePatterns.user || ":name";
+			this.protocol.namePatterns.userOverride = this.config.namePatterns.userOverride || this.protocol.namePatterns.userOverride || ":name";
+			this.protocol.namePatterns.room = this.config.namePatterns.room || this.protocol.namePatterns.room || ":name";
+			this.protocol.namePatterns.group = this.config.namePatterns.group || this.protocol.namePatterns.group || ":name";
 		} catch (err) {
 			log.error("Failed to load config file", err);
 			process.exit(-1);
@@ -211,7 +144,7 @@ export class PuppetBridge extends EventEmitter {
 		this.groupSync = new GroupSyncroniser(this);
 		this.provisioner = new Provisioner(this);
 		this.presenceHandler = new PresenceHandler(this);
-		this.typingHandler = new TypingHandler(this, this.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
+		this.typingHandler = new TypingHandler(this, this.protocol.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
 
 		this.botProvisioner = new BotProvisioner(this);
 
@@ -381,7 +314,7 @@ export class PuppetBridge extends EventEmitter {
 		for (const p of puppets) {
 			this.emit("puppetNew", p.puppetId, p.data);
 		}
-		if (this.features.presence && this.config.presence.enabled) {
+		if (this.protocol.features.presence && this.config.presence.enabled) {
 			await this.presenceHandler.start(this.config.presence.interval);
 		}
 	}
@@ -478,7 +411,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
-		if (this.features.presence && this.config.presence.enabled) {
+		if (this.protocol.features.presence && this.config.presence.enabled) {
 			log.verbose(`Setting user presence for userId=${user.userId} to ${presence}`);
 			const client = await this.userSync.maybeGetClient(user);
 			if (!client) {
@@ -490,7 +423,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async setUserStatus(user: IRemoteUser, status: string) {
-		if (this.features.presence && this.config.presence.enabled) {
+		if (this.protocol.features.presence && this.config.presence.enabled) {
 			log.verbose(`Setting user status for userId=${user.userId} to ${status}`);
 			const client = await this.userSync.maybeGetClient(user);
 			if (!client) {
@@ -1006,7 +939,7 @@ export class PuppetBridge extends EventEmitter {
 				relate.event_id || relate["m.in_reply_to"].event_id))[0];
 			log.silly(relEvent);
 			if (relEvent) {
-				if (this.features.edit && relate.rel_type === "m.replace") {
+				if (this.protocol.features.edit && relate.rel_type === "m.replace") {
 					const newContent = event.content["m.new_content"];
 					const relData = {
 						body: newContent.body,
@@ -1020,7 +953,7 @@ export class PuppetBridge extends EventEmitter {
 					this.emit("edit", room, relEvent, relData, event);
 					return;
 				}
-				if (this.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
+				if (this.protocol.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
 					this.emit("reply", room, relEvent, msgData, event);
 					return;
 				}
@@ -1138,19 +1071,19 @@ export class PuppetBridge extends EventEmitter {
 		if (!emitEvent) {
 			emitEvent = "file";
 		}
-		if (this.features[emitEvent]) {
+		if (this.protocol.features[emitEvent]) {
 			this.emit(emitEvent, room, data, event);
 			return;
 		}
-		if ((emitEvent === "audio" || emitEvent === "video") && this.features.file) {
+		if ((emitEvent === "audio" || emitEvent === "video") && this.protocol.features.file) {
 			this.emit("file", room, data, event);
 			return;
 		}
-		if (emitEvent === "sticker" && this.features.image) {
+		if (emitEvent === "sticker" && this.protocol.features.image) {
 			this.emit("image", room, data, event);
 			return;
 		}
-		if (this.features.file) {
+		if (this.protocol.features.file) {
 			this.emit("file", room, data, event);
 			return;
 		}
@@ -1169,9 +1102,9 @@ export class PuppetBridge extends EventEmitter {
 		log.verbose("adding ghost to chan cache");
 		await this.store.puppetStore.joinGhostToChan(ghostId, roomId);
 
-		const ghostParts = await this.userSync.getPartsFromMxid(ghostId);
+		const ghostParts = this.userSync.getPartsFromMxid(ghostId);
 		if (ghostParts) {
-			const roomParts = await this.chanSync.getPartsFromMxid(roomId);
+			const roomParts = this.chanSync.getPartsFromMxid(roomId);
 			if (roomParts && roomParts.puppetId === ghostParts.puppetId) {
 				log.verbose("Maybe applying room overrides");
 				await this.userSync.setRoomOverride(ghostParts, roomParts.roomId);

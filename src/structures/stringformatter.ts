@@ -20,15 +20,13 @@ export class StringFormatter {
 		for (let i = 0; i < pattern.length; i++) {
 			const char = pattern[i];
 			switch (char) {
-				case ":":
-				{
+				case ":": {
 					const res = StringFormatter.insertVar(pattern, vars, i);
 					result += res.result;
 					i += res.length;
 					break;
 				}
-				case "[":
-				{
+				case "[": {
 					const res = StringFormatter.getIfParts(pattern, i);
 					i += res.length;
 					const ifComputed = StringFormatter.format(res.if, vars);
@@ -54,7 +52,7 @@ export class StringFormatter {
 		let varName = "";
 		i++;
 		let length = 0;
-		for (;i < pattern.length; i++) {
+		for (; i < pattern.length; i++) {
 			const char = pattern[i];
 			if (char.match(/[a-z]/)) {
 				length++;
@@ -66,15 +64,19 @@ export class StringFormatter {
 		return {
 			result: vars[varName] || "",
 			length,
-		}
+		};
 	}
 
 	public static getIfParts(pattern: string, i: number): IStringFormatterGetIfPartsResult {
-		let resStrs = ["", "", ""];
+		const resStrs = ["", "", ""];
+		const SEARCHING_IF = 0;
+		const SEARCHING_THEN = 1;
+		const SEARCHING_ELSE = 2;
+		const SEARCHING_DONE = 3;
 		let searching = 0;
 		let length = 1;
 		i++;
-		for (;i < pattern.length; i++) {
+		for (; i < pattern.length; i++) {
 			const char = pattern[i];
 			length++;
 			if (char === "[") {
@@ -86,9 +88,9 @@ export class StringFormatter {
 				i++;
 				length++;
 				resStrs[searching] += "\\" + pattern[i];
-			} else if (char === "?,]"[searching]){
+			} else if (char === "?,]"[searching]) {
 				searching++;
-				if (searching >= 3) {
+				if (searching >= SEARCHING_DONE) {
 					break;
 				}
 			} else {
@@ -96,9 +98,9 @@ export class StringFormatter {
 			}
 		}
 		return {
-			if: resStrs[0],
-			then: resStrs[1],
-			else: resStrs[2],
+			if: resStrs[SEARCHING_IF],
+			then: resStrs[SEARCHING_THEN],
+			else: resStrs[SEARCHING_ELSE],
 			length,
 		};
 	}
@@ -106,7 +108,7 @@ export class StringFormatter {
 	public static scanBlock(pattern: string, i: number): string {
 		let result = "";
 		let depth = 0;
-		for (;i < pattern.length; i++) {
+		for (; i < pattern.length; i++) {
 			const char = pattern[i];
 			result += char;
 			if (char === "\\") {

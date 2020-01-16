@@ -1,8 +1,8 @@
 /*
-Copyright  2018 matrix-appservice-discord
+Copyright 2018 matrix-appservice-discord
 
 Modified for mx-puppet-bridge
-Copyright  2019 Sorunome
+Copyright 2019-2020 mx-puppet-bridge
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ export class Log {
 		const doEnabled = allEnabled.length > 0;
 		const filterOutMods = format((info, _) => {
 			const module = info.module;
-			if ((allDisabled.includes(module) && 
+			if ((allDisabled.includes(module) &&
 				(!enhancedDisabled[module] || info.message.match(enhancedDisabled[module].regex))) ||
 				(doEnabled && (!allEnabled.includes(module) || (
 					enhancedEnabled[module] && !info.message.match(enhancedEnabled[module].regex)

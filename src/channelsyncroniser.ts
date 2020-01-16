@@ -1,28 +1,17 @@
 import { PuppetBridge } from "./puppetbridge";
+import { IRemoteChan } from "./interfaces";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbChanStore, IChanStoreEntry } from "./db/chanstore";
 import { MatrixClient } from "matrix-bot-sdk";
 import { Lock } from "./structures/lock";
 import { Buffer } from "buffer";
+import { StringFormatter } from "./structures/stringformatter";
 
 const log = new Log("ChannelSync");
 
 // tslint:disable-next-line:no-magic-numbers
 const MXID_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
-
-export interface IRemoteChan {
-	roomId: string;
-	puppetId: number;
-
-	avatarUrl?: string | null;
-	avatarBuffer?: Buffer | null;
-	name?: string | null;
-	topic?: string | null;
-	groupId?: string | null;
-	isDirect?: boolean | null;
-	externalUrl?: string | null;
-}
 
 interface ISingleBridgeInformation {
 	id: string;
@@ -125,6 +114,9 @@ export class ChannelSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
+				if (data.nameVars) {
+					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.room, data.nameVars);
+				}
 				log.verbose("Creation data:", data);
 				log.verbose("Initial invites:", invites);
 				// ooookay, we need to create this channel
@@ -196,6 +188,9 @@ export class ChannelSyncroniser {
 			} else {
 				mxid = chan.mxid;
 
+				if (data.nameVars) {
+					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.room, data.nameVars);
+				}
 				// set new client for potential updates
 				const newClient = await this.getChanOp(mxid);
 				if (newClient) {
@@ -315,7 +310,7 @@ export class ChannelSyncroniser {
 			`${chan.groupId ? "/" + e(chan.groupId) : ""}/${e(chan.roomId)}`;
 		const creator = await this.bridge.provisioner.getMxid(data.puppetId);
 		const protocol: ISingleBridgeInformation = {
-			id: this.bridge.protocol.id!,
+			id: this.bridge.protocol.id,
 			displayname: this.bridge.protocol.displayname,
 		};
 		if (this.bridge.config.bridge.avatarUrl) {
