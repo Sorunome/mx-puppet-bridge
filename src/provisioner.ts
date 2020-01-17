@@ -59,7 +59,7 @@ export class Provisioner {
 			return client.accessToken;
 		} catch (err) {
 			// Shared secret is probably misconfigured, so make a warning log.
-			log.warn("Failed to log into", mxid, "with shared secret:", err.body || err);
+			log.warn("Failed to log into", mxid, "with shared secret:", err.error || err.body || err);
 			return null;
 		}
 	}

@@ -25,7 +25,7 @@ export class TypingHandler {
 				timeout: this.timeout,
 			});
 		} catch (err) {
-			log.warn("Failed to update typing:", err.body || err);
+			log.warn("Failed to update typing:", err.error || err.body || err);
 		}
 	}
 

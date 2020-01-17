@@ -220,7 +220,7 @@ export class GroupSyncroniser {
 			log.verbose("Returning mxid");
 			return mxid;
 		} catch (err) {
-			log.error("Failed fetching mxid:", err.body || err);
+			log.error("Failed fetching mxid:", err.error || err.body || err);
 			this.mxidLock.release(lockKey);
 			throw err;
 		}

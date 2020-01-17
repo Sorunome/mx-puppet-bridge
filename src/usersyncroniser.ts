@@ -158,7 +158,7 @@ export class UserSyncroniser {
 
 			// alright, let's wait for name and avatar changes finishing
 			Promise.all(promiseList).catch((err) => {
-				log.error("Error updating profile", err.body || err);
+				log.error("Error updating profile", err.error || err.body || err);
 			}).then(async () => {
 				const roomIdsNotToUpdate: string[] = [];
 				// alright, now that we are done creating the user, let's check the room overrides
@@ -195,7 +195,7 @@ export class UserSyncroniser {
 			log.verbose("Returning client");
 			return client;
 		} catch (err) {
-			log.error("Error fetching client:", err.body || err);
+			log.error("Error fetching client:", err.error || err.body || err);
 			this.clientLock.release(lockKey);
 			throw err;
 		}
@@ -239,22 +239,26 @@ export class UserSyncroniser {
 		client?: MatrixClient | null,
 		origUserData?: IUserStoreEntry | null,
 	) {
+		log.info(`Setting room override for puppet ${userData.puppetId} ${userData.userId} in ${roomId}...`);
 		if (!client) {
 			client = await this.maybeGetClient(userData);
 		}
 		if (!client) {
+			log.warn("No client found")
 			return;
 		}
 		if (!origUserData) {
 			origUserData = await this.userStore.get(userData.puppetId, userData.userId);
 		}
 		if (!origUserData) {
+			log.warn("Original user data not found");
 			return;
 		}
 		if (!roomOverrideData) {
 			roomOverrideData = await this.userStore.getRoomOverride(userData.puppetId, userData.userId, roomId);
 		}
 		if (!roomOverrideData) {
+			log.warn("No room override data found");
 			return;
 		}
 		const chanMxid = await this.bridge.chanSync.maybeGetMxid({
@@ -262,9 +266,9 @@ export class UserSyncroniser {
 			roomId,
 		});
 		if (!chanMxid) {
+			log.warn("Channel MXID not found");
 			return;
 		}
-		log.info("Setting room override...");
 		const memberContent = {
 			membership: "join",
 			displayname: roomOverrideData.name || origUserData.name,
@@ -328,7 +332,7 @@ export class UserSyncroniser {
 				await this.userStore.setRoomOverride(user);
 			}
 		} catch (err) {
-			log.error(`Error setting room overrides for ${userData.userId} in ${roomId}:`, err.body || err);
+			log.error(`Error setting room overrides for ${userData.userId} in ${roomId}:`, err.error || err.body || err);
 		}
 	}
 }

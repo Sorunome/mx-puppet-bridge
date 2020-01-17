@@ -280,21 +280,21 @@ export class PuppetBridge extends EventEmitter {
 			try {
 				await this.handleRoomEvent(roomId, event);
 			} catch (err) {
-				log.error("Error handling appservice room.event", err.body || err);
+				log.error("Error handling appservice room.event", err.error || err.body || err);
 			}
 		});
 		this.appservice.on("room.invite", async (roomId: string, event: any) => {
 			try {
 				await this.handleInviteEvent(roomId, event);
 			} catch (err) {
-				log.error("Error handling appservice room.invite", err.body || err);
+				log.error("Error handling appservice room.invite", err.error || err.body || err);
 			}
 		});
 		this.appservice.on("query.room", async (alias: string, createRoom: any) => {
 			try {
 				await this.handleRoomQuery(alias, createRoom);
 			} catch (err) {
-				log.error("Error handling appservice query.room", err.body || err);
+				log.error("Error handling appservice query.room", err.error || err.body || err);
 			}
 		});
 		await this.appservice.begin();
@@ -1100,12 +1100,13 @@ export class PuppetBridge extends EventEmitter {
 		// we CAN'T check for if the room exists here, as if we create a new room
 		// the m.room.member event triggers before the room is incerted into the store
 
+		log.info(`Handling join of ghost ${ghostId} to ${roomId}`);
 		log.verbose("adding ghost to chan cache");
 		await this.store.puppetStore.joinGhostToChan(ghostId, roomId);
 
 		const ghostParts = this.userSync.getPartsFromMxid(ghostId);
 		if (ghostParts) {
-			const roomParts = this.chanSync.getPartsFromMxid(roomId);
+			const roomParts = await this.chanSync.getRemoteHandler(roomId);
 			if (roomParts && roomParts.puppetId === ghostParts.puppetId) {
 				log.verbose("Maybe applying room overrides");
 				await this.userSync.setRoomOverride(ghostParts, roomParts.roomId);
