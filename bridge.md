@@ -36,8 +36,8 @@ Similar to the roomId, the protocol needs to set a `userId` (string). This is a 
 
 ## Object types
 These object types appear throughout the API.
-### IRemoteChan
-This object is needed for sending or receiving channel-related things from and to matrix
+### IRemoteRoom
+This object is needed for sending or receiving room-related things from and to matrix
 ```ts
 {
 	roomId: string; // the remote ID of the room
@@ -65,10 +65,10 @@ This object is needed for sending or receiving user-related things from and to m
 ```
 
 ### IReceiveParams
-This object is a combination of `IRemoteChan` and `IRemoteUser`. Used to combind which user sent something where
+This object is a combination of `IRemoteRoom` and `IRemoteUser`. Used to combind which user sent something where
 ```ts
 {
-	chan: IRemoteChan; // channel to send to
+	room: IRemoteRoom; // room to send to
 	user: IRemoteUser; // user which sent something
 	eventId: string; (optional) // the remote event ID
 	externalUrl: string; (optional) // an external URL referring to this event
@@ -110,7 +110,7 @@ Events are used so that the protocol implementation can listen to them and thus 
 A message has been sent from matrix!
 Event parameters:
 ```ts
-room: IRemoteChan; // the room where to send to
+room: IRemoteRoom; // the room where to send to
 data: IMessageEvent; // the data on the message
 event: any; // the raw message event
 ```
@@ -119,7 +119,7 @@ event: any; // the raw message event
 If feature enabled, an edit has been made from matrix
 Event parameters:
 ```ts
-room: IRemoteChan; // the room where the edit happened
+room: IRemoteRoom; // the room where the edit happened
 eventId: string; // the remote event ID of the original event
 data: IMessageEvent; // the data on the new message
 event: any; // the raw message event
@@ -129,7 +129,7 @@ event: any; // the raw message event
 A redact happened from matrix
 Event parameters:
 ```ts
-room: IRemoteChan; // the room where the redact happened
+room: IRemoteRoom; // the room where the redact happened
 eventId: string; // the remote event ID that got redacted
 event: any; // the raw redact event
 ```
@@ -137,7 +137,7 @@ event: any; // the raw redact event
 ### file events
 File events are `image`, `audio`, `video`, `sticker` and `file`. Appropriate fallbacks are used if feature not enabled, all the way back to plain text messages. They all use the same parameters
 ```ts
-room: IRemoteChan; // the room where to send to
+room: IRemoteRoom; // the room where to send to
 data: IFileEvent; // the data on the file
 event: any; // the raw file event
 ```
@@ -175,14 +175,14 @@ mxc: string;
 ### sendMessage
 `sendMessage` sends a text message over to matrix. Parameters are:
 ```ts
-params: IReceiveParams; // channel and user where/who sent something
+params: IReceiveParams; // room and user where/who sent something
 opts: IMessageEvent; // what to send
 ```
 
 ### sendEdit
 `sendEdit` sends an edit over to matrix. Parameters are:
 ```ts
-params: IReceiveParams; // channel and user who made the edit
+params: IReceiveParams; // room and user who made the edit
 eventId: string; // the remote event ID that got edited
 opts: IMessageEvent; // the new message
 ix: number = 0; // optional, index of the message to edit, if multiple are found
@@ -191,14 +191,14 @@ ix: number = 0; // optional, index of the message to edit, if multiple are found
 ### sendRedact
 `sendRedact` sends a redact over to matrix. Parameters are:
 ```ts
-params: IReceiveParams; // channel and user who made the redact
+params: IReceiveParams; // room and user who made the redact
 eventId: string; // the remote event ID that got redacted
 ```
 
 ### file sending
 Again, multiple file sending messages for different file formats and for autodetecting. They all have the same parameters. The methods are `sendImage`, `sendAudio`, `sendVideo`, `sendFile`, `sendFileDetect`. Parameters are
 ```ts
-params: IReceiveParams; // channel and user where/who sent something
+params: IReceiveParams; // room and user where/who sent something
 thing: string | Buffer; // either a URL or a buffer of the file to send
 name: string (optional); // name of the file
 ```
@@ -213,7 +213,7 @@ puppetId: number;
 ### sendStastusMessage
 `sendStatusMessage` sends a status message - either to the status room or into a specified room.
 ```ts
-puppetId: number | IRemoteChan; // if it is IRemoteChan then it sends to that room
+puppetId: number | IRemoteRoom; // if it is IRemoteRoom then it sends to that room
 msg: string; // markdown formatted string
 ```
 
@@ -243,26 +243,26 @@ user: IRemoteUser;
 presence: "online" | "offline" | "unavailable";
 ```
 
-### updateChannel
-`updateChannel` triggers a remote updating of a channel
+### updateRoom
+`updateRoom` triggers a remote updating of a room
 ```ts
-chan: IRemoteChan;
+room: IRemoteRoom;
 ```
 
-### bridgeChannel
-`bridgeChannel` triggers the bridging of a channel, or updates it if it exists
+### bridgeRoom
+`bridgeRoom` triggers the bridging of a room, or updates it if it exists
 ```ts
-chan: IRemoteChan;
+room: IRemoteRoom;
 ```
 
-### unbridgeChannel
-`unbridgeChannel` triggers a channel to be unbridged, e.g. if in a 1:1 conversation the remote user left the room
+### unbridgeRoom
+`unbridgeRoom` triggers a room to be unbridged, e.g. if in a 1:1 conversation the remote user left the room
 ```ts
-chan: IRemoteChan;
+room: IRemoteRoom;
 ```
 
-### unbridgeChannelByMxid
-same as unbridgeChannel but it takes the mxid of a channel
+### unbridgeRoomByMxid
+same as unbridgeRoom but it takes the mxid of a room
 ```ts
 mxid: string;
 ```
@@ -299,23 +299,21 @@ remoteId: string; // the remote event Id
 ```
 
 ## Hooks
-Hooks are crucial for provisioning. Setting them is done via calling `setHooknameHook` with the hook function as parameter, e.g. if the hook name is `createChan` then you call `setCreateChanHook`
-### createChan
-This hook is called when a channel is created. It is expected to return full information on the channel. E.g. if the protocol implementation, for performance reasons, mostly only sends around channel IDs, this should get name, topic and avatar.  
-Returns `IRemoteChan`  
+Hooks are crucial for provisioning. Setting them is done via calling `setHooknameHook` with the hook function as parameter, e.g. if the hook name is `createRoom` then you call `setCreateRoomHook`
+### createRoom
+This hook is called when a room is created. It is expected to return full information on the room. E.g. if the protocol implementation, for performance reasons, mostly only sends around room IDs, this should get name, topic and avatar.  
+Returns `IRemoteRoom | null`  
 Takes:
 ```ts
-puppetId: number;
-chanId: string;
+room: IRemoteRoom;
 ```
 
 ### createUser
-Same as `createChan` but for users  
-Returns `IRemoteUser`  
+Same as `createRoom` but for users  
+Returns `IRemoteUser | null`  
 Takes:
 ```ts
-puppetId: number;
-userId: string;
+user: IRemoteUser;
 ```
 
 ### getDesc

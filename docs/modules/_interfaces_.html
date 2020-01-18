@@ -82,9 +82,9 @@
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.ipuppetbridgeregopts.html" class="tsd-kind-icon">IPuppet<wbr>Bridge<wbr>Reg<wbr>Opts</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.ireceiveparams.html" class="tsd-kind-icon">IReceive<wbr>Params</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module tsd-is-not-exported"><a href="../interfaces/_interfaces_.iremotebase.html" class="tsd-kind-icon">IRemote<wbr>Base</a></li>
-								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-kind-icon">IRemote<wbr>Chan</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.iremotegroup.html" class="tsd-kind-icon">IRemote<wbr>Group</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.iremoteprofile.html" class="tsd-kind-icon">IRemote<wbr>Profile</a></li>
+								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-kind-icon">IRemote<wbr>Room</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.iremoteuser.html" class="tsd-kind-icon">IRemote<wbr>User</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.iremoteuserroomoverride.html" class="tsd-kind-icon">IRemote<wbr>User<wbr>Room<wbr>Override</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_interfaces_.iretdata.html" class="tsd-kind-icon">IRet<wbr>Data</a></li>
@@ -95,13 +95,13 @@
 							<h3>Type aliases</h3>
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#botheadermsghook" class="tsd-kind-icon">Bot<wbr>Header<wbr>Msg<wbr>Hook</a></li>
-								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#createchanhook" class="tsd-kind-icon">Create<wbr>Chan<wbr>Hook</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#creategrouphook" class="tsd-kind-icon">Create<wbr>Group<wbr>Hook</a></li>
+								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#createroomhook" class="tsd-kind-icon">Create<wbr>Room<wbr>Hook</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#createuserhook" class="tsd-kind-icon">Create<wbr>User<wbr>Hook</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#getdatafromstrhook" class="tsd-kind-icon">Get<wbr>Data<wbr>From<wbr>Str<wbr>Hook</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#getdeschook" class="tsd-kind-icon">Get<wbr>Desc<wbr>Hook</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#getdmroomidhook" class="tsd-kind-icon">Get<wbr>DmRoom<wbr>IdHook</a></li>
-								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#listchanshook" class="tsd-kind-icon">List<wbr>Chans<wbr>Hook</a></li>
+								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#listroomshook" class="tsd-kind-icon">List<wbr>Rooms<wbr>Hook</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#listusershook" class="tsd-kind-icon">List<wbr>Users<wbr>Hook</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-external-module"><a href="_interfaces_.html#retdatafn" class="tsd-kind-icon">Ret<wbr>Data<wbr>Fn</a></li>
 							</ul>
@@ -117,7 +117,7 @@
 					<div class="tsd-signature tsd-kind-icon">Bot<wbr>Header<wbr>Msg<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L131">src/interfaces.ts:131</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L131">src/interfaces.ts:131</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -137,43 +137,12 @@
 					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-external-module">
-					<a name="createchanhook" class="tsd-anchor"></a>
-					<h3>Create<wbr>Chan<wbr>Hook</h3>
-					<div class="tsd-signature tsd-kind-icon">Create<wbr>Chan<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>chan<span class="tsd-signature-symbol">: </span><a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-signature-type">IRemoteChan</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-signature-type">IRemoteChan</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L127">src/interfaces.ts:127</a></li>
-						</ul>
-					</aside>
-					<div class="tsd-type-declaration">
-						<h4>Type declaration</h4>
-						<ul class="tsd-parameters">
-							<li class="tsd-parameter-siganture">
-								<ul class="tsd-signatures tsd-kind-type-literal tsd-parent-kind-type-alias">
-									<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>chan<span class="tsd-signature-symbol">: </span><a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-signature-type">IRemoteChan</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-signature-type">IRemoteChan</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></li>
-								</ul>
-								<ul class="tsd-descriptions">
-									<li class="tsd-description">
-										<h4 class="tsd-parameters-title">Parameters</h4>
-										<ul class="tsd-parameters">
-											<li>
-												<h5>chan: <a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-signature-type">IRemoteChan</a></h5>
-											</li>
-										</ul>
-										<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-signature-type">IRemoteChan</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></h4>
-									</li>
-								</ul>
-							</li>
-						</ul>
-					</div>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-external-module">
 					<a name="creategrouphook" class="tsd-anchor"></a>
 					<h3>Create<wbr>Group<wbr>Hook</h3>
 					<div class="tsd-signature tsd-kind-icon">Create<wbr>Group<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>group<span class="tsd-signature-symbol">: </span><a href="../interfaces/_interfaces_.iremotegroup.html" class="tsd-signature-type">IRemoteGroup</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremotegroup.html" class="tsd-signature-type">IRemoteGroup</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L129">src/interfaces.ts:129</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L129">src/interfaces.ts:129</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -199,12 +168,43 @@
 					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-external-module">
+					<a name="createroomhook" class="tsd-anchor"></a>
+					<h3>Create<wbr>Room<wbr>Hook</h3>
+					<div class="tsd-signature tsd-kind-icon">Create<wbr>Room<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>room<span class="tsd-signature-symbol">: </span><a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-signature-type">IRemoteRoom</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-signature-type">IRemoteRoom</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L128">src/interfaces.ts:128</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-type-declaration">
+						<h4>Type declaration</h4>
+						<ul class="tsd-parameters">
+							<li class="tsd-parameter-siganture">
+								<ul class="tsd-signatures tsd-kind-type-literal tsd-parent-kind-type-alias">
+									<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>room<span class="tsd-signature-symbol">: </span><a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-signature-type">IRemoteRoom</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-signature-type">IRemoteRoom</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></li>
+								</ul>
+								<ul class="tsd-descriptions">
+									<li class="tsd-description">
+										<h4 class="tsd-parameters-title">Parameters</h4>
+										<ul class="tsd-parameters">
+											<li>
+												<h5>room: <a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-signature-type">IRemoteRoom</a></h5>
+											</li>
+										</ul>
+										<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-signature-type">IRemoteRoom</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></h4>
+									</li>
+								</ul>
+							</li>
+						</ul>
+					</div>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-external-module">
 					<a name="createuserhook" class="tsd-anchor"></a>
 					<h3>Create<wbr>User<wbr>Hook</h3>
 					<div class="tsd-signature tsd-kind-icon">Create<wbr>User<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>user<span class="tsd-signature-symbol">: </span><a href="../interfaces/_interfaces_.iremoteuser.html" class="tsd-signature-type">IRemoteUser</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iremoteuser.html" class="tsd-signature-type">IRemoteUser</a><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L128">src/interfaces.ts:128</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L127">src/interfaces.ts:127</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -235,7 +235,7 @@
 					<div class="tsd-signature tsd-kind-icon">Get<wbr>Data<wbr>From<wbr>Str<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>str<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iretdata.html" class="tsd-signature-type">IRetData</a><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L132">src/interfaces.ts:132</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L132">src/interfaces.ts:132</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -266,7 +266,7 @@
 					<div class="tsd-signature tsd-kind-icon">Get<wbr>Desc<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>puppetId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span>, data<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L130">src/interfaces.ts:130</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L130">src/interfaces.ts:130</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -300,7 +300,7 @@
 					<div class="tsd-signature tsd-kind-icon">Get<wbr>DmRoom<wbr>IdHook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>user<span class="tsd-signature-symbol">: </span><a href="../interfaces/_interfaces_.iremoteuser.html" class="tsd-signature-type">IRemoteUser</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L133">src/interfaces.ts:133</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L133">src/interfaces.ts:133</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -326,12 +326,12 @@
 					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-external-module">
-					<a name="listchanshook" class="tsd-anchor"></a>
-					<h3>List<wbr>Chans<wbr>Hook</h3>
-					<div class="tsd-signature tsd-kind-icon">List<wbr>Chans<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>puppetId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iretlist.html" class="tsd-signature-type">IRetList</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></div>
+					<a name="listroomshook" class="tsd-anchor"></a>
+					<h3>List<wbr>Rooms<wbr>Hook</h3>
+					<div class="tsd-signature tsd-kind-icon">List<wbr>Rooms<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>puppetId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iretlist.html" class="tsd-signature-type">IRetList</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L135">src/interfaces.ts:135</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L135">src/interfaces.ts:135</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -362,7 +362,7 @@
 					<div class="tsd-signature tsd-kind-icon">List<wbr>Users<wbr>Hook<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>puppetId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iretlist.html" class="tsd-signature-type">IRetList</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L134">src/interfaces.ts:134</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L134">src/interfaces.ts:134</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -393,7 +393,7 @@
 					<div class="tsd-signature tsd-kind-icon">Ret<wbr>Data<wbr>Fn<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>line<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_interfaces_.iretdata.html" class="tsd-signature-type">IRetData</a><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/759bfc5/src/interfaces.ts#L96">src/interfaces.ts:96</a></li>
+							<li>Defined in <a href="https://github.com/Sorunome/mx-puppet-bridge/blob/d4ba0d5/src/interfaces.ts#L96">src/interfaces.ts:96</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -461,13 +461,13 @@
 						<a href="../interfaces/_interfaces_.iremotebase.html" class="tsd-kind-icon">IRemote<wbr>Base</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="../interfaces/_interfaces_.iremotechan.html" class="tsd-kind-icon">IRemote<wbr>Chan</a>
-					</li>
-					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_interfaces_.iremotegroup.html" class="tsd-kind-icon">IRemote<wbr>Group</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_interfaces_.iremoteprofile.html" class="tsd-kind-icon">IRemote<wbr>Profile</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="../interfaces/_interfaces_.iremoteroom.html" class="tsd-kind-icon">IRemote<wbr>Room</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_interfaces_.iremoteuser.html" class="tsd-kind-icon">IRemote<wbr>User</a>
@@ -485,10 +485,10 @@
 						<a href="_interfaces_.html#botheadermsghook" class="tsd-kind-icon">Bot<wbr>Header<wbr>Msg<wbr>Hook</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-external-module">
-						<a href="_interfaces_.html#createchanhook" class="tsd-kind-icon">Create<wbr>Chan<wbr>Hook</a>
+						<a href="_interfaces_.html#creategrouphook" class="tsd-kind-icon">Create<wbr>Group<wbr>Hook</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-external-module">
-						<a href="_interfaces_.html#creategrouphook" class="tsd-kind-icon">Create<wbr>Group<wbr>Hook</a>
+						<a href="_interfaces_.html#createroomhook" class="tsd-kind-icon">Create<wbr>Room<wbr>Hook</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-external-module">
 						<a href="_interfaces_.html#createuserhook" class="tsd-kind-icon">Create<wbr>User<wbr>Hook</a>
@@ -503,7 +503,7 @@
 						<a href="_interfaces_.html#getdmroomidhook" class="tsd-kind-icon">Get<wbr>DmRoom<wbr>IdHook</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-external-module">
-						<a href="_interfaces_.html#listchanshook" class="tsd-kind-icon">List<wbr>Chans<wbr>Hook</a>
+						<a href="_interfaces_.html#listroomshook" class="tsd-kind-icon">List<wbr>Rooms<wbr>Hook</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-external-module">
 						<a href="_interfaces_.html#listusershook" class="tsd-kind-icon">List<wbr>Users<wbr>Hook</a>
