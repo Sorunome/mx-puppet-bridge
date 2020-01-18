@@ -340,7 +340,7 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.botHeaderMsg = hook;
 	}
 
-	public setGetDastaFromStrHook(hook: GetDataFromStrHook) {
+	public setGetDataFromStrHook(hook: GetDataFromStrHook) {
 		this.hooks.getDataFromStr = hook;
 	}
 
