@@ -20,6 +20,10 @@ protocol is used as relay bot between the remote protocol and matrix.
  - [Instagram](https://github.com/Sorunome/mx-puppet-instagram)
  - [Twitter](https://github.com/Sorunome/mx-puppet-twitter)
 
+## Docs
+ - [bridge.md](https://github.com/Sorunome/mx-puppet-bridge/blob/master/bridge.md)
+ - `npm run docs`
+
 ## Features
 Please note that not all protocol implementations support all features. This is just a feature list
 of the features available in this library.
