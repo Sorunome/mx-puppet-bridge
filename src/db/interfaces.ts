@@ -17,7 +17,7 @@ export interface IUserStoreRoomOverrideEntry extends IProfileDbEntry {
 	roomId: string;
 }
 
-export interface IChanStoreEntry extends IProfileDbEntry {
+export interface IRoomStoreEntry extends IProfileDbEntry {
 	mxid: string;
 	roomId: string;
 	puppetId: number;

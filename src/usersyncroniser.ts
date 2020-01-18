@@ -237,12 +237,12 @@ export class UserSyncroniser {
 			log.warn("No room override data found");
 			return;
 		}
-		const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+		const roomMxid = await this.bridge.roomSync.maybeGetMxid({
 			puppetId: userData.puppetId,
 			roomId,
 		});
-		if (!chanMxid) {
-			log.warn("Channel MXID not found");
+		if (!roomMxid) {
+			log.warn("Room MXID not found");
 			return;
 		}
 		const memberContent = {
@@ -250,7 +250,7 @@ export class UserSyncroniser {
 			displayname: roomOverrideData.name || origUserData.name,
 			avatar_url: roomOverrideData.avatarMxc || origUserData.avatarMxc,
 		};
-		await client.sendStateEvent(chanMxid, "m.room.member", await client.getUserId(), memberContent);
+		await client.sendStateEvent(roomMxid, "m.room.member", await client.getUserId(), memberContent);
 	}
 
 	public async updateRoomOverride(

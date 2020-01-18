@@ -11,14 +11,14 @@ import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
 import * as escapeHtml from "escape-html";
-import { ChannelSyncroniser } from "./channelsyncroniser";
+import { RoomSyncroniser } from "./roomsyncroniser";
 import { UserSyncroniser } from "./usersyncroniser";
 import { GroupSyncroniser } from "./groupsyncroniser";
 import { Config } from "./config";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";
-import { DbChanStore } from "./db/chanstore";
+import { DbRoomStore } from "./db/roomstore";
 import { DbGroupStore } from "./db/groupstore";
 import { DbPuppetStore, IMxidInfo } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
@@ -32,8 +32,8 @@ import { TypingHandler } from "./typinghandler";
 import { DelayedFunction } from "./structures/delayedfunction";
 import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, IMemberInfo, RetDataFn,
-	IRetData, IRetList, IProtocolInformation, CreateChanHook, CreateUserHook, CreateGroupHook, GetDescHook,
-	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListChansHook, IRemoteUser, IRemoteChan,
+	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
+	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
 	IRemoteGroup,
 } from "./interfaces";
 
@@ -51,15 +51,15 @@ interface ISendInfo {
 }
 
 export interface IPuppetBridgeHooks {
-	createChan?: CreateChanHook;
 	createUser?: CreateUserHook;
+	createRoom?: CreateRoomHook;
 	createGroup?: CreateGroupHook;
 	getDesc?: GetDescHook;
 	botHeaderMsg?: BotHeaderMsgHook;
 	getDataFromStr?: GetDataFromStrHook;
 	getDmRoomId?: GetDmRoomIdHook;
 	listUsers?: ListUsersHook;
-	listChans?: ListChansHook;
+	listRooms?: ListRoomsHook;
 }
 
 interface ISetProtocolInformation extends IProtocolInformation {
@@ -75,7 +75,7 @@ interface ISetProtocolInformation extends IProtocolInformation {
 }
 
 export class PuppetBridge extends EventEmitter {
-	public chanSync: ChannelSyncroniser;
+	public roomSync: RoomSyncroniser;
 	public userSync: UserSyncroniser;
 	public groupSync: GroupSyncroniser;
 	public hooks: IPuppetBridgeHooks;
@@ -118,6 +118,7 @@ export class PuppetBridge extends EventEmitter {
 		this.delayedFunction = new DelayedFunction();
 	}
 
+	/** @internal */
 	public readConfig() {
 		try {
 			this.config = new Config();
@@ -135,12 +136,15 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	/**
+	 * Initialize the puppet bridge
+	 */
 	public async init() {
 		this.readConfig();
 		this.store = new Store(this.config.database);
 		await this.store.init();
 
-		this.chanSync = new ChannelSyncroniser(this);
+		this.roomSync = new RoomSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
 		this.groupSync = new GroupSyncroniser(this);
 		this.provisioner = new Provisioner(this);
@@ -187,6 +191,9 @@ export class PuppetBridge extends EventEmitter {
 		});
 	}
 
+	/**
+	 * Generate a registration file
+	 */
 	public generateRegistration(opts: IPuppetBridgeRegOpts) {
 		log.info("Generating registration file...");
 		if (fs.existsSync(this.registrationPath)) {
@@ -231,8 +238,8 @@ export class PuppetBridge extends EventEmitter {
 		return this.store.userStore;
 	}
 
-	get chanStore(): DbChanStore {
-		return this.store.chanStore;
+	get roomStore(): DbRoomStore {
+		return this.store.roomStore;
 	}
 
 	get groupStore(): DbGroupStore {
@@ -255,6 +262,9 @@ export class PuppetBridge extends EventEmitter {
 		return this.hooks.createGroup && this.config.bridge.enableGroupSync ? true : false;
 	}
 
+	/**
+	 * Start the puppeting bridge
+	 */
 	public async start() {
 		log.info("Starting application service....");
 		let registration: IAppserviceRegistration | null = null;
@@ -320,12 +330,12 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	public setCreateChanHook(hook: CreateChanHook) {
-		this.hooks.createChan = hook;
-	}
-
 	public setCreateUserHook(hook: CreateUserHook) {
 		this.hooks.createUser = hook;
+	}
+
+	public setCreateRoomHook(hook: CreateRoomHook) {
+		this.hooks.createRoom = hook;
 	}
 
 	public setCreateGroupHook(hook: CreateGroupHook) {
@@ -352,65 +362,96 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.listUsers = hook;
 	}
 
-	public setListChansHook(hook: ListChansHook) {
-		this.hooks.listChans = hook;
+	public setListRoomsHook(hook: ListRoomsHook) {
+		this.hooks.listRooms = hook;
 	}
 
+	/**
+	 * Set what the remote user ID of a puppet is
+	 */
 	public async setUserId(puppetId: number, userId: string) {
 		await this.provisioner.setUserId(puppetId, userId);
 	}
 
+	/**
+	 * Set (store) the data associated with a puppet, if you change it
+	 */
 	public async setPuppetData(puppetId: number, data: any) {
 		await this.provisioner.setData(puppetId, data);
 	}
 
+	/**
+	 * Update a given remote users profile
+	 */
 	public async updateUser(user: IRemoteUser) {
 		log.verbose("Got request to update a user");
 		await this.userSync.getClient(user);
 	}
 
-	public async updateChannel(chan: IRemoteChan) {
-		log.verbose("Got request to update a channel");
-		await this.chanSync.getMxid(chan, undefined, undefined, false);
+	/**
+	 * Update the information on a remote room
+	 */
+	public async updateRoom(room: IRemoteRoom) {
+		log.verbose("Got request to update a room");
+		await this.roomSync.getMxid(room, undefined, undefined, false);
 	}
 
+
+	/**
+	 * Update the information on a remote group
+	 */
 	public async updateGroup(group: IRemoteGroup) {
-		log.verbose("Got request to update a group");
-		await this.groupSync.getMxid(group, false);
+		if (this.groupSyncEnabled) {
+			log.verbose("Got request to update a group");
+			await this.groupSync.getMxid(group, false);
+		}
 	}
 
-	public async bridgeChannel(chan: IRemoteChan) {
-		if (!this.hooks.createChan) {
+	/**
+	 * Trigger a remote room to be bridged
+	 */
+	public async bridgeRoom(roomData: IRemoteRoom) {
+		if (!this.hooks.createRoom) {
 			return;
 		}
 
 		// check if this is a valid room at all
-		const room = await this.hooks.createChan(chan);
-		if (!room || room.puppetId !== chan.puppetId || room.roomId !== chan.roomId || room.isDirect) {
+		const room = await this.hooks.createRoom(roomData);
+		if (!room || roomData.puppetId !== room.puppetId || roomData.roomId !== room.roomId || room.isDirect) {
 			return;
 		}
+		log.info(`Got request to bridge room puppetId=${room.puppetId} roomId=${room.roomId}`);
 		// check if the corresponding puppet exists
-		const puppet = await this.provisioner.get(chan.puppetId);
+		const puppet = await this.provisioner.get(room.puppetId);
 		if (!puppet) {
 			return;
 		}
 		const invites = [puppet.puppetMxid];
-		await this.chanSync.getMxid(chan, undefined, invites);
+		await this.roomSync.getMxid(room, undefined, invites);
 	}
 
-	public async unbridgeChannelByMxid(mxid: string) {
-		const chan = await this.chanSync.getPartsFromMxid(mxid);
-		await this.unbridgeChannel(chan);
+	/**
+	 * Unbridge a room, given an mxid
+	 */
+	public async unbridgeRoomByMxid(mxid: string) {
+		const room = await this.roomSync.getPartsFromMxid(mxid);
+		await this.unbridgeRoom(room);
 	}
 
-	public async unbridgeChannel(chan: IRemoteChan | null) {
-		if (!chan) {
+	/**
+	 * Unbridge a remote room
+	 */
+	public async unbridgeRoom(room: IRemoteRoom | null) {
+		if (!room) {
 			return;
 		}
-		log.info(`Got request to unbridge channel puppetId=${chan.puppetId} roomId=${chan.roomId}`);
-		await this.chanSync.delete(chan, true);
+		log.info(`Got request to unbridge room puppetId=${room.puppetId} roomId=${room.roomId}`);
+		await this.roomSync.delete(room, true);
 	}
 
+	/**
+	 * Set presence of a remote user
+	 */
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
 		if (this.protocol.features.presence && this.config.presence.enabled) {
 			log.verbose(`Setting user presence for userId=${user.userId} to ${presence}`);
@@ -423,6 +464,9 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	/**
+	 * Set the status message of a remote user
+	 */
 	public async setUserStatus(user: IRemoteUser, status: string) {
 		if (this.protocol.features.presence && this.config.presence.enabled) {
 			log.verbose(`Setting user status for userId=${user.userId} to ${status}`);
@@ -435,8 +479,11 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	/**
+	 * Set if a remote user is typing in a room or not
+	 */
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {
-		log.verbose(`Setting user typing for userId=${params.user.userId} in roomId=${params.chan.roomId} to ${typing}`);
+		log.verbose(`Setting user typing for userId=${params.user.userId} in roomId=${params.room.roomId} to ${typing}`);
 		const ret = await this.maybePrepareSend(params);
 		if (!ret) {
 			return;
@@ -444,18 +491,24 @@ export class PuppetBridge extends EventEmitter {
 		await this.typingHandler.set(await ret.client.getUserId(), ret.mxid, typing);
 	}
 
+	/**
+	 * Send a read receipt of a remote user to matrix
+	 */
 	public async sendReadReceipt(params: IReceiveParams) {
-		log.verbose(`Got request to send read indicators for userId=${params.user.userId} in roomId=${params.chan.roomId}`);
+		log.verbose(`Got request to send read indicators for userId=${params.user.userId} in roomId=${params.room.roomId}`);
 		const ret = await this.maybePrepareSend(params);
 		if (!ret || !params.eventId) {
 			return;
 		}
-		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, params.eventId);
+		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, params.eventId);
 		for (const origEvent of origEvents) {
 			await ret.client.sendReadReceipt(ret.mxid, origEvent);
 		}
 	}
 
+	/**
+	 * Get the mxid for a given remote user
+	 */
 	public async getMxidForUser(user: IRemoteUser, doublePuppetCheck: boolean = true): Promise<string> {
 		if (doublePuppetCheck) {
 			const puppetData = await this.provisioner.get(user.puppetId);
@@ -466,14 +519,23 @@ export class PuppetBridge extends EventEmitter {
 		return this.appservice.getUserIdForSuffix(`${user.puppetId}_${Util.str2mxid(user.userId)}`);
 	}
 
-	public async getMxidForChan(chan: IRemoteChan): Promise<string> {
-		return this.appservice.getAliasForSuffix(`${chan.puppetId}_${Util.str2mxid(chan.roomId)}`);
+	/**
+	 * Get the mxid for a given remote room
+	 */
+	public async getMxidForRoom(room: IRemoteRoom): Promise<string> {
+		return this.appservice.getAliasForSuffix(`${room.puppetId}_${Util.str2mxid(room.roomId)}`);
 	}
 
+	/**
+	 * Get the URL from an MXC uri
+	 */
 	public getUrlFromMxc(mxc: string): string {
 		return `${this.config.bridge.homeserverUrl}/_matrix/media/v1/download/${mxc.substring("mxc://".length)}`;
 	}
 
+	/**
+	 * Get the info (name, avatar) of the the specified puppet
+	 */
 	public async getPuppetMxidInfo(puppetId: number): Promise<IMxidInfo | null> {
 		let puppetMxid = "";
 		try {
@@ -507,34 +569,58 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	public async sendStatusMessage(puppetId: number | IRemoteChan, msg: string) {
+	/**
+	 * Send a status message either to the status message room or to a specified room
+	 */
+	public async sendStatusMessage(puppetId: number | IRemoteRoom, msg: string) {
 		await this.botProvisioner.sendStatusMessage(puppetId, msg);
 	}
 
+	/**
+	 * Registers a custom command with the bot provisioner
+	 */
 	public registerCommand(name: string, command: ICommand) {
 		this.botProvisioner.registerCommand(name, command);
 	}
 
+	/**
+	 * Send a file to matrix, auto-detect its type
+	 */
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("detect", params, thing, name);
 	}
 
+	/**
+	 * Send an m.file to matrix
+	 */
 	public async sendFile(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("m.file", params, thing, name);
 	}
 
+	/**
+	 * Send an m.video to matrix
+	 */
 	public async sendVideo(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("m.video", params, thing, name);
 	}
 
+	/**
+	 * Send an m.audio to matrix
+	 */
 	public async sendAudio(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("m.audio", params, thing, name);
 	}
 
+	/**
+	 * Send an m.image to matrix
+	 */
 	public async sendImage(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.sendFileByType("m.image", params, thing, name);
 	}
 
+	/**
+	 * Send a message to matrix
+	 */
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
 		log.verbose(`Received message to send`);
 		const { client, mxid } = await this.prepareSend(params);
@@ -558,10 +644,13 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 	}
 
+	/**
+	 * Send an edit to matrix
+	 */
 	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
 		log.verbose(`Received edit to send`);
 		const { client, mxid } = await this.prepareSend(params);
@@ -571,7 +660,7 @@ export class PuppetBridge extends EventEmitter {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
 		if (ix < 0) {
 			// negative indexes are from the back
 			ix = origEvents.length + ix;
@@ -609,19 +698,25 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 	}
 
+	/**
+	 * Send a redaction to matrix
+	 */
 	public async sendRedact(params: IReceiveParams, eventId: string) {
 		log.verbose("Received redact to send");
 		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
 		for (const origEvent of origEvents) {
 			await client.redactEvent(mxid, origEvent);
 		}
 	}
 
+	/**
+	 * Send a reply to matrix
+	 */
 	public async sendReply(params: IReceiveParams, eventId: string, opts: IMessageEvent) {
 		log.verbose(`Received reply to send`);
 		const { client, mxid } = await this.prepareSend(params);
@@ -631,7 +726,7 @@ export class PuppetBridge extends EventEmitter {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
 		const origEvent = origEvents[0];
 		const send = {
 			msgtype,
@@ -656,14 +751,17 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 	}
 
+	/**
+	 * Send a reaction to matrix
+	 */
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
 		log.verbose(`Received reaction to send`);
 		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.eventStore.getMatrix(params.chan.puppetId, eventId);
+		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
 		const origEvent = origEvents[0];
 		if (!origEvent) {
 			return; // nothing to do
@@ -681,21 +779,25 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const matrixEventId = await client.sendEvent(mxid, "m.reaction", send);
 		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 	}
 
+	/** @interal */
 	public async getRoomMemberInfo(roomId: string, userId: string): Promise<IMemberInfo> {
 		const roomDisplaynameCache = this.getRoomDisplaynameCache(roomId);
 		if (userId in roomDisplaynameCache) {
 			return roomDisplaynameCache[userId];
 		}
-		const client = await this.chanSync.getChanOp(roomId) || this.appservice.botClient;
+		const client = await this.roomSync.getRoomOp(roomId) || this.appservice.botClient;
 		const memberInfo = await client.getRoomStateEvent(roomId, "m.room.member", userId);
 		this.updateCachedRoomMemberInfo(roomId, userId, memberInfo);
 		return memberInfo;
 	}
 
+	/**
+	 * Upload content to matrix, automatically de-duping it
+	 */
 	public async uploadContent(
 		client: MatrixClient,
 		thing: string | Buffer,
@@ -806,13 +908,13 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const matrixEventId = await client.sendMessage(mxid, sendData);
 		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.chan.puppetId, matrixEventId, params.eventId);
+			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 	}
 
 	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {
 		log.verbose(`Maybe preparing send parameters`, params);
-		const mxid = await this.chanSync.maybeGetMxid(params.chan);
+		const mxid = await this.roomSync.maybeGetMxid(params.room);
 		if (!mxid) {
 			return null;
 		}
@@ -825,7 +927,7 @@ export class PuppetBridge extends EventEmitter {
 
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
 		log.verbose(`Preparing send parameters`, params);
-		const puppetData = await this.provisioner.get(params.chan.puppetId);
+		const puppetData = await this.provisioner.get(params.room.puppetId);
 		const puppetMxid = puppetData ? puppetData.puppetMxid : "";
 		const client = await this.userSync.getClient(params.user);
 		const userId = await client.getUserId();
@@ -837,7 +939,7 @@ export class PuppetBridge extends EventEmitter {
 			// else we need the bot client in order to be able to receive matrix messages
 			invites.push(await this.botIntent.underlyingClient.getUserId());
 		}
-		const { mxid, created } = await this.chanSync.getMxid(params.chan, client, invites);
+		const { mxid, created } = await this.roomSync.getMxid(params.room, client, invites);
 
 		// ensure that the intent is in the room
 		if (this.appservice.isNamespacedUser(userId)) {
@@ -848,22 +950,22 @@ export class PuppetBridge extends EventEmitter {
 			if (puppetData && puppetData.userId === params.user.userId) {
 				const delayedKey = `${userId}_${mxid}`;
 				this.delayedFunction.set(delayedKey, async () => {
-					await this.chanSync.maybeLeaveGhost(mxid, userId);
+					await this.roomSync.maybeLeaveGhost(mxid, userId);
 				}, GHOST_PUPPET_LEAVE_TIMEOUT);
 			}
 			// set the correct m.room.member override if the room just got created
 			if (created) {
 				log.verbose("Maybe applying room membership overrides");
-				await this.userSync.setRoomOverride(params.user, params.chan.roomId, null, client);
+				await this.userSync.setRoomOverride(params.user, params.room.roomId, null, client);
 			}
 		}
 
 		// ensure our puppeted user is in the room
-		const cacheKey = `${params.chan.puppetId}_${mxid}`;
+		const cacheKey = `${params.room.puppetId}_${mxid}`;
 		try {
 			const cache = this.ghostInviteCache.get(cacheKey);
 			if (!cache) {
-				let inviteClient = await this.chanSync.getChanOp(mxid);
+				let inviteClient = await this.roomSync.getRoomOp(mxid);
 				if (!inviteClient) {
 					inviteClient = client;
 				}
@@ -877,7 +979,7 @@ export class PuppetBridge extends EventEmitter {
 					this.ghostInviteCache.set(cacheKey, true);
 
 					// let's try to also join the room, if we use double-puppeting
-					const puppetClient = await this.userSync.getPuppetClient(params.chan.puppetId);
+					const puppetClient = await this.userSync.getPuppetClient(params.room.puppetId);
 					if (puppetClient) {
 						log.silly("Joining the room...");
 						await puppetClient.joinRoom(mxid);
@@ -904,7 +1006,7 @@ export class PuppetBridge extends EventEmitter {
 			return; // we don't handle things from our own namespace
 		}
 		log.verbose("got matrix redact event to pass on");
-		const room = await this.chanSync.getPartsFromMxid(event.room_id);
+		const room = await this.roomSync.getPartsFromMxid(event.room_id);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
 			await this.botProvisioner.processEvent(event);
@@ -925,7 +1027,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	private async handleTextEvent(room: IRemoteChan, event: any) {
+	private async handleTextEvent(room: IRemoteRoom, event: any) {
 		const msgtype = event.content.msgtype;
 		const relate = event.content["m.relates_to"];
 		const msgData = {
@@ -1016,7 +1118,7 @@ export class PuppetBridge extends EventEmitter {
 			return; // we don't handle things from our own namespace
 		}
 		log.verbose("got matrix event to pass on");
-		const room = await this.chanSync.getPartsFromMxid(event.room_id);
+		const room = await this.roomSync.getPartsFromMxid(event.room_id);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
 			await this.botProvisioner.processEvent(event);
@@ -1035,7 +1137,7 @@ export class PuppetBridge extends EventEmitter {
 
 		const delayedKey = `${puppetMxid}_${roomId}`;
 		this.delayedFunction.set(delayedKey, async () => {
-			await this.chanSync.maybeLeaveGhost(roomId, puppetMxid);
+			await this.roomSync.maybeLeaveGhost(roomId, puppetMxid);
 		}, GHOST_PUPPET_LEAVE_TIMEOUT, false);
 
 		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
@@ -1101,13 +1203,13 @@ export class PuppetBridge extends EventEmitter {
 		// the m.room.member event triggers before the room is incerted into the store
 
 		log.info(`Handling join of ghost ${ghostId} to ${roomId}`);
-		log.verbose("adding ghost to chan cache");
-		await this.store.puppetStore.joinGhostToChan(ghostId, roomId);
+		log.verbose("adding ghost to room cache");
+		await this.store.puppetStore.joinGhostToRoom(ghostId, roomId);
 
 		const ghostParts = this.userSync.getPartsFromMxid(ghostId);
 		log.verbose("Ghost parts:", ghostParts);
 		if (ghostParts) {
-			const roomParts = await this.chanSync.getPartsFromMxid(roomId);
+			const roomParts = await this.roomSync.getPartsFromMxid(roomId);
 			log.verbose("Room parts:", roomParts);
 			if (roomParts && roomParts.puppetId === ghostParts.puppetId) {
 				log.verbose("Maybe applying room overrides");
@@ -1116,7 +1218,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 
 		// maybe remove the bot user, if it is present
-		await this.chanSync.maybeLeaveGhost(roomId, this.appservice.botIntent.userId);
+		await this.roomSync.maybeLeaveGhost(roomId, this.appservice.botIntent.userId);
 	}
 
 	private async handleJoinEvent(roomId: string, event: any) {
@@ -1127,7 +1229,7 @@ export class PuppetBridge extends EventEmitter {
 			await this.handleGhostJoinEvent(roomId, userId);
 			return;
 		}
-		const room = await this.chanSync.getPartsFromMxid(roomId);
+		const room = await this.roomSync.getPartsFromMxid(roomId);
 		if (!room) {
 			return; // this isn't a room we handle, just ignore it
 		}
@@ -1166,15 +1268,15 @@ export class PuppetBridge extends EventEmitter {
 	private async handleLeaveEvent(roomId: string, event: any) {
 		const userId = event.state_key;
 		if (this.appservice.isNamespacedUser(userId)) {
-			await this.store.puppetStore.leaveGhostFromChan(userId, roomId);
+			await this.store.puppetStore.leaveGhostFromRoom(userId, roomId);
 			if (userId !== event.sender) {
 				// puppet got kicked, unbridging room
-				await this.unbridgeChannelByMxid(roomId);
+				await this.unbridgeRoomByMxid(roomId);
 			}
 			return;
 		}
 
-		const room = await this.chanSync.getPartsFromMxid(roomId);
+		const room = await this.roomSync.getPartsFromMxid(roomId);
 		if (!room) {
 			return; // this isn't a room we handle, just ignore it
 		}
@@ -1184,7 +1286,7 @@ export class PuppetBridge extends EventEmitter {
 			return; // it wasn't us
 		}
 		log.verbose(`Received leave event from ${puppetMxid}`);
-		await this.unbridgeChannel(room);
+		await this.unbridgeRoom(room);
 	}
 
 	private async handleInviteEvent(roomId: string, event: any) {
@@ -1202,13 +1304,13 @@ export class PuppetBridge extends EventEmitter {
 		if (this.appservice.isNamespacedUser(inviteId)) {
 			return; // our bridge did the invite, ignore additional handling
 		}
-		const room = await this.chanSync.getPartsFromMxid(event.room_id);
+		const room = await this.roomSync.getPartsFromMxid(event.room_id);
 		if (room) {
 			return; // we are an existing room, meaning a double-puppeted user probably auto-invited. Do nothing
 		}
 		log.info(`Processing invite for ${userId} by ${inviteId}`);
 		const intent = this.appservice.getIntentForUserId(userId);
-		if (!this.hooks.getDmRoomId || !this.hooks.createChan) {
+		if (!this.hooks.getDmRoomId || !this.hooks.createRoom) {
 			// no hook set, rejecting the invite
 			await intent.leaveRoom(roomId);
 			return;
@@ -1232,7 +1334,7 @@ export class PuppetBridge extends EventEmitter {
 			return;
 		}
 		// check if it already exists
-		const roomExists = await this.chanSync.maybeGet({
+		const roomExists = await this.roomSync.maybeGet({
 			puppetId: parts.puppetId,
 			roomId: newRoomId,
 		});
@@ -1241,7 +1343,7 @@ export class PuppetBridge extends EventEmitter {
 			return;
 		}
 		// check if it is a direct room
-		const roomData = await this.hooks.createChan({
+		const roomData = await this.hooks.createRoom({
 			puppetId: parts.puppetId,
 			roomId: newRoomId,
 		});
@@ -1250,7 +1352,7 @@ export class PuppetBridge extends EventEmitter {
 			return;
 		}
 		// FINALLY join back and accept the invite
-		await this.chanSync.insert(roomId, roomData);
+		await this.roomSync.insert(roomId, roomData);
 		await intent.joinRoom(roomId);
 		await this.userSync.getClient(parts); // create user, if it doesn't exist
 	}
@@ -1261,11 +1363,11 @@ export class PuppetBridge extends EventEmitter {
 		await createRoom(false);
 
 		// get room ID and check if it is valid
-		const parts = await this.chanSync.getPartsFromMxid(alias);
+		const parts = await this.roomSync.getPartsFromMxid(alias);
 		if (!parts) {
 			return;
 		}
 
-		await this.bridgeChannel(parts);
+		await this.bridgeRoom(parts);
 	}
 }

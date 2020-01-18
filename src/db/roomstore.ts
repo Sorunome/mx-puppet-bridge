@@ -1,34 +1,34 @@
 import { IDatabaseConnector, ISqlRow } from "./connector";
 import { Log } from "../log";
 import { TimedCache } from "../structures/timedcache";
-import { IChanStoreEntry } from "./interfaces";
+import { IRoomStoreEntry } from "./interfaces";
 
-const log = new Log("DbChanStore");
+const log = new Log("DbRoomStore");
 
 // tslint:disable-next-line:no-magic-numbers
-const CHAN_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
+const ROOM_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 
-export class DbChanStore {
-	private remoteCache: TimedCache<string, IChanStoreEntry>;
-	private mxidCache: TimedCache<string, IChanStoreEntry>;
+export class DbRoomStore {
+	private remoteCache: TimedCache<string, IRoomStoreEntry>;
+	private mxidCache: TimedCache<string, IRoomStoreEntry>;
 	private opCache: TimedCache<string, string>;
 	constructor(
 		private db: IDatabaseConnector,
 	) {
-		this.remoteCache = new TimedCache(CHAN_CACHE_LIFETIME);
-		this.mxidCache = new TimedCache(CHAN_CACHE_LIFETIME);
-		this.opCache = new TimedCache(CHAN_CACHE_LIFETIME);
+		this.remoteCache = new TimedCache(ROOM_CACHE_LIFETIME);
+		this.mxidCache = new TimedCache(ROOM_CACHE_LIFETIME);
+		this.opCache = new TimedCache(ROOM_CACHE_LIFETIME);
 	}
 
-	public newData(mxid: string, roomId: string, puppetId: number): IChanStoreEntry {
+	public newData(mxid: string, roomId: string, puppetId: number): IRoomStoreEntry {
 		return {
 			mxid,
 			roomId,
 			puppetId,
-		} as IChanStoreEntry;
+		} as IRoomStoreEntry;
 	}
 
-	public async getByRemote(puppetId: number, roomId: string): Promise<IChanStoreEntry | null> {
+	public async getByRemote(puppetId: number, roomId: string): Promise<IRoomStoreEntry | null> {
 		const cached = this.remoteCache.get(`${puppetId};${roomId}`);
 		if (cached) {
 			return cached;
@@ -41,12 +41,12 @@ export class DbChanStore {
 		return this.getFromRow(row);
 	}
 
-	public async getByPuppetId(puppetId: number): Promise<IChanStoreEntry[]> {
+	public async getByPuppetId(puppetId: number): Promise<IRoomStoreEntry[]> {
 		const rows = await this.db.All(
 			"SELECT * FROM chan_store WHERE puppet_id = $puppet_id", {
 			puppet_id: puppetId,
 		});
-		const results = [] as IChanStoreEntry[];
+		const results = [] as IRoomStoreEntry[];
 		for (const row of rows) {
 			const res = this.getFromRow(row);
 			if (res) {
@@ -56,7 +56,7 @@ export class DbChanStore {
 		return results;
 	}
 
-	public async getByMxid(mxid: string): Promise<IChanStoreEntry | null> {
+	public async getByMxid(mxid: string): Promise<IRoomStoreEntry | null> {
 		const cached = this.mxidCache.get(mxid);
 		if (cached) {
 			return cached;
@@ -67,7 +67,7 @@ export class DbChanStore {
 		return this.getFromRow(row);
 	}
 
-	public async set(data: IChanStoreEntry) {
+	public async set(data: IRoomStoreEntry) {
 		const exists = await this.db.Get(
 			"SELECT * FROM chan_store WHERE mxid = $mxid", {mxid: data.mxid},
 		);
@@ -121,7 +121,7 @@ export class DbChanStore {
 		this.mxidCache.set(data.mxid, data);
 	}
 
-	public async delete(data: IChanStoreEntry) {
+	public async delete(data: IRoomStoreEntry) {
 		await this.db.Run(
 			"DELETE FROM chan_store WHERE mxid = $mxid", { mxid: data.mxid },
 		);
@@ -133,9 +133,9 @@ export class DbChanStore {
 		this.opCache.delete(data.mxid);
 	}
 
-	public async setChanOp(chanMxid: string, userMxid: string) {
+	public async setRoomOp(roomMxid: string, userMxid: string) {
 		const row = await this.db.Get("SELECT * FROM chan_op WHERE chan_mxid=$chan", {
-			chan: chanMxid,
+			chan: roomMxid,
 		});
 		if (row) {
 			if ((row.user_mxid as string) === userMxid) {
@@ -143,33 +143,33 @@ export class DbChanStore {
 				return;
 			}
 			await this.db.Run("DELETE FROM chan_op WHERE chan_mxid=$chan", {
-				chan: chanMxid,
+				chan: roomMxid,
 			});
 		}
 		await this.db.Run("INSERT INTO chan_op (chan_mxid, user_mxid) VALUES ($chan, $user)", {
-			chan: chanMxid,
+			chan: roomMxid,
 			user: userMxid,
 		});
-		this.opCache.set(chanMxid, userMxid);
+		this.opCache.set(roomMxid, userMxid);
 	}
 
-	public async getChanOp(chanMxid: string): Promise<string|null> {
-		const cached = this.opCache.get(chanMxid);
+	public async getRoomOp(roomMxid: string): Promise<string|null> {
+		const cached = this.opCache.get(roomMxid);
 		if (cached) {
 			return cached;
 		}
 		const row = await this.db.Get("SELECT user_mxid FROM chan_op WHERE chan_mxid=$chan", {
-			chan: chanMxid,
+			chan: roomMxid,
 		});
 		if (!row) {
 			return null;
 		}
 		const userMxid = row.user_mxid as string;
-		this.opCache.set(chanMxid, userMxid);
+		this.opCache.set(roomMxid, userMxid);
 		return userMxid;
 	}
 
-	private getFromRow(row: ISqlRow | null): IChanStoreEntry | null {
+	private getFromRow(row: ISqlRow | null): IRoomStoreEntry | null {
 		if (!row) {
 			return null;
 		}

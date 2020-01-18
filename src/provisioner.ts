@@ -161,7 +161,7 @@ export class Provisioner {
 			return;
 		}
 		await this.puppetStore.delete(puppetId);
-		await this.bridge.chanSync.deleteForPuppet(puppetId);
+		await this.bridge.roomSync.deleteForPuppet(puppetId);
 		this.bridge.emit("puppetDelete", puppetId);
 	}
 

@@ -4,7 +4,7 @@ import { Postgres } from "./db/postgres";
 import { Log } from "./log";
 import { DatabaseConfig } from "./config";
 import { DbUserStore } from "./db/userstore";
-import { DbChanStore } from "./db/chanstore";
+import { DbRoomStore } from "./db/roomstore";
 import { DbGroupStore } from "./db/groupstore";
 import { DbPuppetStore } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
@@ -18,7 +18,7 @@ type GetSchemaClass = (version: number) => IDbSchema;
 
 export class Store {
 	public db: IDatabaseConnector;
-	private pChanStore: DbChanStore;
+	private pRoomStore: DbRoomStore;
 	private pUserStore: DbUserStore;
 	private pGroupStore: DbGroupStore;
 	private pPuppetStore: DbPuppetStore;
@@ -26,8 +26,8 @@ export class Store {
 
 	constructor(private config: DatabaseConfig) { }
 
-	get chanStore() {
-		return this.pChanStore;
+	get roomStore() {
+		return this.pRoomStore;
 	}
 
 	get userStore() {
@@ -169,7 +169,7 @@ export class Store {
 		}
 		try {
 			this.db.Open();
-			this.pChanStore = new DbChanStore(this.db);
+			this.pRoomStore = new DbRoomStore(this.db);
 			this.pUserStore = new DbUserStore(this.db);
 			this.pGroupStore = new DbGroupStore(this.db);
 			this.pPuppetStore = new DbPuppetStore(this.db);

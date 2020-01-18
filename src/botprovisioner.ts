@@ -1,5 +1,5 @@
 import { PuppetBridge } from "./puppetbridge";
-import { RetDataFn, IRetData, IRemoteChan } from "./interfaces";
+import { RetDataFn, IRetData, IRemoteRoom } from "./interfaces";
 import { Provisioner } from "./provisioner";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
@@ -180,10 +180,10 @@ export class BotProvisioner {
 		}
 	}
 
-	public async sendStatusMessage(room: number | IRemoteChan, msg: string) {
+	public async sendStatusMessage(room: number | IRemoteRoom, msg: string) {
 		let puppetId = -1;
 		if (isNaN(room as number)) {
-			puppetId = (room as IRemoteChan).puppetId;
+			puppetId = (room as IRemoteRoom).puppetId;
 		} else {
 			puppetId = room as number;
 		}
@@ -193,13 +193,13 @@ export class BotProvisioner {
 		let sendStr = "[Status] ";
 		let client: MatrixClient | undefined;
 		if (isNaN(room as number)) {
-			const maybeRoomMxid = await this.bridge.chanSync.maybeGetMxid(room as IRemoteChan);
+			const maybeRoomMxid = await this.bridge.roomSync.maybeGetMxid(room as IRemoteRoom);
 			if (!maybeRoomMxid) {
 				log.error("Room MXID is not found, this is very odd");
 				return;
 			}
 			roomMxid = maybeRoomMxid;
-			const ghost = (await this.bridge.puppetStore.getGhostsInChan(roomMxid))[0];
+			const ghost = (await this.bridge.puppetStore.getGhostsInRoom(roomMxid))[0];
 			if (ghost) {
 				client = this.bridge.AS.getIntentForUserId(ghost).underlyingClient;
 			}
@@ -314,9 +314,9 @@ export class BotProvisioner {
 			help: "Lists all users that are linked",
 			withPid: false,
 		});
-		this.registerCommand("listchannels", {
+		this.registerCommand("listrooms", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
-				if (!this.bridge.hooks.listChans) {
+				if (!this.bridge.hooks.listRooms) {
 					await sendMessage("Feature not implemented!");
 					return;
 				}
@@ -327,18 +327,18 @@ export class BotProvisioner {
 				}
 				let reply = "";
 				for (const d of descs) {
-					const chans = await this.bridge.hooks.listChans(d.puppetId);
+					const rooms = await this.bridge.hooks.listRooms(d.puppetId);
 					reply += `## ${d.puppetId}: ${d.desc}:\n\n`;
-					for (const c of chans) {
+					for (const r of rooms) {
 						let replyPart = "";
-						if (c.category) {
-							replyPart = `\n### ${c.name}:\n\n`;
+						if (r.category) {
+							replyPart = `\n### ${r.name}:\n\n`;
 						} else {
-							const mxid = await this.bridge.getMxidForChan({
+							const mxid = await this.bridge.getMxidForRoom({
 								puppetId: d.puppetId,
-								roomId: c.id!,
+								roomId: r.id!,
 							});
-							replyPart = ` - ${c.name}: [${c.name}](https://matrix.to/#/${mxid})\n`;
+							replyPart = ` - ${r.name}: [${r.name}](https://matrix.to/#/${mxid})\n`;
 						}
 						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
 							await sendMessage(reply);
@@ -349,7 +349,7 @@ export class BotProvisioner {
 				}
 				await sendMessage(reply);
 			},
-			help: "List all channels that are linked",
+			help: "List all rooms that are linked",
 			withPid: false,
 		});
 	}

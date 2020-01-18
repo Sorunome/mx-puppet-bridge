@@ -194,44 +194,44 @@ export class DbPuppetStore {
 		this.mxidCache.delete(puppetId);
 	}
 
-	public async isGhostInChan(ghostMxid: string, chanMxid: string): Promise<boolean> {
+	public async isGhostInRoom(ghostMxid: string, roomMxid: string): Promise<boolean> {
 		const exists = await this.db.Get(
-			"SELECT * FROM ghosts_joined_chans WHERE ghost_mxid = $ghostMxid AND chan_mxid = $chanMxid"
+			"SELECT * FROM ghosts_joined_chans WHERE ghost_mxid = $ghostMxid AND chan_mxid = $roomMxid"
 			, {
 			ghostMxid,
-			chanMxid,
+			roomMxid,
 		});
 		return exists ? true : false;
 	}
 
-	public async joinGhostToChan(ghostMxid: string, chanMxid: string) {
-		if (await this.isGhostInChan(ghostMxid, chanMxid)) {
+	public async joinGhostToRoom(ghostMxid: string, roomMxid: string) {
+		if (await this.isGhostInRoom(ghostMxid, roomMxid)) {
 			return;
 		}
-		await this.db.Run("INSERT INTO ghosts_joined_chans (ghost_mxid, chan_mxid) VALUES ($ghostMxid, $chanMxid)", {
+		await this.db.Run("INSERT INTO ghosts_joined_chans (ghost_mxid, chan_mxid) VALUES ($ghostMxid, $roomMxid)", {
 			ghostMxid,
-			chanMxid,
+			roomMxid,
 		});
 	}
 
-	public async getGhostsInChan(chan: string): Promise<string[]> {
+	public async getGhostsInRoom(room: string): Promise<string[]> {
 		const result = [] as string[];
-		const rows = await this.db.All("SELECT * FROM ghosts_joined_chans WHERE chan_mxid = $chan", { chan });
+		const rows = await this.db.All("SELECT * FROM ghosts_joined_chans WHERE chan_mxid = $room", { room });
 		for (const r of rows) {
 			result.push(r.ghost_mxid as string);
 		}
 		return result;
 	}
 
-	public async emptyGhostsInChan(chan: string) {
-		await this.db.Run("DELETE FROM ghosts_joined_chans WHERE chan_mxid = $chan", { chan });
+	public async emptyGhostsInRoom(room: string) {
+		await this.db.Run("DELETE FROM ghosts_joined_chans WHERE chan_mxid = $room", { room });
 	}
 
-	public async leaveGhostFromChan(ghostMxid: string, chanMxid: string) {
+	public async leaveGhostFromRoom(ghostMxid: string, roomMxid: string) {
 		await this.db.Run("DELETE FROM ghosts_joined_chans " +
 			"WHERE ghost_mxid = $g AND chan_mxid = $c", {
 			g: ghostMxid,
-			c: chanMxid,
+			c: roomMxid,
 		});
 	}
 

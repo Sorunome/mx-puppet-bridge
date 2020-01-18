@@ -187,24 +187,24 @@ export class GroupSyncroniser {
 			// update associated rooms only after lock is released
 			if (newRooms.length > 0 || removedRooms.length > 0) {
 				for (const roomId of newRooms) {
-					const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+					const roomMxid = await this.bridge.roomSync.maybeGetMxid({
 						puppetId: group.puppetId,
 						roomId,
 					});
-					if (chanMxid) {
+					if (roomMxid) {
 						try {
-							await clientUnstable.addRoomToGroup(mxid, chanMxid, false);
+							await clientUnstable.addRoomToGroup(mxid, roomMxid, false);
 						} catch (err) { }
 					}
 				}
 				for (const roomId of removedRooms) {
-					const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+					const roomMxid = await this.bridge.roomSync.maybeGetMxid({
 						puppetId: group.puppetId,
 						roomId,
 					});
-					if (chanMxid) {
+					if (roomMxid) {
 						try {
-							await clientUnstable.removeRoomFromGroup(mxid, chanMxid);
+							await clientUnstable.removeRoomFromGroup(mxid, roomMxid);
 						} catch (err) { }
 					}
 				}
@@ -223,11 +223,11 @@ export class GroupSyncroniser {
 		log.verbose(`Adding rooom ${roomId} to group ${group.groupId}`);
 		// here we can't just invoke getMxid with the diff to add the room
 		// as it might already be in the array but not actually part of the group
-		const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+		const roomMxid = await this.bridge.roomSync.maybeGetMxid({
 			puppetId: group.puppetId,
 			roomId,
 		});
-		if (!chanMxid) {
+		if (!roomMxid) {
 			log.silly("room not found");
 			return;
 		}
@@ -241,7 +241,7 @@ export class GroupSyncroniser {
 		}
 		const clientUnstable = this.bridge.botIntent.underlyingClient.unstableApis;
 		try {
-			await clientUnstable.addRoomToGroup(mxid, chanMxid, false);
+			await clientUnstable.addRoomToGroup(mxid, roomMxid, false);
 		} catch (err) { }
 	}
 
@@ -249,11 +249,11 @@ export class GroupSyncroniser {
 		log.info(`Removing room ${roomId} from group ${group.groupId}`);
 		// as before, we don't invoke via getMxid as maybe the room is still
 		// wrongfully in the group
-		const chanMxid = await this.bridge.chanSync.maybeGetMxid({
+		const roomMxid = await this.bridge.roomSync.maybeGetMxid({
 			puppetId: group.puppetId,
 			roomId,
 		});
-		if (!chanMxid) {
+		if (!roomMxid) {
 			return;
 		}
 		const dbGroup = await this.maybeGet(group);
@@ -269,7 +269,7 @@ export class GroupSyncroniser {
 		await this.groupStore.set(dbGroup);
 		const clientUnstable = this.bridge.botIntent.underlyingClient.unstableApis;
 		try {
-			await clientUnstable.removeRoomFromGroup(dbGroup.mxid, chanMxid);
+			await clientUnstable.removeRoomFromGroup(dbGroup.mxid, roomMxid);
 		} catch (err) { }
 	}
 

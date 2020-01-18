@@ -1,15 +1,15 @@
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteChan } from "./interfaces";
+import { IRemoteRoom } from "./interfaces";
 import { Util } from "./util";
 import { Log } from "./log";
-import { DbChanStore } from "./db/chanstore";
-import { IChanStoreEntry } from "./db/interfaces";
+import { DbRoomStore } from "./db/roomstore";
+import { IRoomStoreEntry } from "./db/interfaces";
 import { MatrixClient } from "matrix-bot-sdk";
 import { Lock } from "./structures/lock";
 import { Buffer } from "buffer";
 import { StringFormatter } from "./structures/stringformatter";
 
-const log = new Log("ChannelSync");
+const log = new Log("RoomSync");
 
 // tslint:disable-next-line:no-magic-numbers
 const MXID_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
@@ -28,18 +28,18 @@ interface IBridgeInformation {
 	channel: ISingleBridgeInformation;
 }
 
-export class ChannelSyncroniser {
-	private chanStore: DbChanStore;
+export class RoomSyncroniser {
+	private roomStore: DbRoomStore;
 	private mxidLock: Lock<string>;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
-		this.chanStore = this.bridge.chanStore;
+		this.roomStore = this.bridge.roomStore;
 		this.mxidLock = new Lock(MXID_LOOKUP_LOCK_TIMEOUT);
 	}
 
-	public async getChanOp(chan: string): Promise<MatrixClient|null> {
-		const mxid = await this.chanStore.getChanOp(chan);
+	public async getRoomOp(room: string): Promise<MatrixClient|null> {
+		const mxid = await this.roomStore.getRoomOp(room);
 		if (!mxid) {
 			return null;
 		}
@@ -50,22 +50,22 @@ export class ChannelSyncroniser {
 		return this.bridge.AS.getIntentForUserId(mxid).underlyingClient;
 	}
 
-	public async maybeGet(data: IRemoteChan): Promise<IChanStoreEntry | null> {
+	public async maybeGet(data: IRemoteRoom): Promise<IRoomStoreEntry | null> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
-		return await this.chanStore.getByRemote(data.puppetId, data.roomId);
+		return await this.roomStore.getByRemote(data.puppetId, data.roomId);
 	}
 
-	public async maybeGetMxid(data: IRemoteChan): Promise<string | null> {
-		const chan = await this.maybeGet(data);
-		if (!chan) {
+	public async maybeGetMxid(data: IRemoteRoom): Promise<string | null> {
+		const room = await this.maybeGet(data);
+		if (!room) {
 			return null;
 		}
-		return chan.mxid;
+		return room.mxid;
 	}
 
 	public async getMxid(
-		data: IRemoteChan,
+		data: IRemoteRoom,
 		client?: MatrixClient,
 		invites?: string[],
 		doCreate: boolean = true,
@@ -78,13 +78,13 @@ export class ChannelSyncroniser {
 			if (!client) {
 				client = this.bridge.botIntent.underlyingClient;
 			}
-			let chan = await this.chanStore.getByRemote(data.puppetId, data.roomId);
+			let room = await this.roomStore.getByRemote(data.puppetId, data.roomId);
 			let mxid = "";
 			let doUpdate = false;
 			let created = false;
 			let removeGroup: string | undefined | null;
 			let addGroup: string | undefined | null;
-			if (!chan) {
+			if (!room) {
 				if (!doCreate) {
 					this.mxidLock.release(lockKey);
 					return {
@@ -95,9 +95,9 @@ export class ChannelSyncroniser {
 				log.info("Channel doesn't exist yet, creating entry...");
 				doUpdate = true;
 				// let's fetch the create data via hook
-				if (this.bridge.hooks.createChan) {
+				if (this.bridge.hooks.createRoom) {
 					log.verbose("Fetching new override data...");
-					const newData = await this.bridge.hooks.createChan(data);
+					const newData = await this.bridge.hooks.createRoom(data);
 					if (newData && newData.puppetId === data.puppetId && newData.roomId === data.roomId) {
 						data = newData;
 					} else {
@@ -112,7 +112,7 @@ export class ChannelSyncroniser {
 				);
 				log.verbose("Creation data:", data);
 				log.verbose("Initial invites:", invites);
-				// ooookay, we need to create this channel
+				// ooookay, we need to create this room
 				const createParams = {
 					visibility: "private",
 					preset: "private_chat",
@@ -147,32 +147,32 @@ export class ChannelSyncroniser {
 				}
 				log.verbose("Creating room with create parameters", createParams);
 				mxid = await client!.createRoom(createParams);
-				await this.chanStore.setChanOp(mxid, await client!.getUserId());
-				chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
-				chan = Object.assign(chan, updateProfile);
+				await this.roomStore.setRoomOp(mxid, await client!.getUserId());
+				room = this.roomStore.newData(mxid, data.roomId, data.puppetId);
+				room = Object.assign(room, updateProfile);
 				if (data.topic) {
-					chan.topic = data.topic;
+					room.topic = data.topic;
 				}
 				if (data.groupId) {
-					chan.groupId = data.groupId;
-					addGroup = chan.groupId;
+					room.groupId = data.groupId;
+					addGroup = room.groupId;
 				}
 				created = true;
 			} else {
-				mxid = chan.mxid;
+				mxid = room.mxid;
 
 				// set new client for potential updates
-				const newClient = await this.getChanOp(mxid);
+				const newClient = await this.getRoomOp(mxid);
 				if (newClient) {
 					client = newClient;
 				}
 				const updateProfile = await Util.processProfileUpdate(
-					chan, data, this.bridge.protocol.namePatterns.room,
+					room, data, this.bridge.protocol.namePatterns.room,
 					async (buffer: Buffer, mimetype?: string, filename?: string) => {
 						return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
 					},
 				);
-				chan = Object.assign(chan, updateProfile);
+				room = Object.assign(room, updateProfile);
 				if (updateProfile.hasOwnProperty("name")) {
 					doUpdate = true;
 					log.verbose("Updating name");
@@ -180,7 +180,7 @@ export class ChannelSyncroniser {
 						mxid,
 						"m.room.name",
 						"",
-						{ name: chan.name },
+						{ name: room.name },
 					);
 				}
 				if (updateProfile.hasOwnProperty("avatarMxc")) {
@@ -190,10 +190,10 @@ export class ChannelSyncroniser {
 						mxid,
 						"m.room.avatar",
 						"",
-						{ url: chan.avatarMxc },
+						{ url: room.avatarMxc },
 					);
 				}
-				if (data.topic !== undefined && data.topic !== null && data.topic !== chan.topic) {
+				if (data.topic !== undefined && data.topic !== null && data.topic !== room.topic) {
 					doUpdate = true;
 					log.verbose("updating topic");
 					await client!.sendStateEvent(
@@ -202,19 +202,19 @@ export class ChannelSyncroniser {
 						"",
 						{ topic: data.topic },
 					);
-					chan.topic = data.topic;
+					room.topic = data.topic;
 				}
-				if (data.groupId !== undefined && data.groupId !== null && data.groupId !== chan.groupId) {
+				if (data.groupId !== undefined && data.groupId !== null && data.groupId !== room.groupId) {
 					doUpdate = true;
-					removeGroup = chan.groupId;
+					removeGroup = room.groupId;
 					addGroup = data.groupId;
-					chan.groupId = data.groupId;
+					room.groupId = data.groupId;
 				}
 			}
 
 			if (doUpdate) {
 				log.verbose("Storing update to DB");
-				await this.chanStore.set(chan);
+				await this.roomStore.set(room);
 			}
 
 			this.mxidLock.release(lockKey);
@@ -224,14 +224,14 @@ export class ChannelSyncroniser {
 				if (removeGroup) {
 					await this.bridge.groupSync.removeRoomFromGroup({
 						groupId: removeGroup,
-						puppetId: chan.puppetId,
-					}, chan.roomId);
+						puppetId: room.puppetId,
+					}, room.roomId);
 				}
 				if (addGroup) {
 					await this.bridge.groupSync.addRoomToGroup({
 						groupId: addGroup,
-						puppetId: chan.puppetId,
-					}, chan.roomId);
+						puppetId: room.puppetId,
+					}, room.roomId);
 				}
 			} else {
 				log.verbose("Group sync is disabled");
@@ -246,7 +246,7 @@ export class ChannelSyncroniser {
 		}
 	}
 
-	public async insert(mxid: string, roomData: IRemoteChan) {
+	public async insert(mxid: string, roomData: IRemoteRoom) {
 		const lockKey = `${roomData.puppetId};${roomData.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
@@ -254,26 +254,26 @@ export class ChannelSyncroniser {
 			mxid,
 			roomId: roomData.roomId,
 			puppetId: roomData.puppetId,
-		} as IChanStoreEntry;
-		await this.chanStore.set(entry);
+		} as IRoomStoreEntry;
+		await this.roomStore.set(entry);
 		this.mxidLock.release(lockKey);
 	}
 
-	public async updateBridgeInformation(data: IRemoteChan) {
+	public async updateBridgeInformation(data: IRemoteRoom) {
 		log.info("Updating bridge infromation state event");
-		const chan = await this.maybeGet(data);
-		if (!chan) {
-			log.warn("Channel not found");
+		const room = await this.maybeGet(data);
+		if (!room) {
+			log.warn("Room not found");
 			return; // nothing to do
 		}
-		const client = await this.getChanOp(chan.mxid);
+		const client = await this.getRoomOp(room.mxid);
 		if (!client) {
-			log.warn("No OP in channel");
+			log.warn("No OP in room");
 			return; // no op
 		}
 		const e = (s: string) => encodeURIComponent(Util.str2mxid(s));
 		const stateKey = `de.sorunome.mx-puppet-bridge://${this.bridge.protocol.id}` +
-			`${chan.groupId ? "/" + e(chan.groupId) : ""}/${e(chan.roomId)}`;
+			`${room.groupId ? "/" + e(room.groupId) : ""}/${e(room.roomId)}`;
 		const creator = await this.bridge.provisioner.getMxid(data.puppetId);
 		const protocol: ISingleBridgeInformation = {
 			id: this.bridge.protocol.id,
@@ -286,26 +286,26 @@ export class ChannelSyncroniser {
 			protocol.external_url = this.bridge.protocol.externalUrl;
 		}
 		const channel: ISingleBridgeInformation = {
-			id: Util.str2mxid(chan.roomId),
+			id: Util.str2mxid(room.roomId),
 		};
-		if (chan.name) {
-			channel.displayname = chan.name;
+		if (room.name) {
+			channel.displayname = room.name;
 		}
-		if (chan.avatarMxc) {
-			channel.avatar = chan.avatarMxc;
+		if (room.avatarMxc) {
+			channel.avatar = room.avatarMxc;
 		}
-		if (chan.externalUrl) {
-			channel.external_url = chan.externalUrl;
+		if (room.externalUrl) {
+			channel.external_url = room.externalUrl;
 		}
 		const content: IBridgeInformation = {
 			creator,
 			protocol,
 			channel,
 		};
-		if (chan.groupId && this.bridge.groupSyncEnabled) {
+		if (room.groupId && this.bridge.groupSyncEnabled) {
 			const group = await this.bridge.groupSync.maybeGet({
-				groupId: chan.groupId,
-				puppetId: chan.puppetId,
+				groupId: room.groupId,
+				puppetId: room.puppetId,
 			});
 			if (group) {
 				const network: ISingleBridgeInformation = {
@@ -326,23 +326,23 @@ export class ChannelSyncroniser {
 		// finally set the state event
 		log.verbose("sending state event", content, "with state key", stateKey);
 		await client.sendStateEvent(
-			chan.mxid,
+			room.mxid,
 			"m.bridge",
 			stateKey,
 			content,
 		);
 	}
 
-	public async getPartsFromMxid(mxid: string): Promise<IRemoteChan | null> {
+	public async getPartsFromMxid(mxid: string): Promise<IRemoteRoom | null> {
 		if (mxid[0] === "!") {
-			const chan = await this.chanStore.getByMxid(mxid);
-			if (!chan) {
+			const room = await this.roomStore.getByMxid(mxid);
+			if (!room) {
 				return null;
 			}
 			return {
-				roomId: chan.roomId,
-				puppetId: chan.puppetId,
-			} as IRemoteChan;
+				roomId: room.roomId,
+				puppetId: room.puppetId,
+			} as IRemoteRoom;
 		}
 		const suffix = this.bridge.AS.getSuffixForAlias(mxid);
 		if (!suffix) {
@@ -365,20 +365,20 @@ export class ChannelSyncroniser {
 		};
 	}
 
-	public async maybeLeaveGhost(chanMxid: string, userMxid: string) {
-		log.info(`Maybe leaving ghost ${userMxid} from ${chanMxid}`);
-		const ghosts = await this.bridge.puppetStore.getGhostsInChan(chanMxid);
+	public async maybeLeaveGhost(roomMxid: string, userMxid: string) {
+		log.info(`Maybe leaving ghost ${userMxid} from ${roomMxid}`);
+		const ghosts = await this.bridge.puppetStore.getGhostsInRoom(roomMxid);
 		if (!ghosts.includes(userMxid)) {
 			log.verbose("Ghost not in room!");
-			return; // not in chan, nothing to do
+			return; // not in room, nothing to do
 		}
 		if (ghosts.length === 1) {
 			log.verbose("Ghost is the only one in the room!");
-			return; // we are the last ghost in the chan, we can't leave
+			return; // we are the last ghost in the room, we can't leave
 		}
 		const intent = this.bridge.AS.getIntentForUserId(userMxid);
 		const client = intent.underlyingClient;
-		const oldOp = await this.chanStore.getChanOp(chanMxid);
+		const oldOp = await this.roomStore.getRoomOp(roomMxid);
 		if (oldOp === userMxid) {
 			// we need to get a new OP!
 			log.verbose("We are the OP in the room, we need to pass on OP");
@@ -391,49 +391,49 @@ export class ChannelSyncroniser {
 			try {
 				// give the user OP
 				const powerLevels = await client.getRoomStateEvent(
-					chanMxid, "m.room.power_levels", "",
+					roomMxid, "m.room.power_levels", "",
 				);
 				powerLevels.users[newOp] = powerLevels.users[oldOp];
 				await client.sendStateEvent(
-					chanMxid, "m.room.power_levels", "", powerLevels,
+					roomMxid, "m.room.power_levels", "", powerLevels,
 				);
-				await this.chanStore.setChanOp(chanMxid, newOp);
+				await this.roomStore.setRoomOp(roomMxid, newOp);
 			} catch (err) {
-				log.error("Couldn't set new chan OP", err.error || err.body || err);
+				log.error("Couldn't set new room OP", err.error || err.body || err);
 				return;
 			}
 		}
 		// and finally we passed all checks and can leave
-		await intent.leaveRoom(chanMxid);
-		await this.bridge.puppetStore.leaveGhostFromChan(userMxid, chanMxid);
+		await intent.leaveRoom(roomMxid);
+		await this.bridge.puppetStore.leaveGhostFromRoom(userMxid, roomMxid);
 	}
 
-	public async delete(data: IRemoteChan, keepUsers: boolean = false) {
-		const chan = await this.maybeGet(data);
-		if (!chan) {
+	public async delete(data: IRemoteRoom, keepUsers: boolean = false) {
+		const room = await this.maybeGet(data);
+		if (!room) {
 			return;
 		}
-		await this.deleteEntries([ chan ], keepUsers);
+		await this.deleteEntries([ room ], keepUsers);
 	}
 
 	public async deleteForMxid(mxid: string) {
-		const chan = await this.chanStore.getByMxid(mxid);
-		if (!chan) {
+		const room = await this.roomStore.getByMxid(mxid);
+		if (!room) {
 			return; // nothing to do
 		}
-		await this.deleteEntries([ chan ]);
+		await this.deleteEntries([ room ]);
 	}
 
 	public async deleteForPuppet(puppetId: number) {
-		const entries = await this.chanStore.getByPuppetId(puppetId);
+		const entries = await this.roomStore.getByPuppetId(puppetId);
 		await this.deleteEntries(entries);
 	}
 
-	private async deleteEntries(entries: IChanStoreEntry[], keepUsers: boolean = false) {
+	private async deleteEntries(entries: IRoomStoreEntry[], keepUsers: boolean = false) {
 		log.info("Deleting entries", entries);
 		for (const entry of entries) {
 			// first we clean up the room
-			const opClient = await this.getChanOp(entry.mxid);
+			const opClient = await this.getRoomOp(entry.mxid);
 			if (opClient) {
 				// we try...catch this as we *really* want to get to the DB deleting
 				try {
@@ -455,7 +455,7 @@ export class ChannelSyncroniser {
 			}
 
 			// delete from DB (also OP store), cache and trigger ghosts to quit
-			await this.chanStore.delete(entry);
+			await this.roomStore.delete(entry);
 
 			log.info("Removing bot client from room....");
 			const botIntent = this.bridge.botIntent;
@@ -469,7 +469,7 @@ export class ChannelSyncroniser {
 			}
 
 			log.info("Removing ghosts from room....");
-			const ghosts = await this.bridge.puppetStore.getGhostsInChan(entry.mxid);
+			const ghosts = await this.bridge.puppetStore.getGhostsInRoom(entry.mxid);
 			for (const ghost of ghosts) {
 				if (!keepUsers) {
 					await this.bridge.userSync.deleteForMxid(ghost);
@@ -483,7 +483,7 @@ export class ChannelSyncroniser {
 					}
 				}
 			}
-			await this.bridge.puppetStore.emptyGhostsInChan(entry.mxid);
+			await this.bridge.puppetStore.emptyGhostsInRoom(entry.mxid);
 		}
 	}
 }

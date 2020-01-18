@@ -19,7 +19,7 @@ export interface IRemoteUser extends IRemoteBase {
 	roomOverrides?: {[roomId: string]: IRemoteUserRoomOverride} | null;
 }
 
-export interface IRemoteChan extends IRemoteBase {
+export interface IRemoteRoom extends IRemoteBase {
 	roomId: string;
 	topic?: string | null;
 	groupId?: string | null;
@@ -61,8 +61,8 @@ export interface IPuppetBridgeFeatures {
 }
 
 export interface IReceiveParams {
-	chan: IRemoteChan;
 	user: IRemoteUser;
+	room: IRemoteRoom;
 	eventId?: string;
 	externalUrl?: string;
 }
@@ -124,12 +124,12 @@ export interface IProtocolInformation {
 	namePatterns?: IProtocolInformationNamePatterns;
 }
 
-export type CreateChanHook = (chan: IRemoteChan) => Promise<IRemoteChan | null>;
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
+export type CreateRoomHook = (room: IRemoteRoom) => Promise<IRemoteRoom | null>;
 export type CreateGroupHook = (group: IRemoteGroup) => Promise<IRemoteGroup | null>;
 export type GetDescHook = (puppetId: number, data: any) => Promise<string>;
 export type BotHeaderMsgHook = () => string;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;
 export type ListUsersHook = (puppetId: number) => Promise<IRetList[]>;
-export type ListChansHook = (puppetId: number) => Promise<IRetList[]>;
+export type ListRoomsHook = (puppetId: number) => Promise<IRetList[]>;
