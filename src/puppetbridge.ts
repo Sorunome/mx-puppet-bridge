@@ -399,7 +399,7 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	public async unbridgeChannelByMxid(mxid: string) {
-		const chan = await this.chanSync.getRemoteHandler(mxid);
+		const chan = await this.chanSync.getPartsFromMxid(mxid);
 		await this.unbridgeChannel(chan);
 	}
 
@@ -904,7 +904,7 @@ export class PuppetBridge extends EventEmitter {
 			return; // we don't handle things from our own namespace
 		}
 		log.verbose("got matrix redact event to pass on");
-		const room = await this.chanSync.getRemoteHandler(event.room_id);
+		const room = await this.chanSync.getPartsFromMxid(event.room_id);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
 			await this.botProvisioner.processEvent(event);
@@ -1016,7 +1016,7 @@ export class PuppetBridge extends EventEmitter {
 			return; // we don't handle things from our own namespace
 		}
 		log.verbose("got matrix event to pass on");
-		const room = await this.chanSync.getRemoteHandler(event.room_id);
+		const room = await this.chanSync.getPartsFromMxid(event.room_id);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
 			await this.botProvisioner.processEvent(event);
@@ -1105,8 +1105,10 @@ export class PuppetBridge extends EventEmitter {
 		await this.store.puppetStore.joinGhostToChan(ghostId, roomId);
 
 		const ghostParts = this.userSync.getPartsFromMxid(ghostId);
+		log.verbose("Ghost parts:", ghostParts);
 		if (ghostParts) {
-			const roomParts = await this.chanSync.getRemoteHandler(roomId);
+			const roomParts = await this.chanSync.getPartsFromMxid(roomId);
+			log.verbose("Room parts:", roomParts);
 			if (roomParts && roomParts.puppetId === ghostParts.puppetId) {
 				log.verbose("Maybe applying room overrides");
 				await this.userSync.setRoomOverride(ghostParts, roomParts.roomId);
@@ -1125,7 +1127,7 @@ export class PuppetBridge extends EventEmitter {
 			await this.handleGhostJoinEvent(roomId, userId);
 			return;
 		}
-		const room = await this.chanSync.getRemoteHandler(roomId);
+		const room = await this.chanSync.getPartsFromMxid(roomId);
 		if (!room) {
 			return; // this isn't a room we handle, just ignore it
 		}
@@ -1172,7 +1174,7 @@ export class PuppetBridge extends EventEmitter {
 			return;
 		}
 
-		const room = await this.chanSync.getRemoteHandler(roomId);
+		const room = await this.chanSync.getPartsFromMxid(roomId);
 		if (!room) {
 			return; // this isn't a room we handle, just ignore it
 		}
@@ -1188,7 +1190,9 @@ export class PuppetBridge extends EventEmitter {
 	private async handleInviteEvent(roomId: string, event: any) {
 		const userId = event.state_key;
 		const inviteId = event.sender;
+		log.info(`Got invite event in ${roomId} (${inviteId} --> ${userId})`);
 		if (userId === this.appservice.botIntent.userId) {
+			log.verbose("Bridge bot got invited, joining....");
 			await this.appservice.botIntent.joinRoom(roomId);
 			return;
 		}
@@ -1198,7 +1202,7 @@ export class PuppetBridge extends EventEmitter {
 		if (this.appservice.isNamespacedUser(inviteId)) {
 			return; // our bridge did the invite, ignore additional handling
 		}
-		const room = await this.chanSync.getRemoteHandler(event.room_id);
+		const room = await this.chanSync.getPartsFromMxid(event.room_id);
 		if (room) {
 			return; // we are an existing room, meaning a double-puppeted user probably auto-invited. Do nothing
 		}
@@ -1257,7 +1261,7 @@ export class PuppetBridge extends EventEmitter {
 		await createRoom(false);
 
 		// get room ID and check if it is valid
-		const parts = this.chanSync.getPartsFromMxid(alias);
+		const parts = await this.chanSync.getPartsFromMxid(alias);
 		if (!parts) {
 			return;
 		}

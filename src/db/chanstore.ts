@@ -1,24 +1,12 @@
 import { IDatabaseConnector, ISqlRow } from "./connector";
 import { Log } from "../log";
 import { TimedCache } from "../structures/timedcache";
+import { IChanStoreEntry } from "./interfaces";
 
 const log = new Log("DbChanStore");
 
 // tslint:disable-next-line:no-magic-numbers
 const CHAN_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
-
-export interface IChanStoreEntry {
-	mxid: string;
-	roomId: string;
-	puppetId: number;
-	name?: string | null;
-	avatarUrl?: string | null;
-	avatarMxc?: string | null;
-	avatarHash?: string | null;
-	topic?: string | null;
-	groupId?: string | null;
-	externalUrl?: string | null;
-}
 
 export class DbChanStore {
 	private remoteCache: TimedCache<string, IChanStoreEntry>;

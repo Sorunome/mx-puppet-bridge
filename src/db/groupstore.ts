@@ -1,25 +1,12 @@
 import { IDatabaseConnector, ISqlRow } from "./connector";
 import { Log } from "../log";
 import { TimedCache } from "../structures/timedcache";
+import { IGroupStoreEntry } from "./interfaces";
 
 const log = new Log("DbGroupStore");
 
 // tslint:disable-next-line:no-magic-numbers
 const GROUP_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
-
-export interface IGroupStoreEntry {
-	mxid: string;
-	groupId: string;
-	puppetId: number;
-	name?: string | null;
-	avatarUrl?: string | null;
-	avatarMxc?: string | null;
-	avatarHash?: string | null;
-	shortDescription?: string | null;
-	longDescription?: string | null;
-	roomIds: string[];
-	externalUrl?: string | null;
-}
 
 export class DbGroupStore {
 	private groupsCache: TimedCache<string, IGroupStoreEntry>;

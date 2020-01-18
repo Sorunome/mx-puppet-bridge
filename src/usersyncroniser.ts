@@ -3,7 +3,8 @@ import { IRemoteUser, IRemoteUserRoomOverride } from "./interfaces";
 import { MatrixClient, Intent } from "matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
-import { DbUserStore, IUserStoreEntry, IUserStoreRoomOverrideEntry } from "./db/userstore";
+import { DbUserStore } from "./db/userstore";
+import { IUserStoreEntry, IUserStoreRoomOverrideEntry, IProfileDbEntry } from "./db/interfaces";
 import { Lock } from "./structures/lock";
 import { ITokenResponse } from "./provisioner";
 import { StringFormatter } from "./structures/stringformatter";
@@ -81,11 +82,8 @@ export class UserSyncroniser {
 		log.info("Fetching client for " + data.userId);
 		try {
 			let user = await this.userStore.get(data.puppetId, data.userId);
-			const update = {
-				name: false,
-				avatar: false,
-			};
 			let doUpdate = false;
+			let oldProfile: IProfileDbEntry | null = null;
 			if (!user) {
 				log.info("User doesn't exist yet, creating entry...");
 				doUpdate = true;
@@ -99,56 +97,38 @@ export class UserSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
-				if (data.nameVars) {
-					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.user, data.nameVars);
-				}
-				update.name = data.name ? true : false;
-				update.avatar = data.avatarUrl ? true : false;
 				user = this.userStore.newData(data.puppetId, data.userId);
 			} else {
-				if (data.nameVars) {
-					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.user, data.nameVars);
-				}
-				update.name = data.name !== undefined && data.name !== null && data.name !== user.name;
-				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== user.avatarUrl;
+				oldProfile = user;
 			}
 			const intent = this.bridge.AS.getIntentForSuffix(`${data.puppetId}_${Util.str2mxid(data.userId)}`);
 			await intent.ensureRegistered();
 			const client = intent.underlyingClient;
+			const updateProfile = await Util.processProfileUpdate(
+				oldProfile, data, this.bridge.protocol.namePatterns.user,
+				async (buffer: Buffer, mimetype?: string, filename?: string) => {
+					return await this.bridge.uploadContent(client, buffer, mimetype, filename);
+				},
+			);
+			user = Object.assign(user, updateProfile);
 			const promiseList: Promise<void>[] = [];
-			if (update.name) {
+			if (updateProfile.hasOwnProperty("name")) {
 				log.verbose("Updating name");
 				// we *don't* await here as setting the name might take a
 				// while due to updating all those m.room.member events, we can do that in the BG
 				// tslint:disable-next-line:no-floating-promises
-				promiseList.push(client.setDisplayName(data.name || ""));
-				user.name = data.name;
+				promiseList.push(client.setDisplayName(user.name || ""));
+				doUpdate = true;
 			}
-			if (update.avatar || data.avatarBuffer) {
+			if (updateProfile.hasOwnProperty("avatarMxc")) {
 				log.verbose("Updating avatar");
-				const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
-					async (buffer: Buffer, mimetype?: string, filename?: string) => {
-						return await this.bridge.uploadContent(client, buffer, mimetype, filename);
-					}, data, user.avatarHash);
-				log.silly(`Should update avatar? ${updateAvatar}`);
-				if (updateAvatar) {
-					update.avatar = true;
-					user.avatarUrl = data.avatarUrl;
-					user.avatarHash = hash;
-					user.avatarMxc = mxcUrl;
-					// we *don't* await here as that can take rather long
-					// and we might as well do this in the background
-					// tslint:disable-next-line:no-floating-promises
-					promiseList.push(client.setAvatarUrl(user.avatarMxc || ""));
-				}
+				// we *don't* await here as that can take rather long
+				// and we might as well do this in the background
+				// tslint:disable-next-line:no-floating-promises
+				promiseList.push(client.setAvatarUrl(user.avatarMxc || ""));
+				doUpdate = true;
 			}
 
-			for (const k of Object.keys(update)) {
-				if (update[k]) {
-					doUpdate = true;
-					break;
-				}
-			}
 			if (doUpdate) {
 				log.verbose("Storing update to DB");
 				await this.userStore.set(user);
@@ -167,10 +147,6 @@ export class UserSyncroniser {
 						if (data.roomOverrides.hasOwnProperty(roomId)) {
 							roomIdsNotToUpdate.push(roomId);
 							log.verbose(`Got room override for room ${roomId}`);
-							if (data.roomOverrides[roomId].nameVars) {
-								data.roomOverrides[roomId].name = StringFormatter.format(this.bridge.protocol.namePatterns.userOverride,
-									data.roomOverrides[roomId].nameVars!);
-							}
 							// there is no need to await these room-specific changes, might as well do them all at once
 							// tslint:disable-next-line:no-floating-promises
 							this.updateRoomOverride(client, data, roomId, data.roomOverrides[roomId], user!);
@@ -285,41 +261,20 @@ export class UserSyncroniser {
 		origUserData?: IUserStoreEntry,
 	) {
 		try {
+			log.info(`Updating room override for puppet ${userData.puppetId} ${userData.userId} in ${roomId}`);
 			let user = await this.userStore.getRoomOverride(userData.puppetId, userData.userId, roomId);
+			const newRoomOverride = await Util.processProfileUpdate(
+				user, roomOverride, this.bridge.protocol.namePatterns.userOverride,
+				async (buffer: Buffer, mimetype?: string, filename?: string) => {
+					return await this.bridge.uploadContent(client, buffer, mimetype, filename);
+				},
+			);
+			log.verbose("Update data", newRoomOverride);
 			if (!user) {
 				user = this.userStore.newRoomOverrideData(userData.puppetId, userData.userId, roomId);
 			}
-			let doUpdate = false;
-			// we actually want != and not !== here as undefined, null and "" should all be treated the same
-			// tslint:disable-next-line triple-equals
-			const updateName = roomOverride.name != user.name;
-			const eraseAvatar = user.avatarMxc && !roomOverride.avatarUrl && !roomOverride.avatarBuffer;
-			// tslint:disable-next-line triple-equals
-			const updateAvatar = roomOverride.avatarUrl != user.avatarUrl || roomOverride.avatarBuffer || eraseAvatar;
-			if (updateName) {
-				user.name = roomOverride.name;
-				doUpdate = true;
-			}
-			if (updateAvatar) {
-				if (eraseAvatar) {
-					user.avatarUrl = null;
-					user.avatarHash = null;
-					user.avatarMxc = null;
-					doUpdate = true;
-				} else {
-					const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
-						async (buffer: Buffer, mimetype?: string, filename?: string) => {
-							return await this.bridge.uploadContent(client, buffer, mimetype, filename);
-						}, roomOverride, user.avatarHash);
-					if (doUpdateAvatar) {
-						user.avatarUrl = roomOverride.avatarUrl;
-						user.avatarHash = hash;
-						user.avatarMxc = mxcUrl;
-						doUpdate = true;
-					}
-				}
-			}
-			if (doUpdate) {
+			user = Object.assign(user, newRoomOverride);
+			if (newRoomOverride.hasOwnProperty("name") || newRoomOverride.hasOwnProperty("avatarMxc")) {
 				try {
 					// ok, let's set the override
 					await this.setRoomOverride(userData, roomId, user, client, origUserData);

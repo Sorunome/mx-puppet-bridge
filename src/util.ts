@@ -6,6 +6,9 @@ import * as hasha from "hasha";
 import { MatrixClient } from "matrix-bot-sdk";
 import { Log } from "./log";
 import * as request from "request-promise";
+import { IProfileDbEntry } from "./db/interfaces";
+import { IRemoteProfile } from "./interfaces";
+import { StringFormatter } from "./structures/stringformatter";
 
 const log = new Log("Util");
 
@@ -153,5 +156,58 @@ export class Util {
 				hash: "",
 			};
 		}
+	}
+
+	public static async processProfileUpdate(
+		oldProfile: IProfileDbEntry | null,
+		newProfile: IRemoteProfile,
+		namePattern: string,
+		uploadFn: (b: Buffer, m?: string, f?: string) => Promise<string>,
+	): Promise<IProfileDbEntry> {
+		log.info("Processing profile update...");
+		log.verbose(oldProfile, "-->", newProfile);
+		// first we apply the name patterns, if applicable
+		if (newProfile.name) {
+			if (!newProfile.nameVars) {
+				newProfile.nameVars = {};
+			}
+			newProfile.nameVars.name = newProfile.name;
+		}
+		if (newProfile.nameVars) {
+			newProfile.name = StringFormatter.format(namePattern, newProfile.nameVars);
+		}
+		const result = {} as IProfileDbEntry;
+		if (oldProfile === null) {
+			log.verbose("No old profile exists, creating a new one");
+			if (newProfile.name) {
+				result.name = newProfile.name;
+			}
+			if (newProfile.avatarUrl || newProfile.avatarBuffer) {
+				log.verbose("Uploading avatar...");
+				const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(uploadFn, newProfile);
+				if (doUpdateAvatar) {
+					result.avatarHash = hash;
+					result.avatarMxc = mxcUrl as string;
+					result.avatarUrl = newProfile.avatarUrl;
+				}
+			}
+			return result;
+		}
+		log.verbose("Old profile exists, looking at diff...");
+		if (newProfile.name !== undefined && newProfile.name !== null && newProfile.name !== oldProfile.name) {
+			result.name = newProfile.name;
+		}
+		if ((newProfile.avatarUrl !== undefined && newProfile.avatarUrl !== null
+			&& newProfile.avatarUrl !== oldProfile.avatarUrl) || newProfile.avatarBuffer) {
+			log.verbose("Uploading avatar...");
+			const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(uploadFn, newProfile,
+				oldProfile.avatarHash);
+			if (doUpdateAvatar) {
+				result.avatarHash = hash;
+				result.avatarMxc = mxcUrl as string;
+				result.avatarUrl = newProfile.avatarUrl;
+			}
+		}
+		return result;
 	}
 }

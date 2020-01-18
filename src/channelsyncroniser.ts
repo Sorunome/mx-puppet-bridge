@@ -2,7 +2,8 @@ import { PuppetBridge } from "./puppetbridge";
 import { IRemoteChan } from "./interfaces";
 import { Util } from "./util";
 import { Log } from "./log";
-import { DbChanStore, IChanStoreEntry } from "./db/chanstore";
+import { DbChanStore } from "./db/chanstore";
+import { IChanStoreEntry } from "./db/interfaces";
 import { MatrixClient } from "matrix-bot-sdk";
 import { Lock } from "./structures/lock";
 import { Buffer } from "buffer";
@@ -35,17 +36,6 @@ export class ChannelSyncroniser {
 	) {
 		this.chanStore = this.bridge.chanStore;
 		this.mxidLock = new Lock(MXID_LOOKUP_LOCK_TIMEOUT);
-	}
-
-	public async getRemoteHandler(mxid: string): Promise<IRemoteChan | null> {
-		const chan = await this.chanStore.getByMxid(mxid);
-		if (!chan) {
-			return null;
-		}
-		return {
-			roomId: chan.roomId,
-			puppetId: chan.puppetId,
-		} as IRemoteChan;
 	}
 
 	public async getChanOp(chan: string): Promise<MatrixClient|null> {
@@ -114,9 +104,12 @@ export class ChannelSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
-				if (data.nameVars) {
-					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.room, data.nameVars);
-				}
+				const updateProfile = await Util.processProfileUpdate(
+					null, data, this.bridge.protocol.namePatterns.room,
+					async (buffer: Buffer, mimetype?: string, filename?: string) => {
+						return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
+					},
+				);
 				log.verbose("Creation data:", data);
 				log.verbose("Initial invites:", invites);
 				// ooookay, we need to create this channel
@@ -137,27 +130,14 @@ export class ChannelSyncroniser {
 					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
 						`${data.puppetId}_${Util.str2mxid(data.roomId)}`);
 				}
-				if (data.name) {
-					createParams.name = data.name;
+				if (updateProfile.hasOwnProperty("name")) {
+					createParams.name = updateProfile.name;
 				}
-				let updateAvatar = false;
-				let avatarHash = "";
-				let avatarMxc = "";
-				if (data.avatarUrl || data.avatarBuffer) {
-					log.verbose("Uploading initial room avatar...");
-					const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
-						async (buffer: Buffer, mimetype?: string, filename?: string) => {
-							return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
-						}, data);
-					updateAvatar = doUpdateAvatar;
-					if (updateAvatar) {
-						avatarHash = hash;
-						avatarMxc = mxcUrl as string;
-						createParams.initial_state.push({
-							type: "m.room.avatar",
-							content: { url: mxcUrl },
-						});
-					}
+				if (updateProfile.hasOwnProperty("avatarMxc")) {
+					createParams.initial_state.push({
+						type: "m.room.avatar",
+						content: { url: updateProfile.avatarMxc },
+					});
 				}
 				if (data.topic) {
 					createParams.initial_state.push({
@@ -169,14 +149,7 @@ export class ChannelSyncroniser {
 				mxid = await client!.createRoom(createParams);
 				await this.chanStore.setChanOp(mxid, await client!.getUserId());
 				chan = this.chanStore.newData(mxid, data.roomId, data.puppetId);
-				if (data.name) {
-					chan.name = data.name;
-				}
-				if (updateAvatar) {
-					chan.avatarUrl = data.avatarUrl;
-					chan.avatarHash = avatarHash;
-					chan.avatarMxc = avatarMxc;
-				}
+				chan = Object.assign(chan, updateProfile);
 				if (data.topic) {
 					chan.topic = data.topic;
 				}
@@ -188,44 +161,37 @@ export class ChannelSyncroniser {
 			} else {
 				mxid = chan.mxid;
 
-				if (data.nameVars) {
-					data.name = StringFormatter.format(this.bridge.protocol.namePatterns.room, data.nameVars);
-				}
 				// set new client for potential updates
 				const newClient = await this.getChanOp(mxid);
 				if (newClient) {
 					client = newClient;
 				}
-				if (data.name !== undefined && data.name !== null && data.name !== chan.name) {
+				const updateProfile = await Util.processProfileUpdate(
+					chan, data, this.bridge.protocol.namePatterns.room,
+					async (buffer: Buffer, mimetype?: string, filename?: string) => {
+						return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
+					},
+				);
+				chan = Object.assign(chan, updateProfile);
+				if (updateProfile.hasOwnProperty("name")) {
 					doUpdate = true;
 					log.verbose("Updating name");
 					await client!.sendStateEvent(
 						mxid,
 						"m.room.name",
 						"",
-						{ name: data.name },
+						{ name: chan.name },
 					);
-					chan.name = data.name;
 				}
-				if ((data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== chan.avatarUrl)
-					|| data.avatarBuffer) {
+				if (updateProfile.hasOwnProperty("avatarMxc")) {
+					doUpdate = true;
 					log.verbose("Updating avatar");
-					const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
-						async (buffer: Buffer, mimetype?: string, filename?: string) => {
-							return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
-						}, data, chan.avatarHash);
-					if (updateAvatar) {
-						doUpdate = true;
-						chan.avatarUrl = data.avatarUrl;
-						chan.avatarHash = hash;
-						chan.avatarMxc = mxcUrl;
-						await client!.sendStateEvent(
-							mxid,
-							"m.room.avatar",
-							"",
-							{ url: chan.avatarMxc },
-						);
-					}
+					await client!.sendStateEvent(
+						mxid,
+						"m.room.avatar",
+						"",
+						{ url: chan.avatarMxc },
+					);
 				}
 				if (data.topic !== undefined && data.topic !== null && data.topic !== chan.topic) {
 					doUpdate = true;
@@ -367,7 +333,17 @@ export class ChannelSyncroniser {
 		);
 	}
 
-	public getPartsFromMxid(mxid: string): IRemoteChan | null {
+	public async getPartsFromMxid(mxid: string): Promise<IRemoteChan | null> {
+		if (mxid[0] === "!") {
+			const chan = await this.chanStore.getByMxid(mxid);
+			if (!chan) {
+				return null;
+			}
+			return {
+				roomId: chan.roomId,
+				puppetId: chan.puppetId,
+			} as IRemoteChan;
+		}
 		const suffix = this.bridge.AS.getSuffixForAlias(mxid);
 		if (!suffix) {
 			return null;

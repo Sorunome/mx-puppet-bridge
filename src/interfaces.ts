@@ -1,20 +1,18 @@
 import { IStringFormatterVars } from "./structures/stringformatter";
 
-interface IRemoteBase {
-	puppetId: number;
+export interface IRemoteProfile {
 	avatarUrl?: string | null;
 	avatarBuffer?: Buffer | null;
 	name?: string | null;
 	nameVars?: IStringFormatterVars | null;
+}
+
+interface IRemoteBase extends IRemoteProfile {
+	puppetId: number;
 	externalUrl?: string | null;
 }
 
-export interface IRemoteUserRoomOverride {
-	avatarUrl?: string | null;
-	avatarBuffer?: Buffer | null;
-	name?: string | null;
-	nameVars?: IStringFormatterVars | null;
-}
+export interface IRemoteUserRoomOverride extends IRemoteProfile { }
 
 export interface IRemoteUser extends IRemoteBase {
 	userId: string;

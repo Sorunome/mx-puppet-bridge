@@ -1,6 +1,7 @@
 import { PuppetBridge } from "./puppetbridge";
 import { IRemoteGroup } from "./interfaces";
-import { DbGroupStore, IGroupStoreEntry } from "./db/groupstore";
+import { DbGroupStore } from "./db/groupstore";
+import { IGroupStoreEntry, IProfileDbEntry } from "./db/interfaces";
 import { Log } from "./log";
 import { Lock } from "./structures/lock";
 import { Util } from "./util";
@@ -55,6 +56,7 @@ export class GroupSyncroniser {
 			let mxid = "";
 			let doUpdate = false;
 			let created = false;
+			let oldProfile: IProfileDbEntry | null = null;
 			let newRooms: string[] = [];
 			const removedRooms: string[] = [];
 			if (!group) {
@@ -75,12 +77,7 @@ export class GroupSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
-				if (data.nameVars) {
-					data.name = StringFormatter.format(this.bridge.protocol.namePatterns!.group!, data.nameVars);
-				}
 				log.verbose("Creation data:", data);
-				update.name = data.name ? true : false;
-				update.avatar = data.avatarUrl ? true : false;
 				update.shortDescription = data.shortDescription ? true : false;
 				update.longDescription = data.longDescription ? true : false;
 				if (data.roomIds) {
@@ -105,11 +102,7 @@ export class GroupSyncroniser {
 
 				group = this.groupStore.newData(mxid, data.groupId, data.puppetId);
 			} else {
-				if (data.nameVars) {
-					data.name = StringFormatter.format(this.bridge.protocol.namePatterns!.group!, data.nameVars);
-				}
-				update.name = data.name !== undefined && data.name !== null && data.name !== group.name;
-				update.avatar = data.avatarUrl !== undefined && data.avatarUrl !== null && data.avatarUrl !== group.avatarUrl;
+				oldProfile = group;
 				update.shortDescription = data.shortDescription !== undefined && data.shortDescription !== null
 					&& data.shortDescription !== group.shortDescription;
 				update.longDescription = data.longDescription !== undefined && data.longDescription !== null
@@ -132,6 +125,14 @@ export class GroupSyncroniser {
 				mxid = group.mxid;
 			}
 
+			const updateProfile = await Util.processProfileUpdate(
+				oldProfile, data, this.bridge.protocol.namePatterns.group,
+				async (buffer: Buffer, mimetype?: string, filename?: string) => {
+					return await this.bridge.uploadContent(client, buffer, mimetype, filename);
+				},
+			);
+			group = Object.assign(group, updateProfile);
+
 			const groupProfile = {
 				name: group.name || "",
 				avatar_url: group.avatarMxc || "",
@@ -139,30 +140,22 @@ export class GroupSyncroniser {
 				long_description: group.longDescription || "",
 			};
 
-			if (update.name) {
+			if (updateProfile.hasOwnProperty("name")) {
 				doUpdate = true;
-				groupProfile.name = data.name || "";
-				group.name = data.name;
+				groupProfile.name = group.name || "";
 			}
-			if (update.avatar || data.avatarBuffer) {
+			if (updateProfile.hasOwnProperty("avatarMxc")) {
 				log.verbose("Updating avatar");
-				const { doUpdate: updateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(
-					async (buffer: Buffer, mimetype?: string, filename?: string) => {
-						return await this.bridge.uploadContent(client, buffer, mimetype, filename);
-					}, data, group.avatarHash);
-				if (updateAvatar) {
-					doUpdate = true;
-					group.avatarUrl = data.avatarUrl;
-					group.avatarHash = hash;
-					group.avatarMxc = mxcUrl;
-					groupProfile.avatar_url = mxcUrl || "";
-				}
+				doUpdate = true;
+				groupProfile.avatar_url = group.avatarMxc || "";
 			}
 			if (update.shortDescription) {
+				doUpdate = true;
 				groupProfile.short_description = data.shortDescription || "";
 				group.shortDescription = data.shortDescription;
 			}
 			if (update.longDescription) {
+				doUpdate = true;
 				groupProfile.long_description = data.longDescription || "";
 				group.longDescription = data.longDescription;
 			}

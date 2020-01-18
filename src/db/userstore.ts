@@ -1,31 +1,12 @@
 import { IDatabaseConnector, ISqlRow } from "./connector";
 import { Log } from "../log";
 import { TimedCache } from "../structures/timedcache";
+import { IUserStoreEntry, IUserStoreRoomOverrideEntry } from "./interfaces";
 
 const log = new Log("DbUserStore");
 
 // tslint:disable-next-line:no-magic-numbers
 const USERS_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
-
-export interface IUserStoreEntry {
-	puppetId: number;
-	userId: string;
-	name?: string | null;
-	avatarUrl?: string | null;
-	avatarMxc?: string | null;
-	avatarHash?: string | null;
-	externalUrl?: string | null;
-}
-
-export interface IUserStoreRoomOverrideEntry {
-	puppetId: number;
-	userId: string;
-	roomId: string;
-	name?: string | null;
-	avatarUrl?: string | null;
-	avatarMxc?: string | null;
-	avatarHash?: string | null;
-}
 
 export class DbUserStore {
 	private usersCache: TimedCache<string, IUserStoreEntry>;
