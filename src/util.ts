@@ -180,14 +180,17 @@ export class Util {
 		log.info("Processing profile update...");
 		log.verbose(oldProfile, "-->", newProfile);
 		// first we apply the name patterns, if applicable
-		if (newProfile.name) {
+		if (newProfile.name != null && newProfile.name !== undefined) {
 			if (!newProfile.nameVars) {
 				newProfile.nameVars = {};
 			}
 			newProfile.nameVars.name = newProfile.name;
 		}
+		let checkName: string | null | undefined;
 		if (newProfile.nameVars) {
-			newProfile.name = StringFormatter.format(namePattern, newProfile.nameVars);
+			checkName = StringFormatter.format(namePattern, newProfile.nameVars);
+		} else {
+			checkName = newProfile.name;
 		}
 		const result = {} as IProfileDbEntry;
 		if (oldProfile === null) {
@@ -207,8 +210,8 @@ export class Util {
 			return result;
 		}
 		log.verbose("Old profile exists, looking at diff...");
-		if (newProfile.name !== undefined && newProfile.name !== null && newProfile.name !== oldProfile.name) {
-			result.name = newProfile.name;
+		if (checkName !== undefined && checkName !== null && checkName !== oldProfile.name) {
+			result.name = checkName;
 		}
 		if ((newProfile.avatarUrl !== undefined && newProfile.avatarUrl !== null
 			&& newProfile.avatarUrl !== oldProfile.avatarUrl) || newProfile.avatarBuffer) {
