@@ -37,6 +37,7 @@ import { DbPuppetStore, IMxidInfo } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
 import { Provisioner } from "./provisioner";
 import { Store } from "./store";
+import { Lock } from "./structures/lock";
 import { TimedCache } from "./structures/timedcache";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner, ICommand } from "./botprovisioner";
@@ -56,6 +57,7 @@ const log = new Log("PuppetBridge");
 const PUPPET_INVITE_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 const GHOST_PUPPET_LEAVE_TIMEOUT = 1000 * 60 * 60;
 const DEFAULT_TYPING_TIMEOUT = 30000;
+const MXC_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
 // tslint:enable no-magic-numbers
 
 interface ISendInfo {
@@ -103,6 +105,7 @@ export class PuppetBridge extends EventEmitter {
 	private typingHandler: TypingHandler;
 	private memberInfoCache: { [roomId: string]: { [userId: string]: IMemberInfo } };
 	private delayedFunction: DelayedFunction;
+	private mxcLookupLock: Lock<string>;
 
 	constructor(
 		private registrationPath: string,
@@ -129,6 +132,7 @@ export class PuppetBridge extends EventEmitter {
 		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
 		this.hooks = {} as IPuppetBridgeHooks;
 		this.delayedFunction = new DelayedFunction();
+		this.mxcLookupLock = new Lock(MXC_LOOKUP_LOCK_TIMEOUT);
 	}
 
 	/** @internal */
@@ -818,39 +822,60 @@ export class PuppetBridge extends EventEmitter {
 		filename?: string,
 	): Promise<string> {
 		let buffer: Buffer;
-		if (typeof thing === "string") {
-			const maybeMxcUrl = await this.store.getFileMxc(thing);
-			if (maybeMxcUrl) {
-				return maybeMxcUrl;
+		const locks: string[] = [];
+		try {
+			if (typeof thing === "string") {
+				await this.mxcLookupLock.wait(thing);
+				locks.push(thing);
+				this.mxcLookupLock.set(thing);
+				const maybeMxcUrl = await this.store.getFileMxc(thing);
+				if (maybeMxcUrl) {
+					return maybeMxcUrl;
+				}
+				if (!filename) {
+					const matches = thing.match(/\/([^\.\/]+\.[a-zA-Z0-9]+)(?:$|\?)/);
+					if (matches) {
+						filename = matches[1];
+					}
+				}
+				buffer = await Util.DownloadFile(thing);
+			} else {
+				buffer = thing;
 			}
-			if (!filename) {
-				const matches = thing.match(/\/([^\.\/]+\.[a-zA-Z0-9]+)(?:$|\?)/);
-				if (matches) {
-					filename = matches[1];
+			{
+				const hash = Util.HashBuffer(buffer);
+				await this.mxcLookupLock.wait(hash);
+				locks.push(hash);
+				this.mxcLookupLock.set(hash);
+				const maybeMxcUrl = await this.store.getFileMxc(hash);
+				if (maybeMxcUrl) {
+					return maybeMxcUrl;
 				}
 			}
-			buffer = await Util.DownloadFile(thing);
-		} else {
-			buffer = thing;
-		}
-		{
-			const maybeMxcUrl = await this.store.getFileMxc(buffer);
-			if (maybeMxcUrl) {
-				return maybeMxcUrl;
+			if (!filename) {
+				filename = "file";
 			}
+			if (!mimetype) {
+				mimetype = Util.GetMimeType(buffer);
+			}
+			const mxcUrl = await client.uploadContent(buffer, mimetype, filename);
+			if (typeof thing === "string") {
+				await this.store.setFileMxc(thing, mxcUrl, filename);
+			}
+			await this.store.setFileMxc(buffer, mxcUrl, filename);
+			// we need to remove all locks
+			for (const lock of locks) {
+				this.mxcLookupLock.release(lock);
+			}
+			return mxcUrl;
+		} catch (err) {
+			log.error("Failed to upload media", err.error || err.body || err);
+			// we need to remove all locks
+			for (const lock of locks) {
+				this.mxcLookupLock.release(lock);
+			}
+			throw err;
 		}
-		if (!filename) {
-			filename = "file";
-		}
-		if (!mimetype) {
-			mimetype = Util.GetMimeType(buffer);
-		}
-		const mxcUrl = await client.uploadContent(buffer, mimetype, filename);
-		if (typeof thing === "string") {
-			await this.store.setFileMxc(thing, mxcUrl, filename);
-		}
-		await this.store.setFileMxc(buffer, mxcUrl, filename);
-		return mxcUrl;
 	}
 
 	private getRoomDisplaynameCache(roomId: string): { [userId: string]: IMemberInfo } {

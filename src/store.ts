@@ -112,7 +112,11 @@ export class Store {
 		} else {
 			key = Util.HashBuffer(thing);
 		}
-		const ret = await this.db.Get("SELECT mxc_url FROM file_mxc_map WHERE thing = $key", { key });
+		// we just limit the fetching to 1 here
+		// due to race conditions there might actually be multiple entries, they
+		// should all resolve to a valid MXC uri of that image, though
+		// thus, our de-duping is imperfect but it should be good enough
+		const ret = await this.db.Get("SELECT mxc_url FROM file_mxc_map WHERE thing = $key LIMIT 1", { key });
 		if (!ret) {
 			return null;
 		}
