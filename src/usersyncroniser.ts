@@ -233,7 +233,7 @@ export class UserSyncroniser {
 			client = await this.maybeGetClient(userData);
 		}
 		if (!client) {
-			log.warn("No client found")
+			log.warn("No client found");
 			return;
 		}
 		if (!origUserData) {

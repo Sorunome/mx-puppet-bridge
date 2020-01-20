@@ -25,6 +25,10 @@ interface IRemoteBase extends IRemoteProfile {
 	externalUrl?: string | null;
 }
 
+// we want to have this separate interface as we may expand
+// on the type in the future, thus we recommend protocol implementations
+// to use this
+// tslint:disable-next-line no-empty-interface
 export interface IRemoteUserRoomOverride extends IRemoteProfile { }
 
 export interface IRemoteUser extends IRemoteBase {

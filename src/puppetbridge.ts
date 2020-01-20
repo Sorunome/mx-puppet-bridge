@@ -413,7 +413,6 @@ export class PuppetBridge extends EventEmitter {
 		await this.roomSync.getMxid(room, undefined, undefined, false);
 	}
 
-
 	/**
 	 * Update the information on a remote group
 	 */
