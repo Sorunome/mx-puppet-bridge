@@ -50,7 +50,7 @@ export class Log {
 	private static config: LoggingConfig;
 	private static logger: Logger;
 
-	private static getTransportOpts(config: LoggingInterfaceConfig): Transport.TransportStreamOptions {
+	private static getTransportOpts(config: LoggingInterfaceConfig, colorize: boolean = false): Transport.TransportStreamOptions {
 		config = Object.assign(new LoggingInterfaceConfig(), config);
 		const allEnabled: string[] = [];
 		const allDisabled: string[] = [];
@@ -87,13 +87,24 @@ export class Log {
 			}
 			return info;
 		});
-		return {
-			level: config.level,
-			format: format.combine(
-				filterOutMods(),
-				FORMAT_FUNC,
-			),
-		};
+		if (colorize) {
+			return {
+				level: config.level,
+				format: format.combine(
+					format.colorize(),
+					filterOutMods(),
+					FORMAT_FUNC,
+				),
+			};
+		} else {
+			return {
+				level: config.level,
+				format: format.combine(
+					filterOutMods(),
+					FORMAT_FUNC,
+				),
+			};
+		}
 	}
 
 	private static setupLogger() {
@@ -106,10 +117,17 @@ export class Log {
 		if (typeof Log.config.console === "string") {
 			tsports.push(new transports.Console({
 				level: Log.config.console,
+				format: format.combine(
+					format.timestamp({
+						format: Log.config.lineDateFormat,
+					}),
+					format.colorize(),
+					FORMAT_FUNC,
+				),
 			}));
 		} else {
 			tsports.push(new transports.Console(
-				Log.getTransportOpts(Log.config.console),
+				Log.getTransportOpts(Log.config.console, true),
 			));
 		}
 		Log.logger = createLogger({
@@ -117,7 +135,6 @@ export class Log {
 				format.timestamp({
 					format: Log.config.lineDateFormat,
 				}),
-				format.colorize(),
 				FORMAT_FUNC,
 			),
 			transports: tsports,
