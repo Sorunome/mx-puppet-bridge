@@ -50,7 +50,10 @@ export class Log {
 	private static config: LoggingConfig;
 	private static logger: Logger;
 
-	private static getTransportOpts(config: LoggingInterfaceConfig, colorize: boolean = false): Transport.TransportStreamOptions {
+	private static getTransportOpts(
+		config: LoggingInterfaceConfig,
+		colorize: boolean = false,
+	): Transport.TransportStreamOptions {
 		config = Object.assign(new LoggingInterfaceConfig(), config);
 		const allEnabled: string[] = [];
 		const allDisabled: string[] = [];

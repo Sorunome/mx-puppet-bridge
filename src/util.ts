@@ -195,8 +195,8 @@ export class Util {
 		const result = {} as IProfileDbEntry;
 		if (oldProfile === null) {
 			log.verbose("No old profile exists, creating a new one");
-			if (newProfile.name) {
-				result.name = newProfile.name;
+			if (checkName) {
+				result.name = checkName;
 			}
 			if (newProfile.avatarUrl || newProfile.avatarBuffer) {
 				log.verbose("Uploading avatar...");
