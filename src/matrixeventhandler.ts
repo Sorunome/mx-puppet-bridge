@@ -104,7 +104,7 @@ export class MatrixEventHandler {
 		// we CAN'T check for if the room exists here, as if we create a new room
 		// the m.room.member event triggers before the room is incerted into the store
 		log.verbose("Adding ghost to room cache");
-		await this.bridge.store.puppetStore.joinGhostToRoom(ghostId, roomId);
+		await this.bridge.puppetStore.joinGhostToRoom(ghostId, roomId);
 
 		// apply room-specific overrides, if present
 		const ghostParts = this.bridge.userSync.getPartsFromMxid(ghostId);
@@ -138,7 +138,7 @@ export class MatrixEventHandler {
 			return; // it wasn't us
 		}
 		log.verbose(`Received profile change for ${puppetMxid}`);
-		const puppet = await this.bridge.store.puppetStore.getOrCreateMxidInfo(puppetMxid);
+		const puppet = await this.bridge.puppetStore.getOrCreateMxidInfo(puppetMxid);
 		const newName = event.content.displayname || "";
 		const newAvatarMxc = event.content.avatar_url || "";
 		let update = false;
@@ -162,7 +162,7 @@ export class MatrixEventHandler {
 			update = true;
 		}
 		if (update) {
-			await this.bridge.store.puppetStore.setMxidInfo(puppet);
+			await this.bridge.puppetStore.setMxidInfo(puppet);
 		}
 	}
 
@@ -171,7 +171,7 @@ export class MatrixEventHandler {
 		log.info(`Got leave event from ${userId} in ${roomId}`);
 		if (this.bridge.AS.isNamespacedUser(userId)) {
 			log.verbose("Is a ghost, removing from room cache...");
-			await this.bridge.store.puppetStore.leaveGhostFromRoom(userId, roomId);
+			await this.bridge.puppetStore.leaveGhostFromRoom(userId, roomId);
 			if (userId !== event.sender) {
 				// puppet got kicked, unbridging room
 				log.verbose("Ghost got kicked, unbridging room...");
@@ -300,12 +300,6 @@ export class MatrixEventHandler {
 		if (this.bridge.protocol.features[emitEvent]) {
 			log.debug(`Emitting as ${emitEvent}...`);
 			this.bridge.emit(emitEvent, room, data, event);
-			return;
-		}
-		// send audio and video as files
-		if ((emitEvent === "audio" || emitEvent === "video") && this.bridge.protocol.features.file) {
-			log.debug("Emitting as file...");
-			this.bridge.emit("file", room, data, event);
 			return;
 		}
 		// send stickers as images
@@ -483,11 +477,13 @@ export class MatrixEventHandler {
 	}
 
 	public updateCachedRoomMemberInfo(roomId: string, userId: string, memberInfo: MembershipEventContent) {
-		if (!memberInfo.displayname) {
+		// we need to clone this object as to not modify the original
+		const setInfo = Object.assign({}, memberInfo) as MembershipEventContent;
+		if (!setInfo.displayname) {
 			// Set localpart as displayname if no displayname is set
-			memberInfo.displayname = userId.substr(1).split(":")[0];
+			setInfo.displayname = userId.substr(1).split(":")[0];
 		}
-		this.getRoomDisplaynameCache(roomId)[userId] = memberInfo;
+		this.getRoomDisplaynameCache(roomId)[userId] = setInfo;
 	}
 
 	public async getRoomMemberInfo(roomId: string, userId: string): Promise<MembershipEventContent> {
@@ -511,7 +507,14 @@ export class MatrixEventHandler {
 		if (content.msgtype === "m.text" || content.msgtype === "m.notice") {
 			const formattedBody = content.formatted_body || escapeHtml(content.body).replace("\n", "<br>");
 			content.formatted_body = `<strong>${member.displayname}</strong>: ${formattedBody}`;
+			content.format = "org.matrix.custom.html";
 			content.body = `${member.displayname}: ${content.body}`;
+		} else if (content.msgtype === "m.emote" ) {
+			const formattedBody = content.formatted_body || escapeHtml(content.body).replace("\n", "<br>");
+			content.msgtype = "m.text";
+			content.formatted_body = `*<strong>${member.displayname}</strong> ${formattedBody}`;
+			content.format = "org.matrix.custom.html";
+			content.body = `*${member.displayname} ${content.body}`;
 		} else {
 			const typeMap = {
 				"m.image": "an image",
@@ -521,6 +524,7 @@ export class MatrixEventHandler {
 				"m.audio": "an audio file",
 			};
 			content.body = `${member.displayname} sent ${typeMap[content.msgtype]}`;
+			content.msgtype = "m.text";
 		}
 	}
 

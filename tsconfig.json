@@ -6,12 +6,13 @@
         "noImplicitAny": false,
         "declaration": true,
         "outDir": "./lib",
-        "types": ["node"],
+        "types": ["mocha", "node"],
         "strictNullChecks": true,
         "allowSyntheticDefaultImports": true
     },
     "compileOnSave": true,
     "include": [
         "src/**/*",
+        "test/**/*",
     ]
 }
