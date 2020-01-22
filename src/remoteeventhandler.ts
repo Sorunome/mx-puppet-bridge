@@ -15,7 +15,8 @@ import { Log } from "./log";
 import { PuppetBridge } from "./puppetbridge";
 import { Util } from "./util";
 import { TimedCache } from "./structures/timedcache";
-import { IReceiveParams, IMessageEvent } from "./interfaces";
+import { IRemoteUser, IReceiveParams, IMessageEvent } from "./interfaces";
+import { MatrixPresence } from "./presencehandler";
 import {
 	TextualMessageEventContent, FileMessageEventContent, FileWithThumbnailInfo, MatrixClient,
 } from "matrix-bot-sdk";
@@ -39,6 +40,30 @@ export class RemoteEventHandler {
 		private bridge: PuppetBridge,
 	) {
 		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
+	}
+
+	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
+		if (this.bridge.protocol.features.presence && this.bridge.config.presence.enabled) {
+			log.verbose(`Setting user presence for userId=${user.userId} to ${presence}`);
+			const client = await this.bridge.userSync.maybeGetClient(user);
+			if (!client) {
+				return;
+			}
+			const userId = await client.getUserId();
+			this.bridge.presenceHandler.set(userId, presence);
+		}
+	}
+
+	public async setUserStatus(user: IRemoteUser, status: string) {
+		if (this.bridge.protocol.features.presence && this.bridge.config.presence.enabled) {
+			log.verbose(`Setting user status for userId=${user.userId} to ${status}`);
+			const client = await this.bridge.userSync.maybeGetClient(user);
+			if (!client) {
+				return;
+			}
+			const userId = await client.getUserId();
+			this.bridge.presenceHandler.setStatus(userId, status);
+		}
 	}
 
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {

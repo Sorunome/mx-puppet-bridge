@@ -94,8 +94,8 @@ export class PuppetBridge extends EventEmitter {
 	public delayedFunction: DelayedFunction;
 	public botProvisioner: BotProvisioner;
 	public typingHandler: TypingHandler;
+	public presenceHandler: PresenceHandler;
 	private appservice: Appservice;
-	private presenceHandler: PresenceHandler;
 	private mxcLookupLock: Lock<string>;
 	private matrixEventHandler: MatrixEventHandler;
 	private remoteEventHandler: RemoteEventHandler;
@@ -444,30 +444,14 @@ export class PuppetBridge extends EventEmitter {
 	 * Set presence of a remote user
 	 */
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
-		if (this.protocol.features.presence && this.config.presence.enabled) {
-			log.verbose(`Setting user presence for userId=${user.userId} to ${presence}`);
-			const client = await this.userSync.maybeGetClient(user);
-			if (!client) {
-				return;
-			}
-			const userId = await client.getUserId();
-			this.presenceHandler.set(userId, presence);
-		}
+		await this.remoteEventHandler.setUserPresence(user, presence);
 	}
 
 	/**
 	 * Set the status message of a remote user
 	 */
 	public async setUserStatus(user: IRemoteUser, status: string) {
-		if (this.protocol.features.presence && this.config.presence.enabled) {
-			log.verbose(`Setting user status for userId=${user.userId} to ${status}`);
-			const client = await this.userSync.maybeGetClient(user);
-			if (!client) {
-				return;
-			}
-			const userId = await client.getUserId();
-			this.presenceHandler.setStatus(userId, status);
-		}
+		await this.remoteEventHandler.setUserStatus(user, status);
 	}
 
 	/**
