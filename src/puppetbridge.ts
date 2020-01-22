@@ -37,12 +37,12 @@ import { DbEventStore } from "./db/eventstore";
 import { Provisioner } from "./provisioner";
 import { Store } from "./store";
 import { Lock } from "./structures/lock";
-import { TimedCache } from "./structures/timedcache";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner, ICommand } from "./botprovisioner";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
 import { MatrixEventHandler } from "./matrixeventhandler";
+import { RemoteEventHandler } from "./remoteeventhandler";
 import { DelayedFunction } from "./structures/delayedfunction";
 import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
@@ -54,16 +54,9 @@ import {
 const log = new Log("PuppetBridge");
 
 // tslint:disable no-magic-numbers
-const PUPPET_INVITE_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
-const GHOST_PUPPET_LEAVE_TIMEOUT = 1000 * 60 * 60;
 const DEFAULT_TYPING_TIMEOUT = 30000;
 const MXC_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
 // tslint:enable no-magic-numbers
-
-interface ISendInfo {
-	client: MatrixClient;
-	mxid: string;
-}
 
 export interface IPuppetBridgeHooks {
 	createUser?: CreateUserHook;
@@ -100,12 +93,12 @@ export class PuppetBridge extends EventEmitter {
 	public protocol: ISetProtocolInformation;
 	public delayedFunction: DelayedFunction;
 	public botProvisioner: BotProvisioner;
+	public typingHandler: TypingHandler;
 	private appservice: Appservice;
-	private ghostInviteCache: TimedCache<string, boolean>;
 	private presenceHandler: PresenceHandler;
-	private typingHandler: TypingHandler;
 	private mxcLookupLock: Lock<string>;
 	private matrixEventHandler: MatrixEventHandler;
+	private remoteEventHandler: RemoteEventHandler;
 
 	constructor(
 		private registrationPath: string,
@@ -129,7 +122,6 @@ export class PuppetBridge extends EventEmitter {
 				namePatterns: Object.assign({ user: "", userOverride: "", room: "", group: "" }, prot.namePatterns),
 			};
 		}
-		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
 		this.hooks = {} as IPuppetBridgeHooks;
 		this.delayedFunction = new DelayedFunction();
 		this.mxcLookupLock = new Lock(MXC_LOOKUP_LOCK_TIMEOUT);
@@ -168,11 +160,13 @@ export class PuppetBridge extends EventEmitter {
 		this.presenceHandler = new PresenceHandler(this);
 		this.typingHandler = new TypingHandler(this, this.protocol.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
 		this.matrixEventHandler = new MatrixEventHandler(this);
+		this.remoteEventHandler = new RemoteEventHandler(this);
 
 		this.botProvisioner = new BotProvisioner(this);
 
 		// pipe matrix-bot-sdk logging int ours
 		const logMap = new Map<string, Log>();
+		// tslint:disable-next-line no-any
 		const logFunc = (level: string, module: string, args: any[]) => {
 			if (!Array.isArray(args)) {
 				args = [args];
@@ -199,12 +193,14 @@ export class PuppetBridge extends EventEmitter {
 			logger[level](...args);
 		};
 
+		// tslint:disable no-any
 		LogService.setLogger({
 			debug: (mod: string, args: any[]) => logFunc("debug", mod, args),
 			error: (mod: string, args: any[]) => logFunc("error", mod, args),
 			info: (mod: string, args: any[]) => logFunc("info", mod, args),
 			warn: (mod: string, args: any[]) => logFunc("warn", mod, args),
 		});
+		// tslint:enable no-any
 	}
 
 	/**
@@ -478,27 +474,14 @@ export class PuppetBridge extends EventEmitter {
 	 * Set if a remote user is typing in a room or not
 	 */
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {
-		log.verbose(`Setting user typing for userId=${params.user.userId} in roomId=${params.room.roomId} to ${typing}`);
-		const ret = await this.maybePrepareSend(params);
-		if (!ret) {
-			return;
-		}
-		await this.typingHandler.set(await ret.client.getUserId(), ret.mxid, typing);
+		await this.remoteEventHandler.setUserTyping(params, typing);
 	}
 
 	/**
 	 * Send a read receipt of a remote user to matrix
 	 */
 	public async sendReadReceipt(params: IReceiveParams) {
-		log.verbose(`Got request to send read indicators for userId=${params.user.userId} in roomId=${params.room.roomId}`);
-		const ret = await this.maybePrepareSend(params);
-		if (!ret || !params.eventId) {
-			return;
-		}
-		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, params.eventId);
-		for (const origEvent of origEvents) {
-			await ret.client.sendReadReceipt(ret.mxid, origEvent);
-		}
+		await this.remoteEventHandler.sendReadReceipt(params);
 	}
 
 	/**
@@ -582,200 +565,70 @@ export class PuppetBridge extends EventEmitter {
 	 * Send a file to matrix, auto-detect its type
 	 */
 	public async sendFileDetect(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		await this.sendFileByType("detect", params, thing, name);
+		await this.remoteEventHandler.sendFileByType("detect", params, thing, name);
 	}
 
 	/**
 	 * Send an m.file to matrix
 	 */
 	public async sendFile(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		await this.sendFileByType("m.file", params, thing, name);
+		await this.remoteEventHandler.sendFileByType("m.file", params, thing, name);
 	}
 
 	/**
 	 * Send an m.video to matrix
 	 */
 	public async sendVideo(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		await this.sendFileByType("m.video", params, thing, name);
+		await this.remoteEventHandler.sendFileByType("m.video", params, thing, name);
 	}
 
 	/**
 	 * Send an m.audio to matrix
 	 */
 	public async sendAudio(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		await this.sendFileByType("m.audio", params, thing, name);
+		await this.remoteEventHandler.sendFileByType("m.audio", params, thing, name);
 	}
 
 	/**
 	 * Send an m.image to matrix
 	 */
 	public async sendImage(params: IReceiveParams, thing: string | Buffer, name?: string) {
-		await this.sendFileByType("m.image", params, thing, name);
+		await this.remoteEventHandler.sendFileByType("m.image", params, thing, name);
 	}
 
 	/**
 	 * Send a message to matrix
 	 */
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
-		log.verbose(`Received message to send`);
-		const { client, mxid } = await this.prepareSend(params);
-		let msgtype = "m.text";
-		if (opts.emote) {
-			msgtype = "m.emote";
-		} else if (opts.notice) {
-			msgtype = "m.notice";
-		}
-		const send = {
-			msgtype,
-			body: opts.body,
-			source: "remote",
-		} as any;
-		if (opts.formattedBody) {
-			send.format = "org.matrix.custom.html";
-			send.formatted_body = opts.formattedBody;
-		}
-		if (params.externalUrl) {
-			send.external_url = params.externalUrl;
-		}
-		const matrixEventId = await client.sendMessage(mxid, send);
-		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
-		}
+		await this.remoteEventHandler.sendMessage(params, opts);
 	}
 
 	/**
 	 * Send an edit to matrix
 	 */
 	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
-		log.verbose(`Received edit to send`);
-		const { client, mxid } = await this.prepareSend(params);
-		let msgtype = "m.text";
-		if (opts.emote) {
-			msgtype = "m.emote";
-		} else if (opts.notice) {
-			msgtype = "m.notice";
-		}
-		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
-		if (ix < 0) {
-			// negative indexes are from the back
-			ix = origEvents.length + ix;
-		}
-		if (ix >= origEvents.length) {
-			// sanity check on the index
-			ix = 0;
-		}
-		const origEvent = origEvents[ix];
-		const send = {
-			"msgtype": msgtype,
-			"body": `* ${opts.body}`,
-			"source": "remote",
-			"m.new_content": {
-				body: opts.body,
-				msgtype,
-			},
-		} as any;
-		if (origEvent) {
-			send["m.relates_to"] = {
-				event_id: origEvent,
-				rel_type: "m.replace",
-			};
-		} else {
-			log.warn("Couldn't find event, sending as normal message...");
-		}
-		if (opts.formattedBody) {
-			send.format = "org.matrix.custom.html";
-			send.formatted_body = `* ${opts.formattedBody}`;
-			send["m.new_content"].format = "org.matrix.custom.html";
-			send["m.new_content"].formatted_body = opts.formattedBody;
-		}
-		if (params.externalUrl) {
-			send.external_url = params.externalUrl;
-		}
-		const matrixEventId = await client.sendMessage(mxid, send);
-		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
-		}
+		await this.remoteEventHandler.sendEdit(params, eventId, opts, ix);
 	}
 
 	/**
 	 * Send a redaction to matrix
 	 */
 	public async sendRedact(params: IReceiveParams, eventId: string) {
-		log.verbose("Received redact to send");
-		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
-		for (const origEvent of origEvents) {
-			await client.redactEvent(mxid, origEvent);
-		}
+		await this.remoteEventHandler.sendRedact(params, eventId);
 	}
 
 	/**
 	 * Send a reply to matrix
 	 */
 	public async sendReply(params: IReceiveParams, eventId: string, opts: IMessageEvent) {
-		log.verbose(`Received reply to send`);
-		const { client, mxid } = await this.prepareSend(params);
-		let msgtype = "m.text";
-		if (opts.emote) {
-			msgtype = "m.emote";
-		} else if (opts.notice) {
-			msgtype = "m.notice";
-		}
-		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
-		const origEvent = origEvents[0];
-		const send = {
-			msgtype,
-			body: opts.body,
-			source: "remote",
-		} as any;
-		if (origEvent) {
-			send["m.relates_to"] = {
-				"m.in_reply_to": {
-					event_id: origEvent,
-				},
-			};
-		} else {
-			log.warn("Couldn't find event, sending as normal message...");
-		}
-		if (opts.formattedBody) {
-			send.format = "org.matrix.custom.html";
-			send.formatted_body = opts.formattedBody;
-		}
-		if (params.externalUrl) {
-			send.external_url = params.externalUrl;
-		}
-		const matrixEventId = await client.sendMessage(mxid, send);
-		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
-		}
+		await this.remoteEventHandler.sendReply(params, eventId, opts);
 	}
 
 	/**
 	 * Send a reaction to matrix
 	 */
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
-		log.verbose(`Received reaction to send`);
-		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.eventStore.getMatrix(params.room.puppetId, eventId);
-		const origEvent = origEvents[0];
-		if (!origEvent) {
-			return; // nothing to do
-		}
-		const send = {
-			"source": "remote",
-			"m.relates_to": {
-				rel_type: "m.annotation",
-				event_id: origEvent,
-				key: reaction,
-			},
-		} as any;
-		if (params.externalUrl) {
-			send.external_url = params.externalUrl;
-		}
-		const matrixEventId = await client.sendEvent(mxid, "m.reaction", send);
-		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
-		}
+		await this.remoteEventHandler.sendReaction(params, eventId, reaction);
 	}
 
 	/**
@@ -842,151 +695,5 @@ export class PuppetBridge extends EventEmitter {
 			}
 			throw err;
 		}
-	}
-
-	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
-		log.verbose(`Received file to send. thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
-		if (!name) {
-			name = "remote_file";
-		}
-		const { client, mxid } = await this.prepareSend(params);
-		let buffer: Buffer;
-		if (typeof thing === "string") {
-			buffer = await Util.DownloadFile(thing);
-		} else {
-			buffer = thing;
-		}
-		const mimetype = Util.GetMimeType(buffer);
-		if (msgtype === "detect") {
-			if (mimetype) {
-				const type = mimetype.split("/")[0];
-				msgtype = {
-					audio: "m.audio",
-					image: "m.image",
-					video: "m.video",
-				}[type];
-				if (!msgtype) {
-					msgtype = "m.file";
-				}
-			} else {
-				msgtype = "m.file";
-			}
-		}
-		const fileMxc = await this.uploadContent(
-			client,
-			buffer,
-			mimetype,
-			name,
-		);
-		const info = {
-			mimetype,
-			size: buffer.byteLength,
-		};
-		const sendData = {
-			body: name,
-			info,
-			msgtype,
-			url: fileMxc,
-			source: "remote",
-		} as any;
-		if (typeof thing === "string") {
-			sendData.external_url = thing;
-		}
-		if (params.externalUrl) {
-			sendData.external_url = params.externalUrl;
-		}
-		const matrixEventId = await client.sendMessage(mxid, sendData);
-		if (matrixEventId && params.eventId) {
-			await this.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
-		}
-	}
-
-	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {
-		log.verbose(`Maybe preparing send parameters`, params);
-		const mxid = await this.roomSync.maybeGetMxid(params.room);
-		if (!mxid) {
-			return null;
-		}
-		const client = await this.userSync.maybeGetClient(params.user);
-		if (!client) {
-			return null;
-		}
-		return { client, mxid };
-	}
-
-	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
-		log.verbose(`Preparing send parameters`, params);
-		const puppetData = await this.provisioner.get(params.room.puppetId);
-		const puppetMxid = puppetData ? puppetData.puppetMxid : "";
-		const client = await this.userSync.getClient(params.user);
-		const userId = await client.getUserId();
-		// we could be the one creating the room, no need to invite ourself
-		const invites: string[] = [];
-		if (userId !== puppetMxid) {
-			invites.push(puppetMxid);
-		} else {
-			// else we need the bot client in order to be able to receive matrix messages
-			invites.push(await this.botIntent.underlyingClient.getUserId());
-		}
-		const { mxid, created } = await this.roomSync.getMxid(params.room, client, invites);
-
-		// ensure that the intent is in the room
-		if (this.appservice.isNamespacedUser(userId)) {
-			log.silly("Joining ghost to room...");
-			const intent = this.appservice.getIntentForUserId(userId);
-			await intent.ensureRegisteredAndJoined(mxid);
-			// if the ghost was ourself, leave it again
-			if (puppetData && puppetData.userId === params.user.userId) {
-				const delayedKey = `${userId}_${mxid}`;
-				this.delayedFunction.set(delayedKey, async () => {
-					await this.roomSync.maybeLeaveGhost(mxid, userId);
-				}, GHOST_PUPPET_LEAVE_TIMEOUT);
-			}
-			// set the correct m.room.member override if the room just got created
-			if (created) {
-				log.verbose("Maybe applying room membership overrides");
-				await this.userSync.setRoomOverride(params.user, params.room.roomId, null, client);
-			}
-		}
-
-		// ensure our puppeted user is in the room
-		const cacheKey = `${params.room.puppetId}_${mxid}`;
-		try {
-			const cache = this.ghostInviteCache.get(cacheKey);
-			if (!cache) {
-				let inviteClient = await this.roomSync.getRoomOp(mxid);
-				if (!inviteClient) {
-					inviteClient = client;
-				}
-				// we can't really invite ourself...
-				if (await inviteClient.getUserId() !== puppetMxid) {
-					// we just invited if we created, don't try to invite again
-					if (!created) {
-						log.silly("Inviting puppet to room...");
-						await client.inviteUser(puppetMxid, mxid);
-					}
-					this.ghostInviteCache.set(cacheKey, true);
-
-					// let's try to also join the room, if we use double-puppeting
-					const puppetClient = await this.userSync.getPuppetClient(params.room.puppetId);
-					if (puppetClient) {
-						log.silly("Joining the room...");
-						await puppetClient.joinRoom(mxid);
-					}
-				}
-			}
-		} catch (err) {
-			if (err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
-				log.verbose("Failed to invite user, as they are already in there");
-				this.ghostInviteCache.set(cacheKey, true);
-			} else {
-				log.warn("Failed to invite user:", err.body);
-			}
-		}
-
-		return {
-			client,
-			mxid,
-		} as ISendInfo;
 	}
 }

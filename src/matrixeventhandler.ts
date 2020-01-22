@@ -247,12 +247,12 @@ export class MatrixEventHandler {
 		}
 
 		// maybe trigger a leave for our ghost puppet in the room
-		const delayedKey = `${puppetMxid}_${roomId}`;
+		const ghostMxid = await this.bridge.getMxidForUser({
+			userId: puppetData ? puppetData.userId || "" : "",
+			puppetId: room.puppetId,
+		}, false);
+		const delayedKey = `${ghostMxid}_${roomId}`;
 		this.bridge.delayedFunction.set(delayedKey, async () => {
-			const ghostMxid = await this.bridge.getMxidForUser({
-				userId: puppetData ? puppetData.userId || "" : "",
-				puppetId: room.puppetId,
-			}, false);
 			await this.bridge.roomSync.maybeLeaveGhost(roomId, ghostMxid);
 		}, GHOST_PUPPET_LEAVE_TIMEOUT, false);
 
