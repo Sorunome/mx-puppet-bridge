@@ -13,6 +13,11 @@ limitations under the License.
 
 import { IStringFormatterVars } from "./structures/stringformatter";
 
+type PuppetDataSingleType = string | number | boolean | IPuppetData;
+export interface IPuppetData {
+	[key: string]: PuppetDataSingleType | PuppetDataSingleType[];
+}
+
 export interface IRemoteProfile {
 	avatarUrl?: string | null;
 	avatarBuffer?: Buffer | null;
@@ -110,7 +115,7 @@ export type RetDataFn = (line: string) => Promise<IRetData>;
 export interface IRetData {
 	success: boolean;
 	error?: string;
-	data?: any;
+	data?: IPuppetData;
 	userId?: string;
 	fn?: RetDataFn;
 }
@@ -139,7 +144,7 @@ export interface IProtocolInformation {
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
 export type CreateRoomHook = (room: IRemoteRoom) => Promise<IRemoteRoom | null>;
 export type CreateGroupHook = (group: IRemoteGroup) => Promise<IRemoteGroup | null>;
-export type GetDescHook = (puppetId: number, data: any) => Promise<string>;
+export type GetDescHook = (puppetId: number, data: IPuppetData) => Promise<string>;
 export type BotHeaderMsgHook = () => string;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;

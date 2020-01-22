@@ -15,6 +15,7 @@ import { IDatabaseConnector, ISqlRow } from "./connector";
 import { Log } from "../log";
 import { TimedCache } from "../structures/timedcache";
 import { Lock } from "../structures/lock";
+import { IPuppetData } from "../interfaces";
 
 const log = new Log("DbPuppetStore");
 
@@ -26,7 +27,7 @@ const MXID_INFO_LOCK_TIMEOUT = 1000;
 export interface IPuppet {
 	puppetId: number;
 	puppetMxid: string;
-	data: any;
+	data: IPuppetData;
 	userId: string | null;
 }
 
@@ -170,7 +171,7 @@ export class DbPuppetStore {
 		});
 	}
 
-	public async setData(puppetId: number, data: any) {
+	public async setData(puppetId: number, data: IPuppetData) {
 		let dataStr = "";
 		try {
 			dataStr = JSON.stringify(data);
@@ -184,7 +185,7 @@ export class DbPuppetStore {
 		});
 	}
 
-	public async new(puppetMxid: string, data: any, userId?: string): Promise<number> {
+	public async new(puppetMxid: string, data: IPuppetData, userId?: string): Promise<number> {
 		let dataStr = "";
 		try {
 			dataStr = JSON.stringify(data);

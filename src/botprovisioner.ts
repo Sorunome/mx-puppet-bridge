@@ -17,7 +17,7 @@ import { Provisioner } from "./provisioner";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
 import * as MarkdownIt from "markdown-it";
-import { MatrixClient } from "matrix-bot-sdk";
+import { MatrixClient, MessageEvent, TextualMessageEventContent } from "matrix-bot-sdk";
 
 const md = new MarkdownIt();
 
@@ -54,11 +54,10 @@ export class BotProvisioner {
 		this.registerDefaultCommands();
 	}
 
-	public async processEvent(event: any) {
+	public async processEvent(roomId: string, event: MessageEvent<TextualMessageEventContent>) {
 		if (event.type !== "m.room.message") {
 			return; // not ours to handle
 		}
-		const roomId = event.room_id;
 		const sender = event.sender;
 		// update the status room entry, if needed
 		const senderInfo = await this.bridge.puppetStore.getOrCreateMxidInfo(sender);
@@ -67,7 +66,7 @@ export class BotProvisioner {
 			await this.bridge.puppetStore.setMxidInfo(senderInfo);
 		}
 		// parse the argument and parameters of the message
-		const [, arg, param] = event.content.body.split(/([^ ]*)(?: (.*))?/);
+		const [, arg, param] = event.textBody.split(/([^ ]*)(?: (.*))?/);
 		log.info(`Got message to process with arg=${arg}`);
 		const fnCollect = this.fnCollectListeners.get(sender);
 		switch (fnCollect ? "link" : arg) {
@@ -77,7 +76,7 @@ export class BotProvisioner {
 				let parseParam = param;
 				if (fnCollect) {
 					puppetId = fnCollect.puppetId;
-					parseParam = event.content.body;
+					parseParam = event.textBody;
 				} else if (arg === "relink") {
 					const [, pidStr, p] = (param || "").split(/([^ ]*)(?: (.*))?/);
 					const pid = parseInt(pidStr, 10);
@@ -103,7 +102,7 @@ export class BotProvisioner {
 				}
 				let retData: IRetData;
 				if (fnCollect) {
-					retData = await fnCollect.fn(event.content.body);
+					retData = await fnCollect.fn(event.textBody);
 					this.fnCollectListeners.delete(sender);
 				} else {
 					retData = await this.bridge.hooks.getDataFromStr(parseParam);
@@ -129,11 +128,11 @@ export class BotProvisioner {
 				}
 				if (puppetId === -1) {
 					// we need to create a new link
-					puppetId = await this.provisioner.new(sender, retData.data, retData.userId);
+					puppetId = await this.provisioner.new(sender, retData.data || {}, retData.userId);
 					await this.sendMessage(roomId, `Created new link with ID ${puppetId}`);
 				} else {
 					// we need to update an existing link
-					await this.provisioner.update(sender, puppetId, retData.data, retData.userId);
+					await this.provisioner.update(sender, puppetId, retData.data || {}, retData.userId);
 					await this.sendMessage(roomId, `Updated link with ID ${puppetId}`);
 				}
 				break;

@@ -17,6 +17,7 @@ import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet } from "./db/puppetstore";
 import { Log } from "./log";
 import { Util } from "./util";
+import { IPuppetData } from "./interfaces";
 
 const log = new Log("Provisioner");
 
@@ -28,6 +29,12 @@ export interface IProvisionerDesc {
 export interface ITokenResponse {
 	token: string;
 	hsUrl: string;
+}
+
+export interface IDescData {
+	puppetId: number;
+	puppetMxid: string;
+	data: IPuppetData;
 }
 
 export class Provisioner {
@@ -127,7 +134,7 @@ export class Provisioner {
 		await this.puppetStore.setUserId(puppetId, userId);
 	}
 
-	public async setData(puppetId: number, data: any) {
+	public async setData(puppetId: number, data: IPuppetData) {
 		await this.puppetStore.setData(puppetId, data);
 	}
 
@@ -141,7 +148,7 @@ export class Provisioner {
 			this.bridge.config.relay.blacklist);
 	}
 
-	public async new(puppetMxid: string, data: any, userId?: string): Promise<number> {
+	public async new(puppetMxid: string, data: IPuppetData, userId?: string): Promise<number> {
 		if (!this.canCreate(puppetMxid)) {
 			return -1;
 		}
@@ -151,7 +158,7 @@ export class Provisioner {
 		return puppetId;
 	}
 
-	public async update(puppetMxid: string, puppetId: number, data: any, userId?: string) {
+	public async update(puppetMxid: string, puppetId: number, data: IPuppetData, userId?: string) {
 		if (!this.canCreate(puppetMxid)) {
 			return;
 		}
@@ -195,7 +202,7 @@ export class Provisioner {
 		return descs;
 	}
 
-	private async getDescFromData(data: any): Promise<IProvisionerDesc> {
+	private async getDescFromData(data: IDescData): Promise<IProvisionerDesc> {
 		if (!this.bridge.hooks.getDesc) {
 			return {
 				puppetId: data.puppetId,

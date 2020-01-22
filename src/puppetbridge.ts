@@ -48,7 +48,7 @@ import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
 	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
 	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
-	IRemoteGroup,
+	IRemoteGroup, IPuppetData,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -368,7 +368,7 @@ export class PuppetBridge extends EventEmitter {
 	/**
 	 * Set (store) the data associated with a puppet, if you change it
 	 */
-	public async setPuppetData(puppetId: number, data: any) {
+	public async setPuppetData(puppetId: number, data: IPuppetData) {
 		await this.provisioner.setData(puppetId, data);
 	}
 

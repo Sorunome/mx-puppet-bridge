@@ -227,10 +227,13 @@ export class MatrixEventHandler {
 	}
 
 	public async handleMessageEvent(roomId: string, event: MessageEvent<MessageEventContent>) {
+		if (this.bridge.AS.isNamespacedUser(event.sender)) {
+			return; // we don't handle things from our own namespace
+		}
 		const room = await this.bridge.roomSync.getPartsFromMxid(roomId);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
-			await this.bridge.botProvisioner.processEvent(event.raw);
+			await this.bridge.botProvisioner.processEvent(roomId, event);
 			return;
 		}
 		log.info(`Got new message in ${roomId} from ${event.sender}!`);

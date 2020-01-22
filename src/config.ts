@@ -21,6 +21,7 @@ export class Config {
 	public homeserverUrlMap: {[key: string]: string} = {};
 	public namePatterns: NamePatternsConfig = new NamePatternsConfig();
 
+	// tslint:disable-next-line no-any
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
 		Object.keys(newConfig).forEach((key) => {
 			if (configLayer[key] instanceof Object && !(configLayer[key] instanceof Array)) {

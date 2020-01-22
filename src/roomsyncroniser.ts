@@ -137,7 +137,7 @@ export class RoomSyncroniser {
 					is_direct: data.isDirect,
 					invite: invites,
 					initial_state: [],
-				} as any;
+				} as any; // tslint:disable-line no-any
 				if (!data.isDirect) {
 					// we also want to set an alias for later reference
 					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
