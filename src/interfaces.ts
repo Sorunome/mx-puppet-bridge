@@ -105,11 +105,6 @@ export interface IFileEvent {
 	eventId?: string;
 }
 
-export interface IMemberInfo {
-	membership: string;
-	displayname?: string | null;
-	avatar_url?: string | null;
-}
 export type RetDataFn = (line: string) => Promise<IRetData>;
 
 export interface IRetData {

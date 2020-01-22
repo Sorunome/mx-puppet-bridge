@@ -23,7 +23,6 @@ import {
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
-import * as escapeHtml from "escape-html";
 import { RoomSyncroniser } from "./roomsyncroniser";
 import { UserSyncroniser } from "./usersyncroniser";
 import { GroupSyncroniser } from "./groupsyncroniser";
@@ -43,9 +42,10 @@ import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner, ICommand } from "./botprovisioner";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
+import { MatrixEventHandler } from "./matrixeventhandler";
 import { DelayedFunction } from "./structures/delayedfunction";
 import {
-	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, IMemberInfo, RetDataFn,
+	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
 	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
 	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
 	IRemoteGroup,
@@ -98,14 +98,14 @@ export class PuppetBridge extends EventEmitter {
 	public provisioner: Provisioner;
 	public store: Store;
 	public protocol: ISetProtocolInformation;
+	public delayedFunction: DelayedFunction;
+	public botProvisioner: BotProvisioner;
 	private appservice: Appservice;
 	private ghostInviteCache: TimedCache<string, boolean>;
-	private botProvisioner: BotProvisioner;
 	private presenceHandler: PresenceHandler;
 	private typingHandler: TypingHandler;
-	private memberInfoCache: { [roomId: string]: { [userId: string]: IMemberInfo } };
-	private delayedFunction: DelayedFunction;
 	private mxcLookupLock: Lock<string>;
+	private matrixEventHandler: MatrixEventHandler;
 
 	constructor(
 		private registrationPath: string,
@@ -167,10 +167,9 @@ export class PuppetBridge extends EventEmitter {
 		this.provisioner = new Provisioner(this);
 		this.presenceHandler = new PresenceHandler(this);
 		this.typingHandler = new TypingHandler(this, this.protocol.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
+		this.matrixEventHandler = new MatrixEventHandler(this);
 
 		this.botProvisioner = new BotProvisioner(this);
-
-		this.memberInfoCache = {};
 
 		// pipe matrix-bot-sdk logging int ours
 		const logMap = new Map<string, Log>();
@@ -303,27 +302,7 @@ export class PuppetBridge extends EventEmitter {
 			registration: registration as IAppserviceRegistration,
 			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
-		this.appservice.on("room.event", async (roomId: string, event: any) => {
-			try {
-				await this.handleRoomEvent(roomId, event);
-			} catch (err) {
-				log.error("Error handling appservice room.event", err.error || err.body || err);
-			}
-		});
-		this.appservice.on("room.invite", async (roomId: string, event: any) => {
-			try {
-				await this.handleInviteEvent(roomId, event);
-			} catch (err) {
-				log.error("Error handling appservice room.invite", err.error || err.body || err);
-			}
-		});
-		this.appservice.on("query.room", async (alias: string, createRoom: any) => {
-			try {
-				await this.handleRoomQuery(alias, createRoom);
-			} catch (err) {
-				log.error("Error handling appservice query.room", err.error || err.body || err);
-			}
-		});
+		this.matrixEventHandler.registerAppserviceEvents();
 		await this.appservice.begin();
 		log.info("Application service started!");
 		log.info("Setting bridge user data...");
@@ -799,18 +778,6 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
-	/** @interal */
-	public async getRoomMemberInfo(roomId: string, userId: string): Promise<IMemberInfo> {
-		const roomDisplaynameCache = this.getRoomDisplaynameCache(roomId);
-		if (userId in roomDisplaynameCache) {
-			return roomDisplaynameCache[userId];
-		}
-		const client = await this.roomSync.getRoomOp(roomId) || this.appservice.botClient;
-		const memberInfo = await client.getRoomStateEvent(roomId, "m.room.member", userId);
-		this.updateCachedRoomMemberInfo(roomId, userId, memberInfo);
-		return memberInfo;
-	}
-
 	/**
 	 * Upload content to matrix, automatically de-duping it
 	 */
@@ -875,21 +842,6 @@ export class PuppetBridge extends EventEmitter {
 			}
 			throw err;
 		}
-	}
-
-	private getRoomDisplaynameCache(roomId: string): { [userId: string]: IMemberInfo } {
-		if (!(roomId in this.memberInfoCache)) {
-			this.memberInfoCache[roomId] = {};
-		}
-		return this.memberInfoCache[roomId];
-	}
-
-	private updateCachedRoomMemberInfo(roomId: string, userId: string, memberInfo: IMemberInfo) {
-		if (!memberInfo.displayname) {
-			// Set localpart as displayname if no displayname is set
-			memberInfo.displayname = userId.substr(1).split(":")[0];
-		}
-		this.getRoomDisplaynameCache(roomId)[userId] = memberInfo;
 	}
 
 	private async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
@@ -1036,375 +988,5 @@ export class PuppetBridge extends EventEmitter {
 			client,
 			mxid,
 		} as ISendInfo;
-	}
-
-	private async handleRedactEvent(roomId: string, event: any) {
-		if (this.appservice.isNamespacedUser(event.sender)) {
-			return; // we don't handle things from our own namespace
-		}
-		log.verbose("got matrix redact event to pass on");
-		const room = await this.roomSync.getPartsFromMxid(event.room_id);
-		if (!room) {
-			// this isn't a room we handle....so let's do provisioning!
-			await this.botProvisioner.processEvent(event);
-			return;
-		}
-		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
-		if (event.sender !== puppetMxid) {
-			return; // this isn't our puppeted user, so let's not do anything
-		}
-		log.info(`New redact by ${event.sender} to process!`);
-		if (event.content.source === "remote") {
-			log.verbose("Dropping event due to de-duping...");
-			return;
-		}
-		const eventIds = await this.eventStore.getRemote(room.puppetId, event.redacts);
-		for (const eventId of eventIds) {
-			this.emit("redact", room, eventId, event);
-		}
-	}
-
-	private async handleTextEvent(room: IRemoteRoom, event: any) {
-		const msgtype = event.content.msgtype;
-		const relate = event.content["m.relates_to"];
-		const msgData = {
-			body: event.content.body,
-			emote: msgtype === "m.emote",
-			notice: msgtype === "m.notice",
-			eventId: event.event_id,
-		} as IMessageEvent;
-		if (relate) {
-			// relation events
-			const relEvent = (await this.eventStore.getRemote(room.puppetId,
-				relate.event_id || relate["m.in_reply_to"].event_id))[0];
-			log.silly(relEvent);
-			if (relEvent) {
-				if (this.protocol.features.edit && relate.rel_type === "m.replace") {
-					const newContent = event.content["m.new_content"];
-					const relData = {
-						body: newContent.body,
-						emote: newContent.msgtype === "m.emote",
-						notice: newContent.msgtype === "m.notice",
-						eventId: event.event_id,
-					} as IMessageEvent;
-					if (newContent.format) {
-						relData.formattedBody = newContent.formatted_body;
-					}
-					this.emit("edit", room, relEvent, relData, event);
-					return;
-				}
-				if (this.protocol.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
-					this.emit("reply", room, relEvent, msgData, event);
-					return;
-				}
-				if (relate.rel_type === "m.annotation") {
-					// no feature setting as reactions are hidden if they aren't supported
-					this.emit("reaction", room, relEvent, relate.key, event);
-					return;
-				}
-			}
-		}
-		if (event.content.format) {
-			msgData.formattedBody = event.content.formatted_body;
-		}
-		this.emit("message", room, msgData, event);
-	}
-
-	private async applyRelayFormatting(roomId: string, sender: string, content: any) {
-		if (content["m.new_content"]) {
-			return this.applyRelayFormatting(roomId, sender, content["m.new_content"]);
-		}
-		const member = await this.getRoomMemberInfo(roomId, sender);
-		if (content.msgtype === "m.text" || content.msgtype === "m.notice") {
-			const formattedBody = content.formatted_body || escapeHtml(content.body).replace("\n", "<br>");
-			content.formatted_body = `<strong>${member.displayname}</strong>: ${formattedBody}`;
-			content.body = `${member.displayname}: ${content.body}`;
-		} else {
-			const typeMap = {
-				"m.image": "an image",
-				"m.file": "a file",
-				"m.video": "a video",
-				"m.sticker": "a sticker",
-				"m.audio": "an audio file",
-			};
-			content.body = `${member.displayname} sent ${typeMap[content.msgtype]}`;
-		}
-	}
-
-	private async handleRoomEvent(roomId: string, event: any) {
-		if (event.type === "m.room.member" && event.content) {
-			switch (event.content.membership) {
-				case "join":
-					await this.handleJoinEvent(roomId, event);
-					return;
-				case "ban":
-				case "leave":
-					await this.handleLeaveEvent(roomId, event);
-					return;
-			}
-		}
-		if (event.type === "m.room.redaction") {
-			await this.handleRedactEvent(roomId, event);
-			return;
-		}
-		const validTypes = ["m.room.message", "m.sticker", "m.reaction"];
-		if (!validTypes.includes(event.type)) {
-			return; // we don't handle this here, silently drop the event
-		}
-		if (this.appservice.isNamespacedUser(event.sender)) {
-			return; // we don't handle things from our own namespace
-		}
-		log.verbose("got matrix event to pass on");
-		const room = await this.roomSync.getPartsFromMxid(event.room_id);
-		if (!room) {
-			// this isn't a room we handle....so let's do provisioning!
-			await this.botProvisioner.processEvent(event);
-			return;
-		}
-
-		const puppetData = await this.provisioner.get(room.puppetId);
-		const puppetMxid = puppetData ? puppetData.puppetMxid : "";
-
-		if (event.sender !== puppetMxid) {
-			if (!this.config.relay.enabled || !this.provisioner.canRelay(event.sender)) {
-				return; // relaying not enabled or no permission to be relayed
-			}
-			await this.applyRelayFormatting(event.room_id, event.sender, event.content);
-		}
-
-		const delayedKey = `${puppetMxid}_${roomId}`;
-		this.delayedFunction.set(delayedKey, async () => {
-			await this.roomSync.maybeLeaveGhost(roomId, puppetMxid);
-		}, GHOST_PUPPET_LEAVE_TIMEOUT, false);
-
-		log.info(`New message by ${event.sender} of type ${event.type} to process!`);
-		if (event.content.source === "remote") {
-			log.verbose("Dropping event due to de-duping...");
-			return;
-		}
-		let msgtype = event.content.msgtype;
-		if (event.type !== "m.room.message") {
-			msgtype = event.type;
-		}
-		if (!["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(msgtype)) {
-			// short-circuit text stuff
-			await this.handleTextEvent(room, event);
-			return;
-		}
-		// this is a file!
-		const url = this.getUrlFromMxc(event.content.url);
-		const data = {
-			filename: event.content.body,
-			mxc: event.content.url,
-			url,
-			eventId: event.event_id,
-		} as IFileEvent;
-		if (event.content.info) {
-			data.info = event.content.info;
-		}
-		let emitEvent = {
-			"m.image": "image",
-			"m.audio": "audio",
-			"m.video": "video",
-			"m.sticker": "sticker",
-		}[msgtype];
-		if (!emitEvent) {
-			emitEvent = "file";
-		}
-		if (this.protocol.features[emitEvent]) {
-			this.emit(emitEvent, room, data, event);
-			return;
-		}
-		if ((emitEvent === "audio" || emitEvent === "video") && this.protocol.features.file) {
-			this.emit("file", room, data, event);
-			return;
-		}
-		if (emitEvent === "sticker" && this.protocol.features.image) {
-			this.emit("image", room, data, event);
-			return;
-		}
-		if (this.protocol.features.file) {
-			this.emit("file", room, data, event);
-			return;
-		}
-		const textData = {
-			body: `New ${emitEvent}: ${data.url}`,
-			emote: false,
-			eventId: event.event_id,
-		} as IMessageEvent;
-		this.emit("message", room, textData, event);
-	}
-
-	private async handleGhostJoinEvent(roomId: string, ghostId: string) {
-		// we CAN'T check for if the room exists here, as if we create a new room
-		// the m.room.member event triggers before the room is incerted into the store
-
-		log.info(`Handling join of ghost ${ghostId} to ${roomId}`);
-		log.verbose("adding ghost to room cache");
-		await this.store.puppetStore.joinGhostToRoom(ghostId, roomId);
-
-		const ghostParts = this.userSync.getPartsFromMxid(ghostId);
-		log.verbose("Ghost parts:", ghostParts);
-		if (ghostParts) {
-			const roomParts = await this.roomSync.getPartsFromMxid(roomId);
-			log.verbose("Room parts:", roomParts);
-			if (roomParts && roomParts.puppetId === ghostParts.puppetId) {
-				log.verbose("Maybe applying room overrides");
-				await this.userSync.setRoomOverride(ghostParts, roomParts.roomId);
-			}
-		}
-
-		// maybe remove the bot user, if it is present
-		await this.roomSync.maybeLeaveGhost(roomId, this.appservice.botIntent.userId);
-	}
-
-	private async handleJoinEvent(roomId: string, event: any) {
-		// okay, we want to catch *puppet* profile changes, nothing of the ghosts
-		const userId = event.state_key;
-		if (this.appservice.isNamespacedUser(userId)) {
-			// let's add the ghost to the things to quit....
-			await this.handleGhostJoinEvent(roomId, userId);
-			return;
-		}
-		const room = await this.roomSync.getPartsFromMxid(roomId);
-		if (!room) {
-			return; // this isn't a room we handle, just ignore it
-		}
-		this.updateCachedRoomMemberInfo(roomId, event.state_key, event.content);
-		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
-		if (userId !== puppetMxid) {
-			return; // it wasn't us
-		}
-		log.verbose(`Received profile change for ${puppetMxid}`);
-		const puppet = await this.store.puppetStore.getOrCreateMxidInfo(puppetMxid);
-		const newName = event.content.displayname;
-		const newAvatarMxc = event.content.avatar_url;
-		let update = false;
-		if (newName !== puppet.name) {
-			const puppets = await this.provisioner.getForMxid(puppetMxid);
-			for (const p of puppets) {
-				this.emit("puppetName", p.puppetId, newName);
-			}
-			puppet.name = newName;
-			update = true;
-		}
-		if (newAvatarMxc !== puppet.avatarMxc) {
-			const url = this.getUrlFromMxc(newAvatarMxc);
-			const puppets = await this.provisioner.getForMxid(puppetMxid);
-			for (const p of puppets) {
-				this.emit("puppetAvatar", p.puppetId, url, newAvatarMxc);
-			}
-			puppet.avatarMxc = newAvatarMxc;
-			update = true;
-		}
-		if (update) {
-			await this.store.puppetStore.setMxidInfo(puppet);
-		}
-	}
-
-	private async handleLeaveEvent(roomId: string, event: any) {
-		const userId = event.state_key;
-		if (this.appservice.isNamespacedUser(userId)) {
-			await this.store.puppetStore.leaveGhostFromRoom(userId, roomId);
-			if (userId !== event.sender) {
-				// puppet got kicked, unbridging room
-				await this.unbridgeRoomByMxid(roomId);
-			}
-			return;
-		}
-
-		const room = await this.roomSync.getPartsFromMxid(roomId);
-		if (!room) {
-			return; // this isn't a room we handle, just ignore it
-		}
-
-		const puppetMxid = await this.provisioner.getMxid(room.puppetId);
-		if (userId !== puppetMxid) {
-			return; // it wasn't us
-		}
-		log.verbose(`Received leave event from ${puppetMxid}`);
-		await this.unbridgeRoom(room);
-	}
-
-	private async handleInviteEvent(roomId: string, event: any) {
-		const userId = event.state_key;
-		const inviteId = event.sender;
-		log.info(`Got invite event in ${roomId} (${inviteId} --> ${userId})`);
-		if (userId === this.appservice.botIntent.userId) {
-			log.verbose("Bridge bot got invited, joining....");
-			await this.appservice.botIntent.joinRoom(roomId);
-			return;
-		}
-		if (!this.appservice.isNamespacedUser(userId)) {
-			return; // we are only handling ghost invites
-		}
-		if (this.appservice.isNamespacedUser(inviteId)) {
-			return; // our bridge did the invite, ignore additional handling
-		}
-		const room = await this.roomSync.getPartsFromMxid(event.room_id);
-		if (room) {
-			return; // we are an existing room, meaning a double-puppeted user probably auto-invited. Do nothing
-		}
-		log.info(`Processing invite for ${userId} by ${inviteId}`);
-		const intent = this.appservice.getIntentForUserId(userId);
-		if (!this.hooks.getDmRoomId || !this.hooks.createRoom) {
-			// no hook set, rejecting the invite
-			await intent.leaveRoom(roomId);
-			return;
-		}
-		// check if the mxid validates
-		const parts = this.userSync.getPartsFromMxid(userId);
-		if (!parts) {
-			await intent.leaveRoom(roomId);
-			return;
-		}
-		// check if we actually own that puppet
-		const puppet = await this.provisioner.get(parts.puppetId);
-		if (!puppet || puppet.puppetMxid !== inviteId) {
-			await intent.leaveRoom(roomId);
-			return;
-		}
-		// fetch new room id
-		const newRoomId = await this.hooks.getDmRoomId(parts);
-		if (!newRoomId) {
-			await intent.leaveRoom(roomId);
-			return;
-		}
-		// check if it already exists
-		const roomExists = await this.roomSync.maybeGet({
-			puppetId: parts.puppetId,
-			roomId: newRoomId,
-		});
-		if (roomExists) {
-			await intent.leaveRoom(roomId);
-			return;
-		}
-		// check if it is a direct room
-		const roomData = await this.hooks.createRoom({
-			puppetId: parts.puppetId,
-			roomId: newRoomId,
-		});
-		if (!roomData || roomData.puppetId !== parts.puppetId || roomData.roomId !== newRoomId || !roomData.isDirect) {
-			await intent.leaveRoom(roomId);
-			return;
-		}
-		// FINALLY join back and accept the invite
-		await this.roomSync.insert(roomId, roomData);
-		await intent.joinRoom(roomId);
-		await this.userSync.getClient(parts); // create user, if it doesn't exist
-	}
-
-	private async handleRoomQuery(alias: string, createRoom: any) {
-		log.info(`Got room query for alias ${alias}`);
-		// we deny room creation and then create it later on ourself
-		await createRoom(false);
-
-		// get room ID and check if it is valid
-		const parts = await this.roomSync.getPartsFromMxid(alias);
-		if (!parts) {
-			return;
-		}
-
-		await this.bridgeRoom(parts);
 	}
 }
