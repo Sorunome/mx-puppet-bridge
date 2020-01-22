@@ -1117,6 +1117,7 @@ describe("MatrixEventHandler", () => {
 		});
 		it("should reject invites, if the room already exists", async () => {
 			const handler = getHandler({
+				createDmHook: true,
 				getDmRoomIdHook: async (parts) => "fox",
 			});
 			const event = new MembershipEvent({
