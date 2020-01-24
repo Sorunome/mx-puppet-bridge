@@ -173,8 +173,23 @@ export class RemoteEventHandler {
 		log.info(`Received redact from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
+		let opClient: MatrixClient | null = null;
 		for (const origEvent of origEvents) {
-			await client.redactEvent(mxid, origEvent);
+			try {
+				await client.redactEvent(mxid, origEvent);
+			} catch (err) {
+				if (err.body.errcode === "M_FORBIDDEN") {
+					if (!opClient) {
+						opClient = await this.bridge.roomSync.getRoomOp(mxid);
+					}
+					if (!opClient) {
+						throw err;
+					}
+					await opClient.redactEvent(mxid, origEvent);
+				} else {
+					throw err;
+				}
+			}
 		}
 	}
 

@@ -83,7 +83,7 @@ export class MatrixEventHandler {
 		}
 		// we handle stickers and reactions as message events
 		if (["m.reaction", "m.sticker", "m.room.message"].includes(event.type)) {
-			const evt = new MessageEvent<MessageEventContent>(event);
+			const evt = new MessageEvent<MessageEventContent>(event.raw);
 			await this.handleMessageEvent(roomId, evt);
 			return;
 		}
