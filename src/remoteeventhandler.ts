@@ -173,23 +173,8 @@ export class RemoteEventHandler {
 		log.info(`Received redact from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
-		let opClient: MatrixClient | null = null;
 		for (const origEvent of origEvents) {
-			try {
-				await client.redactEvent(mxid, origEvent);
-			} catch (err) {
-				if (err.body.errcode === "M_FORBIDDEN") {
-					if (!opClient) {
-						opClient = await this.bridge.roomSync.getRoomOp(mxid);
-					}
-					if (!opClient) {
-						throw err;
-					}
-					await opClient.redactEvent(mxid, origEvent);
-				} else {
-					throw err;
-				}
-			}
+			await this.bridge.redactEvent(client, mxid, origEvent);
 		}
 	}
 
@@ -233,30 +218,18 @@ export class RemoteEventHandler {
 	}
 
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
-		log.info(`Received reaction from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
-		const origEvent = origEvents[0];
-		if (!origEvent) {
-			log.warn("No original event found, ignoring...");
-			return; // nothing to do
-		}
-		// this type needs to be any-type, as the interfaces don't do reactions yet
-		const send = {
-			"source": "remote",
-			"m.relates_to": {
-				rel_type: "m.annotation",
-				event_id: origEvent,
-				key: reaction,
-			},
-		} as any; // tslint:disable-line no-any
-		if (params.externalUrl) {
-			send.external_url = params.externalUrl;
-		}
-		const matrixEventId = await client.sendEvent(mxid, "m.reaction", send);
-		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
-		}
+		await this.bridge.reactionHandler.addRemote(params, eventId, reaction, client, mxid);
+	}
+
+	public async removeReaction(params: IReceiveParams, eventId: string, reaction: string) {
+		const { client, mxid } = await this.prepareSend(params);
+		await this.bridge.reactionHandler.removeRemote(params, eventId, reaction, client, mxid);
+	}
+
+	public async removeAllReactions(params: IReceiveParams, eventId: string) {
+		const { client, mxid } = await this.prepareSend(params);
+		await this.bridge.reactionHandler.removeRemoteAllOnMessage(params, eventId, client, mxid);
 	}
 
 	public async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {

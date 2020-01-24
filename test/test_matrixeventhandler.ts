@@ -54,6 +54,8 @@ let BOT_INTENT_JOIN_ROOM = "";
 let GHOST_INTENT_LEAVE_ROOM = "";
 let GHOST_INTENT_JOIN_ROOM = "";
 let ROOM_SYNC_INSERTED_ENTRY = false;
+let REACTION_HANDLER_ADDED_MATRIX = false;
+let REACTION_HANDLER_HANDLED_REDACT = false;
 function getHandler(opts?: IHandlerOpts) {
 	if (!opts) {
 		opts = {};
@@ -74,6 +76,8 @@ function getHandler(opts?: IHandlerOpts) {
 	GHOST_INTENT_LEAVE_ROOM = "";
 	GHOST_INTENT_JOIN_ROOM = "";
 	ROOM_SYNC_INSERTED_ENTRY = false;
+	REACTION_HANDLER_ADDED_MATRIX = false;
+	REACTION_HANDLER_HANDLED_REDACT = false;
 	const bridge = {
 		config: {
 			relay: {
@@ -273,6 +277,14 @@ function getHandler(opts?: IHandlerOpts) {
 					return ["event"];
 				}
 				return [];
+			},
+		},
+		reactionHandler: {
+			addMatrix: async (room, relEvent, eventId, key) => {
+				REACTION_HANDLER_ADDED_MATRIX = true;
+			},
+			handleRedactEvent: async (roomEvent) => {
+				REACTION_HANDLER_HANDLED_REDACT = true;
 			},
 		},
 	} as any;
@@ -650,6 +662,7 @@ describe("MatrixEventHandler", () => {
 			await handler.handleRedactEvent(roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(1);
 			expect(BRIDGE_EVENTS_EMITTED[0]).to.equal("redact");
+			expect(REACTION_HANDLER_HANDLED_REDACT).to.be.true;
 		});
 	});
 	describe("handleMessageEvent", () => {
@@ -1004,6 +1017,7 @@ describe("MatrixEventHandler", () => {
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
 			await handler.handleTextEvent(roomId, room, event);
+			expect(REACTION_HANDLER_ADDED_MATRIX).to.be.true;
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["reaction"]);
 		});
 		it("should send normal messages", async () => {

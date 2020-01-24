@@ -21,11 +21,12 @@ import { DbRoomStore } from "./db/roomstore";
 import { DbGroupStore } from "./db/groupstore";
 import { DbPuppetStore } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
+import { DbReactionStore } from "./db/reactionstore";
 import { IDatabaseConnector } from "./db/connector";
 import { Util } from "./util";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 9;
+export const CURRENT_SCHEMA = 10;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 
@@ -36,6 +37,7 @@ export class Store {
 	private pGroupStore: DbGroupStore;
 	private pPuppetStore: DbPuppetStore;
 	private pEventStore: DbEventStore;
+	private pReactionStore: DbReactionStore;
 
 	constructor(private config: DatabaseConfig) { }
 
@@ -57,6 +59,10 @@ export class Store {
 
 	get eventStore() {
 		return this.pEventStore;
+	}
+
+	get reactionStore() {
+		return this.pReactionStore;
 	}
 
 	public async init(
@@ -191,6 +197,7 @@ export class Store {
 			this.pGroupStore = new DbGroupStore(this.db);
 			this.pPuppetStore = new DbPuppetStore(this.db);
 			this.pEventStore = new DbEventStore(this.db);
+			this.pReactionStore = new DbReactionStore(this.db);
 		} catch (ex) {
 			log.error("Error opening database:", ex);
 			throw new Error("Couldn't open database. The appservice won't be able to continue.");

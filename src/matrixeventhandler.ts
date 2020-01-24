@@ -77,7 +77,7 @@ export class MatrixEventHandler {
 			return;
 		}
 		if (event.type === "m.room.redaction") {
-			const evt = new RedactionEvent(event);
+			const evt = new RedactionEvent(event.raw);
 			await this.handleRedactEvent(roomId, evt);
 			return;
 		}
@@ -217,6 +217,8 @@ export class MatrixEventHandler {
 			log.verbose("Dropping event due to de-duping...");
 			return;
 		}
+		// handle reation redactions
+		await this.bridge.reactionHandler.handleRedactEvent(room, event);
 		for (const redacts of event.redactsEventIds) {
 			const eventIds = await this.bridge.eventStore.getRemote(room.puppetId, redacts);
 			for (const eventId of eventIds) {
@@ -365,8 +367,8 @@ export class MatrixEventHandler {
 				}
 				if (relate.rel_type === "m.annotation") {
 					// no feature setting as reactions are hidden if they aren't supported
+					await this.bridge.reactionHandler.addMatrix(room, relEvent, event.eventId, relate.key);
 					log.debug("Emitting reaction event...");
-					// TODO: reaction handler
 					this.bridge.emit("reaction", room, relEvent, relate.key, event);
 					return;
 				}

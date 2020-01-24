@@ -34,6 +34,7 @@ import { DbRoomStore } from "./db/roomstore";
 import { DbGroupStore } from "./db/groupstore";
 import { DbPuppetStore, IMxidInfo } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
+import { DbReactionStore } from "./db/reactionstore";
 import { Provisioner } from "./provisioner";
 import { Store } from "./store";
 import { Lock } from "./structures/lock";
@@ -41,6 +42,7 @@ import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner, ICommand } from "./botprovisioner";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
+import { ReactionHandler } from "./reactionhandler";
 import { MatrixEventHandler } from "./matrixeventhandler";
 import { RemoteEventHandler } from "./remoteeventhandler";
 import { DelayedFunction } from "./structures/delayedfunction";
@@ -95,6 +97,7 @@ export class PuppetBridge extends EventEmitter {
 	public botProvisioner: BotProvisioner;
 	public typingHandler: TypingHandler;
 	public presenceHandler: PresenceHandler;
+	public reactionHandler: ReactionHandler;
 	private appservice: Appservice;
 	private mxcLookupLock: Lock<string>;
 	private matrixEventHandler: MatrixEventHandler;
@@ -159,6 +162,7 @@ export class PuppetBridge extends EventEmitter {
 		this.provisioner = new Provisioner(this);
 		this.presenceHandler = new PresenceHandler(this);
 		this.typingHandler = new TypingHandler(this, this.protocol.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
+		this.reactionHandler = new ReactionHandler(this);
 		this.matrixEventHandler = new MatrixEventHandler(this);
 		this.remoteEventHandler = new RemoteEventHandler(this);
 
@@ -264,6 +268,10 @@ export class PuppetBridge extends EventEmitter {
 
 	get eventStore(): DbEventStore {
 		return this.store.eventStore;
+	}
+
+	get reactionStore(): DbReactionStore {
+		return this.store.reactionStore;
 	}
 
 	get Config(): Config {
@@ -616,6 +624,20 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	/**
+	 * Remove a reaction from matrix
+	 */
+	public async removeReaction(params: IReceiveParams, eventId: string, reaction: string) {
+		await this.remoteEventHandler.removeReaction(params, eventId, reaction);
+	}
+
+	/**
+	 * Remove all reactions from a certain event
+	 */
+	public async removeAllReactions(params: IReceiveParams, eventId: string) {
+		await this.remoteEventHandler.removeAllReactions(params, eventId);
+	}
+
+	/**
 	 * Upload content to matrix, automatically de-duping it
 	 */
 	public async uploadContent(
@@ -678,6 +700,25 @@ export class PuppetBridge extends EventEmitter {
 				this.mxcLookupLock.release(lock);
 			}
 			throw err;
+		}
+	}
+
+	/**
+	 * Redacts an event and re-tries as room OP
+	 */
+	public async redactEvent(client: MatrixClient, roomId: string, eventId: string) {
+		try {
+			await client.redactEvent(roomId, eventId);
+		} catch (err) {
+			if (err.body.errcode === "M_FORBIDDEN") {
+				const opClient = await this.roomSync.getRoomOp(roomId);
+				if (!opClient) {
+					throw err;
+				}
+				await opClient.redactEvent(roomId, eventId);
+			} else {
+				throw err;
+			}
 		}
 	}
 }
