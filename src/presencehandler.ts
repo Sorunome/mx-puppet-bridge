@@ -176,6 +176,9 @@ export class PresenceHandler {
 	}
 
 	private async setMatrixStatusInRoom(info: IMatrixPresenceInfo, roomId: string) {
+		if (info.presence === "offline" && !info.status) {
+			return;
+		}
 		const intent = this.bridge.AS.getIntentForUserId(info.mxid);
 		await intent.ensureRegistered();
 		log.silly(`Sending status for ${info.mxid} into room ${roomId}`);

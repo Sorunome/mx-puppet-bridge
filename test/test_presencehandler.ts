@@ -306,12 +306,26 @@ describe("PresenceHandler", () => {
 		});
 	});
 	describe("setMatrixStatusInRoom", () => {
+		it("should ignore offline blank presence changes", async () => {
+			const handler = getHandler();
+			const info = {
+				mxid: "@_puppet_1_fox:example.org",
+				status: "",
+				presence: "offline",
+			} as any;
+			const roomId = "!room:example.org";
+			await handler["setMatrixStatusInRoom"](info, roomId);
+			expect(CLIENT_STATE_EVENT_TYPE).to.equal("");
+			expect(CLIENT_STATE_EVENT_KEY).to.equal("");
+			expect(CLIENT_STATE_EVENT_DATA).eql({});
+		});
 		it("should send the correct state event", async () => {
 			const handler = getHandler();
 			const info = {
 				mxid: "@_puppet_1_fox:example.org",
 				status: "Foxies!",
-			};
+				presence: "online",
+			} as any;
 			const roomId = "!room:example.org";
 			await handler["setMatrixStatusInRoom"](info, roomId);
 			expect(CLIENT_STATE_EVENT_TYPE).to.equal("im.vector.user_status");
