@@ -294,7 +294,7 @@ describe("PresenceHandler", () => {
 		it("should fetch all rooms and pass responisbility on", async () => {
 			const handler = getHandler();
 			let roomCount = 0;
-			handler["setMatrixStatusInRoom"] = async (info, roomId) => {
+			handler["setMatrixStatusInRoom"] = async (_, roomId) => {
 				roomCount++;
 			};
 			const info = {
