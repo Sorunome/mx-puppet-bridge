@@ -20,16 +20,27 @@ import { PresenceHandler } from "../src/presencehandler";
 let CLIENT_REQUEST_METHOD = "";
 let CLIENT_REQUEST_URL = "";
 let CLIENT_REQUEST_DATA = {} as any;
+let CLIENT_STATE_EVENT_TYPE = "";
+let CLIENT_STATE_EVENT_KEY = "";
+let CLIENT_STATE_EVENT_DATA = {} as any;
 function getClient(userId) {
 	CLIENT_REQUEST_METHOD = "";
 	CLIENT_REQUEST_URL = "";
 	CLIENT_REQUEST_DATA = {};
+	CLIENT_STATE_EVENT_TYPE = "";
+	CLIENT_STATE_EVENT_KEY = "";
+	CLIENT_STATE_EVENT_DATA = {};
 	return {
 		getUserId: async () => userId,
 		doRequest: async (method, url, qs, data) => {
 			CLIENT_REQUEST_METHOD = method;
 			CLIENT_REQUEST_URL = url;
 			CLIENT_REQUEST_DATA = data;
+		},
+		sendStateEvent: async (roomId, type, key, data) => {
+			CLIENT_STATE_EVENT_TYPE = type;
+			CLIENT_STATE_EVENT_KEY = key;
+			CLIENT_STATE_EVENT_DATA = data;
 		},
 	};
 }
@@ -52,6 +63,14 @@ function getHandler() {
 			getIntentForUserId: (userId) => getIntent(userId),
 		},
 		botIntent: { userId: "@_puppet_bot:example.org" },
+		puppetStore: {
+			getRoomsOfGhost: async (mxid) => {
+				if (mxid === "@_puppet_1_fox:example.org") {
+					return ["!room1:example.org", "!room2:example.org"];
+				}
+				return [];
+			},
+		},
 	} as any;
 	return new PresenceHandler(bridge);
 }
@@ -104,8 +123,13 @@ describe("PresenceHandler", () => {
 			handler["setMatrixPresence"] = ((info) => {
 				presenceSet = true;
 			}) as any;
+			let statusSet = false;
+			handler["setMatrixStatus"] = ((info) => {
+				statusSet = true;
+			}) as any;
 			handler.setStatus("@user:example.org", "fox");
 			expect(presenceSet).to.be.false;
+			expect(statusSet).to.be.false;
 		});
 		it("should set status and push to the presence queue", () => {
 			const handler = getHandler();
@@ -113,8 +137,13 @@ describe("PresenceHandler", () => {
 			handler["setMatrixPresence"] = ((info) => {
 				presenceSet = true;
 			}) as any;
+			let statusSet = false;
+			handler["setMatrixStatus"] = ((info) => {
+				statusSet = true;
+			}) as any;
 			handler.setStatus("@_puppet_1_fox:example.org", "fox");
 			expect(presenceSet).to.be.true;
+			expect(statusSet).to.be.true;
 			expect(handler["presenceQueue"].length).to.equal(1);
 			expect(handler["presenceQueue"][0]).eql({
 				mxid: "@_puppet_1_fox:example.org",
@@ -127,14 +156,52 @@ describe("PresenceHandler", () => {
 			handler["setMatrixPresence"] = ((info) => {
 				presenceSet = true;
 			}) as any;
+			let statusSet = false;
+			handler["setMatrixStatus"] = ((info) => {
+				statusSet = true;
+			}) as any;
 			handler.setStatus("@_puppet_1_fox:example.org", "fox");
 			handler.setStatus("@_puppet_1_fox:example.org", "raccoon");
 			expect(presenceSet).to.be.true;
+			expect(statusSet).to.be.true;
 			expect(handler["presenceQueue"].length).to.equal(1);
 			expect(handler["presenceQueue"][0]).eql({
 				mxid: "@_puppet_1_fox:example.org",
 				status: "raccoon",
 			});
+		});
+	});
+	describe("setStatusInRoom", () => {
+		it("should ignore users not handled", () => {
+			const handler = getHandler();
+			let statusSet = false;
+			handler["setMatrixStatusInRoom"] = ((info) => {
+				statusSet = true;
+			}) as any;
+			handler.setStatusInRoom("@user:example.org", "!someroom:example.org");
+			expect(statusSet).to.be.false;
+		});
+		it("should ignore users not already found in the queue", () => {
+			const handler = getHandler();
+			let statusSet = false;
+			handler["setMatrixStatusInRoom"] = ((info) => {
+				statusSet = true;
+			}) as any;
+			handler.setStatusInRoom("@_puppet_1_fox:example.org", "!someroom:example.org");
+			expect(statusSet).to.be.false;
+		});
+		it("should pass on the status, if all is OK", () => {
+			const handler = getHandler();
+			let statusSet = false;
+			handler["setMatrixStatusInRoom"] = ((info) => {
+				statusSet = true;
+			}) as any;
+			handler["presenceQueue"].push({
+				mxid: "@_puppet_1_fox:example.org",
+				status: "blah",
+			});
+			handler.setStatusInRoom("@_puppet_1_fox:example.org", "!someroom:example.org");
+			expect(statusSet).to.be.true;
 		});
 	});
 	describe("remove", () => {
@@ -220,6 +287,37 @@ describe("PresenceHandler", () => {
 			expect(CLIENT_REQUEST_DATA).eql({
 				presence: "online",
 				status_msg: "fox!",
+			});
+		});
+	});
+	describe("setMatrixStatus", () => {
+		it("should fetch all rooms and pass responisbility on", async () => {
+			const handler = getHandler();
+			let roomCount = 0;
+			handler["setMatrixStatusInRoom"] = async (info, roomId) => {
+				roomCount++;
+			};
+			const info = {
+				mxid: "@_puppet_1_fox:example.org",
+				status: "Foxies!",
+			};
+			await handler["setMatrixStatus"](info);
+			expect(roomCount).to.equal(2);
+		});
+	});
+	describe("setMatrixStatusInRoom", () => {
+		it("should send the correct state event", async () => {
+			const handler = getHandler();
+			const info = {
+				mxid: "@_puppet_1_fox:example.org",
+				status: "Foxies!",
+			};
+			const roomId = "!room:example.org";
+			await handler["setMatrixStatusInRoom"](info, roomId);
+			expect(CLIENT_STATE_EVENT_TYPE).to.equal("im.vector.user_status");
+			expect(CLIENT_STATE_EVENT_KEY).to.equal("@_puppet_1_fox:example.org");
+			expect(CLIENT_STATE_EVENT_DATA).eql({
+				status: "Foxies!",
 			});
 		});
 	});

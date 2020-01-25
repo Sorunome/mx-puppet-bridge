@@ -56,6 +56,7 @@ let GHOST_INTENT_JOIN_ROOM = "";
 let ROOM_SYNC_INSERTED_ENTRY = false;
 let REACTION_HANDLER_ADDED_MATRIX = false;
 let REACTION_HANDLER_HANDLED_REDACT = false;
+let PRESENCE_HANDLER_SET_STATUS_IN_ROOM = "";
 function getHandler(opts?: IHandlerOpts) {
 	if (!opts) {
 		opts = {};
@@ -78,6 +79,7 @@ function getHandler(opts?: IHandlerOpts) {
 	ROOM_SYNC_INSERTED_ENTRY = false;
 	REACTION_HANDLER_ADDED_MATRIX = false;
 	REACTION_HANDLER_HANDLED_REDACT = false;
+	PRESENCE_HANDLER_SET_STATUS_IN_ROOM = "";
 	const bridge = {
 		config: {
 			relay: {
@@ -287,6 +289,11 @@ function getHandler(opts?: IHandlerOpts) {
 				REACTION_HANDLER_HANDLED_REDACT = true;
 			},
 		},
+		presenceHandler: {
+			setStatusInRoom: async (userId, roomId) => {
+				PRESENCE_HANDLER_SET_STATUS_IN_ROOM = `${userId};${roomId}`;
+			},
+		},
 	} as any;
 	return new MatrixEventHandler(bridge);
 }
@@ -410,7 +417,7 @@ describe("MatrixEventHandler", () => {
 		});
 	});
 	describe("handleGhostJoinEvent", () => {
-		it("should add the ghost to the room cache", async () => {
+		it("should add the ghost to the room cache and update status", async () => {
 			const handler = getHandler();
 			const ghostId = "@_puppet_1_blah:example.org";
 			const event = new MembershipEvent({
@@ -423,6 +430,7 @@ describe("MatrixEventHandler", () => {
 			const roomId = "!blah:example.org";
 			await handler["handleGhostJoinEvent"](roomId, event);
 			expect(PUPPETSTORE_JOINED_GHOST_TO_ROOM).to.equal(`${ghostId};${roomId}`);
+			expect(PRESENCE_HANDLER_SET_STATUS_IN_ROOM).to.equal(`${ghostId};${roomId}`);
 		});
 		it("should set a room override, are all conditions met", async () => {
 			const handler = getHandler();

@@ -99,13 +99,30 @@ export class PresenceHandler {
 			this.presenceQueue.push(p);
 			// do this async in the BG for live updates
 			// tslint:disable-next-line:no-floating-promises
+			this.setMatrixStatus(p);
+			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixPresence(p);
 		} else {
 			this.presenceQueue[index].status = status;
 			// do this async in the BG for live updates
 			// tslint:disable-next-line:no-floating-promises
+			this.setMatrixStatus(this.presenceQueue[index]);
+			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixPresence(this.presenceQueue[index]);
 		}
+	}
+
+	public setStatusInRoom(mxid: string, roomId: string) {
+		if (!this.handled(mxid)) {
+			return;
+		}
+		log.verbose(`Setting status of ${mxid} in ${roomId}`);
+		const index = this.queueIndex(mxid);
+		if (index === -1) {
+			return;
+		}
+		// tslint:disable-next-line:no-floating-promises
+		this.setMatrixStatusInRoom(this.presenceQueue[index], roomId);
 	}
 
 	public remove(mxid: string) {
@@ -146,8 +163,52 @@ export class PresenceHandler {
 			const userId = encodeURIComponent(await client.getUserId());
 			const url = `/_matrix/client/r0/presence/${userId}/status`;
 			await client.doRequest("PUT", url, null, statusObj);
-		} catch (ex) {
-			log.info(`Could not update Matrix presence for ${info.mxid}`);
+		} catch (err) {
+			log.info(`Could not update Matrix presence for ${info.mxid}`, err.error || err.body || err);
+		}
+	}
+
+	private async setMatrixStatus(info: IMatrixPresenceInfo) {
+		const rooms = await this.bridge.puppetStore.getRoomsOfGhost(info.mxid);
+		for (const roomId of rooms) {
+			await this.setMatrixStatusInRoom(info, roomId);
+		}
+	}
+
+	private async setMatrixStatusInRoom(info: IMatrixPresenceInfo, roomId: string) {
+		const intent = this.bridge.AS.getIntentForUserId(info.mxid);
+		await intent.ensureRegistered();
+		log.silly(`Sending status for ${info.mxid} into room ${roomId}`);
+		const client = intent.underlyingClient;
+		const data = {
+			status: info.status,
+		};
+		try {
+			await client.sendStateEvent(roomId, "im.vector.user_status", await client.getUserId(), data);
+		} catch (err) {
+			if (err.body && err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("user_level (0) < send_level (50)")) {
+				log.debug("Couldn't set status, trying to raise required power level");
+				// ALRIGHT, let's fetch the OP, change the permission needed for status and update again
+				const opClient = await this.bridge.roomSync.getRoomOp(roomId);
+				if (opClient) {
+					try {
+						const powerLevels = await opClient.getRoomStateEvent(roomId, "m.room.power_levels", "");
+						if (!powerLevels.events) {
+							powerLevels.events = {};
+						}
+						powerLevels.events["im.vector.user_status"] = 0;
+						await opClient.sendStateEvent(roomId, "m.room.power_levels", "", powerLevels);
+						log.debug("Re-setting status.....");
+						await client.sendStateEvent(roomId, "im.vector.user_status", await client.getUserId(), data);
+					} catch (err2) {
+						log.info(`Couldn't set status for ${info.mxid} in ${roomId}`, err2.error || err2.body || err2);
+					}
+				} else {
+					log.info(`Couldn't set status for ${info.mxid} in ${roomId}`, err.error || err.body || err);
+				}
+			} else {
+				log.info(`Couldn't set status for ${info.mxid} in ${roomId}`, err.error || err.body || err);
+			}
 		}
 	}
 }

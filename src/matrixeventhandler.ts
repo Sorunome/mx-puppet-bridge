@@ -106,6 +106,8 @@ export class MatrixEventHandler {
 		log.verbose("Adding ghost to room cache");
 		await this.bridge.puppetStore.joinGhostToRoom(ghostId, roomId);
 
+		this.bridge.presenceHandler.setStatusInRoom(ghostId, roomId);
+
 		// apply room-specific overrides, if present
 		const ghostParts = this.bridge.userSync.getPartsFromMxid(ghostId);
 		log.verbose("Ghost parts:", ghostParts);

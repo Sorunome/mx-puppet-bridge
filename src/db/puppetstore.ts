@@ -237,6 +237,15 @@ export class DbPuppetStore {
 		return result;
 	}
 
+	public async getRoomsOfGhost(ghost: string): Promise<string[]> {
+		const result = [] as string[];
+		const rows = await this.db.All("SELECT * FROM ghosts_joined_chans WHERE ghost_mxid = $ghost", { ghost });
+		for (const r of rows) {
+			result.push(r.chan_mxid as string);
+		}
+		return result;
+	}
+
 	public async emptyGhostsInRoom(room: string) {
 		await this.db.Run("DELETE FROM ghosts_joined_chans WHERE chan_mxid = $room", { room });
 	}

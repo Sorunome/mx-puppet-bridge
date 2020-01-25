@@ -133,6 +133,9 @@ export class RoomSyncroniser {
 						notifications: {
 							room: 0,
 						},
+						events: {
+							"im.vector.user_status": 0,
+						},
 					},
 					is_direct: data.isDirect,
 					invite: invites,
