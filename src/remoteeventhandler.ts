@@ -352,7 +352,7 @@ export class RemoteEventHandler {
 					// we just invited if we created, don't try to invite again
 					if (!created) {
 						log.silly("Inviting puppet to room...");
-						await client.inviteUser(puppetMxid, mxid);
+						await inviteClient.inviteUser(puppetMxid, mxid);
 					}
 					this.ghostInviteCache.set(cacheKey, true);
 
@@ -365,7 +365,7 @@ export class RemoteEventHandler {
 				}
 			}
 		} catch (err) {
-			if (err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
+			if (err.body && err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
 				log.verbose("Failed to invite user, as they are already in there");
 				this.ghostInviteCache.set(cacheKey, true);
 			} else {
