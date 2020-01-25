@@ -19,7 +19,7 @@ export class Schema implements IDbSchema {
 	public async run(store: Store) {
 		await store.createTable(`
 			CREATE TABLE reaction_store (
-				puppet_id NUMBER NOT NULL,
+				puppet_id INTEGER NOT NULL,
 				room_id TEXT NOT NULL,
 				user_id TEXT NOT NULL,
 				event_id TEXT NOT NULL,
