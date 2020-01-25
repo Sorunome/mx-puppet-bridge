@@ -19,7 +19,7 @@ import {
 } from "matrix-bot-sdk";
 
 // we are a test file and thus our linting rules are slightly different
-// tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers
+// tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal
 
 interface IHandlerOpts {
 	puppetHasAvatar?: boolean;
@@ -296,7 +296,7 @@ describe("MatrixEventHandler", () => {
 		it("should route joins to the join handler", async () => {
 			const handler = getHandler();
 			let joinHandled = false;
-			handler.handleJoinEvent = async (roomId, evt) => {
+			handler["handleJoinEvent"] = async (roomId, evt) => {
 				joinHandled = true;
 			};
 			const event = new RoomEvent<RoomEventContent>({
@@ -305,13 +305,13 @@ describe("MatrixEventHandler", () => {
 					membership: "join",
 				},
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(joinHandled).to.be.true;
 		});
 		it("should route bans to the leave handler", async () => {
 			const handler = getHandler();
 			let leaveHandled = false;
-			handler.handleLeaveEvent = async (roomId, evt) => {
+			handler["handleLeaveEvent"] = async (roomId, evt) => {
 				leaveHandled = true;
 			};
 			const event = new RoomEvent<RoomEventContent>({
@@ -320,13 +320,13 @@ describe("MatrixEventHandler", () => {
 					membership: "ban",
 				},
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(leaveHandled).to.be.true;
 		});
 		it("should route leaves to the leave handler", async () => {
 			const handler = getHandler();
 			let leaveHandled = false;
-			handler.handleLeaveEvent = async (roomId, evt) => {
+			handler["handleLeaveEvent"] = async (roomId, evt) => {
 				leaveHandled = true;
 			};
 			const event = new RoomEvent<RoomEventContent>({
@@ -335,43 +335,43 @@ describe("MatrixEventHandler", () => {
 					membership: "leave",
 				},
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(leaveHandled).to.be.true;
 		});
 		it("should route redactions to the redaction handler", async () => {
 			const handler = getHandler();
 			let redactionHandled = false;
-			handler.handleRedactEvent = async (roomId, evt) => {
+			handler["handleRedactEvent"] = async (roomId, evt) => {
 				redactionHandled = true;
 			};
 			const event = new RoomEvent<RoomEventContent>({
 				type: "m.room.redaction",
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(redactionHandled).to.be.true;
 		});
 		it("should route stickers to the message handler", async () => {
 			const handler = getHandler();
 			let messageHandled = false;
-			handler.handleMessageEvent = async (roomId, evt) => {
+			handler["handleMessageEvent"] = async (roomId, evt) => {
 				messageHandled = true;
 			};
 			const event = new RoomEvent<RoomEventContent>({
 				type: "m.sticker",
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(messageHandled).to.be.true;
 		});
 		it("should route messages to the message handler", async () => {
 			const handler = getHandler();
 			let messageHandled = false;
-			handler.handleMessageEvent = async (roomId, evt) => {
+			handler["handleMessageEvent"] = async (roomId, evt) => {
 				messageHandled = true;
 			};
 			const event = new RoomEvent<RoomEventContent>({
 				type: "m.room.message",
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(messageHandled).to.be.true;
 		});
 	});
@@ -379,7 +379,7 @@ describe("MatrixEventHandler", () => {
 		it("should route ghosts to the ghost join handler", async () => {
 			const handler = getHandler();
 			let ghostJoinHandled = false;
-			handler.handleGhostJoinEvent = async (roomId, evt) => {
+			handler["handleGhostJoinEvent"] = async (roomId, evt) => {
 				ghostJoinHandled = true;
 			};
 			const event = new MembershipEvent({
@@ -389,13 +389,13 @@ describe("MatrixEventHandler", () => {
 					membership: "join",
 				},
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(ghostJoinHandled).to.be.true;
 		});
 		it("should route users to the user join handler", async () => {
 			const handler = getHandler();
 			let userJoinHandled = false;
-			handler.handleUserJoinEvent = async (roomId, evt) => {
+			handler["handleUserJoinEvent"] = async (roomId, evt) => {
 				userJoinHandled = true;
 			};
 			const event = new MembershipEvent({
@@ -405,7 +405,7 @@ describe("MatrixEventHandler", () => {
 					membership: "join",
 				},
 			});
-			await handler.handleRoomEvent("!blah:example.org", event);
+			await handler["handleRoomEvent"]("!blah:example.org", event);
 			expect(userJoinHandled).to.be.true;
 		});
 	});
@@ -421,7 +421,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleGhostJoinEvent(roomId, event);
+			await handler["handleGhostJoinEvent"](roomId, event);
 			expect(PUPPETSTORE_JOINED_GHOST_TO_ROOM).to.equal(`${ghostId};${roomId}`);
 		});
 		it("should set a room override, are all conditions met", async () => {
@@ -435,7 +435,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleGhostJoinEvent(roomId, event);
+			await handler["handleGhostJoinEvent"](roomId, event);
 			expect(USERSYNC_SET_ROOM_OVERRIDE).to.be.true;
 		});
 		it("should attempt to leave the appservice bot, if possible", async () => {
@@ -449,7 +449,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleGhostJoinEvent(roomId, event);
+			await handler["handleGhostJoinEvent"](roomId, event);
 			expect(ROOMSYNC_MAYBE_LEAVE_GHOST).to.equal(`@_puppetbot:example.org;${roomId}`);
 		});
 	});
@@ -457,7 +457,7 @@ describe("MatrixEventHandler", () => {
 		it("should do nothing, if no room is found", async () => {
 			const handler = getHandler();
 			let updatedCache = false;
-			handler.updateCachedRoomMemberInfo = async (rid, uid, content) => {
+			handler["updateCachedRoomMemberInfo"] = async (rid, uid, content) => {
 				updatedCache = true;
 			};
 			const userId = "@user:example.org";
@@ -469,13 +469,13 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!nonexistant:example.org";
-			await handler.handleUserJoinEvent(roomId, event);
+			await handler["handleUserJoinEvent"](roomId, event);
 			expect(updatedCache).to.be.false;
 		});
 		it("should update the member info cache, should the room be found", async () => {
 			const handler = getHandler();
 			let updatedCache = false;
-			handler.updateCachedRoomMemberInfo = async (rid, uid, content) => {
+			handler["updateCachedRoomMemberInfo"] = async (rid, uid, content) => {
 				updatedCache = true;
 			};
 			const userId = "@user:example.org";
@@ -487,7 +487,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleUserJoinEvent(roomId, event);
+			await handler["handleUserJoinEvent"](roomId, event);
 			expect(updatedCache).to.be.true;
 		});
 		it("should update the puppets name, if a new one is present", async () => {
@@ -502,7 +502,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleUserJoinEvent(roomId, event);
+			await handler["handleUserJoinEvent"](roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(2);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["puppetName", "puppetName"]);
 			expect(PUPPETSTORE_SET_MXID_INFO).to.be.true;
@@ -519,7 +519,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleUserJoinEvent(roomId, event);
+			await handler["handleUserJoinEvent"](roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(2);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["puppetAvatar", "puppetAvatar"]);
 			expect(PUPPETSTORE_SET_MXID_INFO).to.be.true;
@@ -539,7 +539,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleLeaveEvent(roomId, event);
+			await handler["handleLeaveEvent"](roomId, event);
 			expect(PUPPETSTORE_LEAVE_GHOST_FROM_ROOM).to.equal(`${ghostId};${roomId}`);
 			expect(BRIDGE_ROOM_MXID_UNBRIDGED).to.equal("");
 		});
@@ -556,7 +556,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleLeaveEvent(roomId, event);
+			await handler["handleLeaveEvent"](roomId, event);
 			expect(PUPPETSTORE_LEAVE_GHOST_FROM_ROOM).to.equal(`${ghostId};${roomId}`);
 			expect(BRIDGE_ROOM_MXID_UNBRIDGED).to.equal(roomId);
 		});
@@ -571,7 +571,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleLeaveEvent(roomId, event);
+			await handler["handleLeaveEvent"](roomId, event);
 			expect(PROVISIONER_GET_MXID_CALLED).to.be.false;
 			expect(BRIDGE_ROOM_ID_UNBRIDGED).to.equal("");
 		});
@@ -586,7 +586,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleLeaveEvent(roomId, event);
+			await handler["handleLeaveEvent"](roomId, event);
 			expect(PROVISIONER_GET_MXID_CALLED).to.be.true;
 			expect(BRIDGE_ROOM_ID_UNBRIDGED).to.equal("");
 		});
@@ -601,7 +601,7 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleLeaveEvent(roomId, event);
+			await handler["handleLeaveEvent"](roomId, event);
 			expect(BRIDGE_ROOM_ID_UNBRIDGED).to.equal("foxdm");
 		});
 	});
@@ -614,7 +614,7 @@ describe("MatrixEventHandler", () => {
 				redacts: "!bad:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleRedactEvent(roomId, event);
+			await handler["handleRedactEvent"](roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(0);
 		});
 		it("should ignore redactions from unknown rooms", async () => {
@@ -625,7 +625,7 @@ describe("MatrixEventHandler", () => {
 				redacts: "!bad:example.org",
 			});
 			const roomId = "!invalid:example.org";
-			await handler.handleRedactEvent(roomId, event);
+			await handler["handleRedactEvent"](roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(0);
 		});
 		it("should ignore redacts, if not from the puppet user", async () => {
@@ -636,7 +636,7 @@ describe("MatrixEventHandler", () => {
 				redacts: "!bad:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleRedactEvent(roomId, event);
+			await handler["handleRedactEvent"](roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(0);
 		});
 		it("should not redact if the dedupe flag is set", async () => {
@@ -648,7 +648,7 @@ describe("MatrixEventHandler", () => {
 				content: { source: "remote" },
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleRedactEvent(roomId, event);
+			await handler["handleRedactEvent"](roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(0);
 		});
 		it("should redact events, should all check out", async () => {
@@ -659,7 +659,7 @@ describe("MatrixEventHandler", () => {
 				redacts: "!bad:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleRedactEvent(roomId, event);
+			await handler["handleRedactEvent"](roomId, event);
 			expect(BRIDGE_EVENTS_EMITTED.length).to.equal(1);
 			expect(BRIDGE_EVENTS_EMITTED[0]).to.equal("redact");
 			expect(REACTION_HANDLER_HANDLED_REDACT).to.be.true;
@@ -673,7 +673,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@_puppet_1_fox:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleMessageEvent(roomId, event);
+			await handler["handleMessageEvent"](roomId, event);
 			expect(ROOM_SYNC_GET_PARTS_FROM_MXID_CALLED).to.be.false;
 		});
 		it("should forward messages to the bot provisioner, if no associated room is found", async () => {
@@ -683,17 +683,17 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!invalid:example.org";
-			await handler.handleMessageEvent(roomId, event);
+			await handler["handleMessageEvent"](roomId, event);
 			expect(ROOM_SYNC_GET_PARTS_FROM_MXID_CALLED).to.be.true;
 			expect(BOT_PROVISIONER_EVENT_PROCESSED).to.be.true;
 		});
 		it("should drop the message, if it wasn't sent by us", async () => {
 			const handler = getHandler();
 			let messageHandled = false;
-			handler.handleFileEvent = async (rid, room, evt) => {
+			handler["handleFileEvent"] = async (rid, room, evt) => {
 				messageHandled = true;
 			};
-			handler.handleTextEvent = async (rid, room, evt) => {
+			handler["handleTextEvent"] = async (rid, room, evt) => {
 				messageHandled = true;
 			};
 			const event = new MessageEvent<MessageEventContent>({
@@ -701,7 +701,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@wronguser:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleMessageEvent(roomId, event);
+			await handler["handleMessageEvent"](roomId, event);
 			expect(messageHandled).to.be.false;
 		});
 		it("should drop the message if relay is enabled but sender is blacklisted", async () => {
@@ -709,10 +709,10 @@ describe("MatrixEventHandler", () => {
 				relayEnabled: true,
 			});
 			let messageHandled = false;
-			handler.handleFileEvent = async (rid, room, evt) => {
+			handler["handleFileEvent"] = async (rid, room, evt) => {
 				messageHandled = true;
 			};
-			handler.handleTextEvent = async (rid, room, evt) => {
+			handler["handleTextEvent"] = async (rid, room, evt) => {
 				messageHandled = true;
 			};
 			const event = new MessageEvent<MessageEventContent>({
@@ -720,7 +720,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@baduser:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleMessageEvent(roomId, event);
+			await handler["handleMessageEvent"](roomId, event);
 			expect(messageHandled).to.be.false;
 		});
 		it("should apply relay formatting, if relay is enabled", async () => {
@@ -728,7 +728,7 @@ describe("MatrixEventHandler", () => {
 				relayEnabled: true,
 			});
 			let relayFormattingApplied = false;
-			handler.applyRelayFormatting = async (rid, room, evt) => {
+			handler["applyRelayFormatting"] = async (rid, room, evt) => {
 				relayFormattingApplied = true;
 			};
 			const event = new MessageEvent<MessageEventContent>({
@@ -736,7 +736,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@gooduser:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleMessageEvent(roomId, event);
+			await handler["handleMessageEvent"](roomId, event);
 			expect(relayFormattingApplied).to.true;
 		});
 		it("should delay-leave the ghost of the puppet", async () => {
@@ -746,17 +746,17 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleMessageEvent(roomId, event);
+			await handler["handleMessageEvent"](roomId, event);
 			await DELAYED_FUNCTION_SET();
 			expect(ROOMSYNC_MAYBE_LEAVE_GHOST).to.equal("@_puppet_1_puppetGhost:example.org;!foxdm:example.org");
 		});
 		it("should de-duplicate messages, if the remote flag is set", async () => {
 			const handler = getHandler();
 			let messageHandled = false;
-			handler.handleFileEvent = async (rid, room, evt) => {
+			handler["handleFileEvent"] = async (rid, room, evt) => {
 				messageHandled = true;
 			};
-			handler.handleTextEvent = async (rid, room, evt) => {
+			handler["handleTextEvent"] = async (rid, room, evt) => {
 				messageHandled = true;
 			};
 			const event = new MessageEvent<MessageEventContent>({
@@ -765,14 +765,14 @@ describe("MatrixEventHandler", () => {
 				content: { source: "remote" },
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleMessageEvent(roomId, event);
+			await handler["handleMessageEvent"](roomId, event);
 			expect(messageHandled).to.be.false;
 		});
 		it("should pass the message on to file handler, if it is a file msgtype", async () => {
 			for (const msgtype of ["m.file", "m.image", "m.audio", "m.sticker", "m.video"]) {
 				const handler = getHandler();
 				let fileMessageHandled = false;
-				handler.handleFileEvent = async (rid, room, evt) => {
+				handler["handleFileEvent"] = async (rid, room, evt) => {
 					fileMessageHandled = true;
 				};
 				const event = new MessageEvent<MessageEventContent>({
@@ -781,7 +781,7 @@ describe("MatrixEventHandler", () => {
 					content: { msgtype },
 				});
 				const roomId = "!foxdm:example.org";
-				await handler.handleMessageEvent(roomId, event);
+				await handler["handleMessageEvent"](roomId, event);
 				expect(fileMessageHandled).to.be.true;
 			}
 		});
@@ -789,7 +789,7 @@ describe("MatrixEventHandler", () => {
 			for (const msgtype of ["m.text", "m.notice", "m.emote", "m.reaction"]) {
 				const handler = getHandler();
 				let textMessageHandled = false;
-				handler.handleTextEvent = async (rid, room, evt) => {
+				handler["handleTextEvent"] = async (rid, room, evt) => {
 					textMessageHandled = true;
 				};
 				const event = new MessageEvent<MessageEventContent>({
@@ -798,7 +798,7 @@ describe("MatrixEventHandler", () => {
 					content: { msgtype },
 				});
 				const roomId = "!foxdm:example.org";
-				await handler.handleMessageEvent(roomId, event);
+				await handler["handleMessageEvent"](roomId, event);
 				expect(textMessageHandled).to.be.true;
 			}
 		});
@@ -816,7 +816,7 @@ describe("MatrixEventHandler", () => {
 				});
 				const roomId = "!foxdm:example.org";
 				const room = {} as any;
-				await handler.handleFileEvent(roomId, room, event);
+				await handler["handleFileEvent"](roomId, room, event);
 				expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 			}
 		});
@@ -838,7 +838,7 @@ describe("MatrixEventHandler", () => {
 				});
 				const roomId = "!foxdm:example.org";
 				const room = {} as any;
-				await handler.handleFileEvent(roomId, room, event);
+				await handler["handleFileEvent"](roomId, room, event);
 				expect(BRIDGE_EVENTS_EMITTED).to.eql([msgtype.substring(2)]);
 			}
 		});
@@ -856,7 +856,7 @@ describe("MatrixEventHandler", () => {
 				});
 				const roomId = "!foxdm:example.org";
 				const room = {} as any;
-				await handler.handleFileEvent(roomId, room, event);
+				await handler["handleFileEvent"](roomId, room, event);
 				expect(BRIDGE_EVENTS_EMITTED).to.eql(["file"]);
 			}
 		});
@@ -873,7 +873,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleFileEvent(roomId, room, event);
+			await handler["handleFileEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["image"]);
 		});
 	});
@@ -898,7 +898,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["edit"]);
 		});
 		it("should fall edits back to messages, if the remote id isn't found", async () => {
@@ -921,7 +921,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should fall edits back to messages, if the feature is disabled", async () => {
@@ -942,7 +942,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should detect and send replies, if they are enabled", async () => {
@@ -962,7 +962,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["reply"]);
 		});
 		it("should fall replies back to messages, if the remote isn't found", async () => {
@@ -982,7 +982,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should fall replies back to messages, if the feature is disabled", async () => {
@@ -1000,7 +1000,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should detect reactions", async () => {
@@ -1016,7 +1016,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(REACTION_HANDLER_ADDED_MATRIX).to.be.true;
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["reaction"]);
 		});
@@ -1030,7 +1030,7 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler.handleTextEvent(roomId, room, event);
+			await handler["handleTextEvent"](roomId, room, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 	});
@@ -1042,7 +1042,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(BOT_INTENT_JOIN_ROOM).to.equal(roomId);
 		});
 		it("should ignore invites if no ghost got invited", async () => {
@@ -1052,7 +1052,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal("");
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1063,7 +1063,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@_puppet_1_newfox:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal("");
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1074,7 +1074,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!foxdm:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal("");
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1085,7 +1085,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal(roomId);
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1098,7 +1098,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal(roomId);
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1111,7 +1111,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal(roomId);
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1125,7 +1125,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal(roomId);
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1139,7 +1139,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal(roomId);
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1159,7 +1159,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal(roomId);
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal("");
 		});
@@ -1180,7 +1180,7 @@ describe("MatrixEventHandler", () => {
 				sender: "@user:example.org",
 			});
 			const roomId = "!blah:example.org";
-			await handler.handleInviteEvent(roomId, event);
+			await handler["handleInviteEvent"](roomId, event);
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal("");
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal(roomId);
 			expect(ROOM_SYNC_INSERTED_ENTRY).to.be.true;
@@ -1191,7 +1191,7 @@ describe("MatrixEventHandler", () => {
 			const handler = getHandler();
 			const alias = "#_puppet_1_foxroom:example.org";
 			let rejected = false;
-			await handler.handleRoomQuery(alias, async (type) => {
+			await handler["handleRoomQuery"](alias, async (type) => {
 				rejected = !type;
 			});
 			expect(rejected).to.be.true;
@@ -1199,30 +1199,30 @@ describe("MatrixEventHandler", () => {
 		it("should ignore if the room is invalid", async () => {
 			const handler = getHandler();
 			const alias = "#_puppet_invalid:example.org";
-			await handler.handleRoomQuery(alias, async (type) => {});
+			await handler["handleRoomQuery"](alias, async (type) => {});
 			expect(BRIDGE_ROOM_ID_BRIDGED).to.equal("");
 		});
 		it("should bridge a room, if it is valid", async () => {
 			const handler = getHandler();
 			const alias = "#_puppet_1_foxroom:example.org";
-			await handler.handleRoomQuery(alias, async (type) => {});
+			await handler["handleRoomQuery"](alias, async (type) => {});
 			expect(BRIDGE_ROOM_ID_BRIDGED).to.equal("foxroom");
 		});
 	});
 	describe("getRoomDisplaynameCache", () => {
 		it("should return a blank object on new rooms", () => {
 			const handler = getHandler();
-			const ret = handler.getRoomDisplaynameCache("room");
+			const ret = handler["getRoomDisplaynameCache"]("room");
 			expect(ret).eql({});
 		});
 		it("should return an existing entry, should it exist", () => {
 			const handler = getHandler();
-			handler.updateCachedRoomMemberInfo("room", "user", {
+			handler["updateCachedRoomMemberInfo"]("room", "user", {
 				displayname: "blah",
 				avatar_url: "blubb",
 				membership: "join",
 			});
-			const ret = handler.getRoomDisplaynameCache("room");
+			const ret = handler["getRoomDisplaynameCache"]("room");
 			expect(ret).eql({user: {
 				displayname: "blah",
 				avatar_url: "blubb",
@@ -1233,12 +1233,12 @@ describe("MatrixEventHandler", () => {
 	describe("updateCachedRoomMemberInfo", () => {
 		it("should update an entry", () => {
 			const handler = getHandler();
-			handler.updateCachedRoomMemberInfo("room", "user", {
+			handler["updateCachedRoomMemberInfo"]("room", "user", {
 				displayname: "blah",
 				avatar_url: "blubb",
 				membership: "join",
 			});
-			const ret = handler.getRoomDisplaynameCache("room");
+			const ret = handler["getRoomDisplaynameCache"]("room");
 			expect(ret).eql({user: {
 				displayname: "blah",
 				avatar_url: "blubb",
@@ -1249,12 +1249,12 @@ describe("MatrixEventHandler", () => {
 	describe("getRoomMemberInfo", () => {
 		it("should fetch members from the cache, if present", async () => {
 			const handler = getHandler();
-			handler.updateCachedRoomMemberInfo("room", "user", {
+			handler["updateCachedRoomMemberInfo"]("room", "user", {
 				displayname: "blah",
 				avatar_url: "blubb",
 				membership: "join",
 			});
-			const ret = await handler.getRoomMemberInfo("room", "user");
+			const ret = await handler["getRoomMemberInfo"]("room", "user");
 			expect(ret).eql({
 				displayname: "blah",
 				avatar_url: "blubb",
@@ -1263,7 +1263,7 @@ describe("MatrixEventHandler", () => {
 		});
 		it("should try to fetch from the state, if not present in cache", async () => {
 			const handler = getHandler();
-			const ret = await handler.getRoomMemberInfo("room", "user");
+			const ret = await handler["getRoomMemberInfo"]("room", "user");
 			expect(ret).eql({
 				membership: "join",
 				displayname: "User",
@@ -1280,7 +1280,7 @@ describe("MatrixEventHandler", () => {
 				msgtype: "m.text",
 				body: "hello world",
 			};
-			await handler.applyRelayFormatting(roomId, userId, content);
+			await handler["applyRelayFormatting"](roomId, userId, content);
 			expect(content).eql({
 				msgtype: "m.text",
 				body: "User: hello world",
@@ -1296,7 +1296,7 @@ describe("MatrixEventHandler", () => {
 				msgtype: "m.emote",
 				body: "hello world",
 			};
-			await handler.applyRelayFormatting(roomId, userId, content);
+			await handler["applyRelayFormatting"](roomId, userId, content);
 			expect(content).eql({
 				msgtype: "m.text",
 				body: "*User hello world",
@@ -1312,7 +1312,7 @@ describe("MatrixEventHandler", () => {
 				msgtype: "m.file",
 				body: "hello world",
 			};
-			await handler.applyRelayFormatting(roomId, userId, content);
+			await handler["applyRelayFormatting"](roomId, userId, content);
 			expect(content).eql({
 				msgtype: "m.text",
 				body: "User sent a file",
@@ -1330,7 +1330,7 @@ describe("MatrixEventHandler", () => {
 					body: "hello world",
 				},
 			};
-			await handler.applyRelayFormatting(roomId, userId, content);
+			await handler["applyRelayFormatting"](roomId, userId, content);
 			expect(content).eql({
 				"msgtype": "m.text",
 				"body": "hello world",

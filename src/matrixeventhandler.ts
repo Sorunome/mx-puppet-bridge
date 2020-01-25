@@ -62,7 +62,7 @@ export class MatrixEventHandler {
 		});
 	}
 
-	public async handleRoomEvent(roomId: string, event: RoomEvent<RoomEventContent>) {
+	private async handleRoomEvent(roomId: string, event: RoomEvent<RoomEventContent>) {
 		if (event.type === "m.room.member") {
 			const membershipEvent = new MembershipEvent(event.raw);
 			switch (membershipEvent.membership) {
@@ -89,7 +89,7 @@ export class MatrixEventHandler {
 		}
 	}
 
-	public async handleJoinEvent(roomId: string, event: MembershipEvent) {
+	private async handleJoinEvent(roomId: string, event: MembershipEvent) {
 		const userId = event.membershipFor;
 		if (this.bridge.AS.isNamespacedUser(userId)) {
 			await this.handleGhostJoinEvent(roomId, event);
@@ -98,7 +98,7 @@ export class MatrixEventHandler {
 		}
 	}
 
-	public async handleGhostJoinEvent(roomId: string, event: MembershipEvent) {
+	private async handleGhostJoinEvent(roomId: string, event: MembershipEvent) {
 		const ghostId = event.membershipFor;
 		log.info(`Got new ghost join event from ${ghostId} in ${roomId}...`);
 		// we CAN'T check for if the room exists here, as if we create a new room
@@ -122,7 +122,7 @@ export class MatrixEventHandler {
 		await this.bridge.roomSync.maybeLeaveGhost(roomId, this.bridge.AS.botIntent.userId);
 	}
 
-	public async handleUserJoinEvent(roomId: string, event: MembershipEvent) {
+	private async handleUserJoinEvent(roomId: string, event: MembershipEvent) {
 		const userId = event.membershipFor;
 		log.info(`Got new user join event from ${userId} in ${roomId}...`);
 		const room = await this.bridge.roomSync.getPartsFromMxid(roomId);
@@ -166,7 +166,7 @@ export class MatrixEventHandler {
 		}
 	}
 
-	public async handleLeaveEvent(roomId: string, event: MembershipEvent) {
+	private async handleLeaveEvent(roomId: string, event: MembershipEvent) {
 		const userId = event.membershipFor;
 		log.info(`Got leave event from ${userId} in ${roomId}`);
 		if (this.bridge.AS.isNamespacedUser(userId)) {
@@ -196,7 +196,7 @@ export class MatrixEventHandler {
 		await this.bridge.unbridgeRoom(room);
 	}
 
-	public async handleRedactEvent(roomId: string, event: RedactionEvent) {
+	private async handleRedactEvent(roomId: string, event: RedactionEvent) {
 		log.info(`Got new redact from ${event.sender} in ${roomId}...`);
 		if (this.bridge.AS.isNamespacedUser(event.sender)) {
 			log.verbose("It was our own redact, ignoring...");
@@ -228,7 +228,7 @@ export class MatrixEventHandler {
 		}
 	}
 
-	public async handleMessageEvent(roomId: string, event: MessageEvent<MessageEventContent>) {
+	private async handleMessageEvent(roomId: string, event: MessageEvent<MessageEventContent>) {
 		if (this.bridge.AS.isNamespacedUser(event.sender)) {
 			return; // we don't handle things from our own namespace
 		}
@@ -275,7 +275,7 @@ export class MatrixEventHandler {
 		}
 	}
 
-	public async handleFileEvent(roomId: string, room: IRemoteRoom, event: MessageEvent<FileMessageEventContent>) {
+	private async handleFileEvent(roomId: string, room: IRemoteRoom, event: MessageEvent<FileMessageEventContent>) {
 		const msgtype = this.getMessageType(event);
 		log.info(`Handling file event with msgtype ${msgtype}...`);
 		const content = event.content;
@@ -326,7 +326,7 @@ export class MatrixEventHandler {
 		this.bridge.emit("message", room, textData, event);
 	}
 
-	public async handleTextEvent(roomId: string, room: IRemoteRoom, event: MessageEvent<TextualMessageEventContent>) {
+	private async handleTextEvent(roomId: string, room: IRemoteRoom, event: MessageEvent<TextualMessageEventContent>) {
 		const msgtype = this.getMessageType(event);
 		log.info(`Handling text event with msgtype ${msgtype}...`);
 		const content = event.content;
@@ -378,7 +378,7 @@ export class MatrixEventHandler {
 		this.bridge.emit("message", room, msgData, event);
 	}
 
-	public async handleInviteEvent(roomId: string, invite: MembershipEvent) {
+	private async handleInviteEvent(roomId: string, invite: MembershipEvent) {
 		const userId = invite.membershipFor;
 		const inviteId = invite.sender;
 		log.info(`Got invite event in ${roomId} (${inviteId} --> ${userId})`);
@@ -457,7 +457,7 @@ export class MatrixEventHandler {
 	}
 
 	// tslint:disable-next-line no-any
-	public async handleRoomQuery(alias: string, createRoom: any) {
+	private async handleRoomQuery(alias: string, createRoom: any) {
 		log.info(`Got room query for alias ${alias}`);
 		// we deny room creation and then create it later on ourself
 		await createRoom(false);
@@ -471,14 +471,14 @@ export class MatrixEventHandler {
 		await this.bridge.bridgeRoom(parts);
 	}
 
-	public getRoomDisplaynameCache(roomId: string): { [userId: string]: MembershipEventContent } {
+	private getRoomDisplaynameCache(roomId: string): { [userId: string]: MembershipEventContent } {
 		if (!(roomId in this.memberInfoCache)) {
 			this.memberInfoCache[roomId] = {};
 		}
 		return this.memberInfoCache[roomId];
 	}
 
-	public updateCachedRoomMemberInfo(roomId: string, userId: string, memberInfo: MembershipEventContent) {
+	private updateCachedRoomMemberInfo(roomId: string, userId: string, memberInfo: MembershipEventContent) {
 		// we need to clone this object as to not modify the original
 		const setInfo = Object.assign({}, memberInfo) as MembershipEventContent;
 		if (!setInfo.displayname) {
@@ -488,7 +488,7 @@ export class MatrixEventHandler {
 		this.getRoomDisplaynameCache(roomId)[userId] = setInfo;
 	}
 
-	public async getRoomMemberInfo(roomId: string, userId: string): Promise<MembershipEventContent> {
+	private async getRoomMemberInfo(roomId: string, userId: string): Promise<MembershipEventContent> {
 		const roomDisplaynameCache = this.getRoomDisplaynameCache(roomId);
 		if (userId in roomDisplaynameCache) {
 			return roomDisplaynameCache[userId];
@@ -501,7 +501,7 @@ export class MatrixEventHandler {
 
 	// we need the content to be any-type here, as the textual event content doesn't do m.new_content yet
 	// tslint:disable-next-line no-any
-	public async applyRelayFormatting(roomId: string, sender: string, content: any) {
+	private async applyRelayFormatting(roomId: string, sender: string, content: any) {
 		if (content["m.new_content"]) {
 			return this.applyRelayFormatting(roomId, sender, content["m.new_content"]);
 		}

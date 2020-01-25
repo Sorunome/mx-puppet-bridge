@@ -290,7 +290,7 @@ export class RemoteEventHandler {
 		}
 	}
 
-	public async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {
+	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {
 		log.verbose(`Maybe preparing send parameters`, params);
 		const mxid = await this.bridge.roomSync.maybeGetMxid(params.room);
 		if (!mxid) {
@@ -303,7 +303,7 @@ export class RemoteEventHandler {
 		return { client, mxid };
 	}
 
-	public async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
+	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
 		log.verbose(`Preparing send parameters`, params);
 		const puppetData = await this.bridge.provisioner.get(params.room.puppetId);
 		const puppetMxid = puppetData ? puppetData.puppetMxid : "";

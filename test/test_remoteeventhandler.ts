@@ -15,7 +15,7 @@ import { expect } from "chai";
 import * as proxyquire from "proxyquire";
 
 // we are a test file and thus our linting rules are slightly different
-// tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers
+// tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal
 
 interface IHandlerOpts {
 	enablePresence?: boolean;
@@ -274,7 +274,7 @@ describe("RemoteEventHandler", () => {
 	describe("SetUserTyping", () => {
 		it("should do nothing, if the user/room isn't found", async () => {
 			const handler = getHandler();
-			handler.maybePrepareSend = async (_) => null;
+			handler["maybePrepareSend"] = async (_) => null;
 			const params = {
 				user: {
 					userId: "nofox",
@@ -290,7 +290,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should set typing, if all checks out", async () => {
 			const handler = getHandler();
-			handler.maybePrepareSend = async (_) => {
+			handler["maybePrepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -313,7 +313,7 @@ describe("RemoteEventHandler", () => {
 	describe("sendReadReceipt", () => {
 		it("should do nothing, if the user/room isn't found", async () => {
 			const handler = getHandler();
-			handler.maybePrepareSend = async (_) => null;
+			handler["maybePrepareSend"] = async (_) => null;
 			const params = {
 				user: {
 					userId: "nofox",
@@ -330,7 +330,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should do nothing, if no event ID is set", async () => {
 			const handler = getHandler();
-			handler.maybePrepareSend = async (_) => {
+			handler["maybePrepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -351,7 +351,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should do nothing, if the set event ID isn't found", async () => {
 			const handler = getHandler();
-			handler.maybePrepareSend = async (_) => {
+			handler["maybePrepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -373,7 +373,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should send the read reciept, should all check out", async () => {
 			const handler = getHandler();
-			handler.maybePrepareSend = async (_) => {
+			handler["maybePrepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -397,7 +397,7 @@ describe("RemoteEventHandler", () => {
 	describe("sendMessage", () => {
 		it("should send a plain message", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -426,7 +426,7 @@ describe("RemoteEventHandler", () => {
 		it("should send notice and emote messages", async () => {
 			for (const type of ["notice", "emote"]) {
 				const handler = getHandler();
-				handler.prepareSend = async (_) => {
+				handler["prepareSend"] = async (_) => {
 					return {
 						client: getClient("@_puppet_1_fox:example.org"),
 						mxid: "!someroom:example.org",
@@ -456,7 +456,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should send a formatted body, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -487,7 +487,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should set an external URL, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -517,7 +517,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should associate the new event ID, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -544,7 +544,7 @@ describe("RemoteEventHandler", () => {
 	describe("sendEdit", () => {
 		it("should send a plain edit", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -582,7 +582,7 @@ describe("RemoteEventHandler", () => {
 		it("should send notice and emote edits", async () => {
 			for (const type of ["notice", "emote"]) {
 				const handler = getHandler();
-				handler.prepareSend = async (_) => {
+				handler["prepareSend"] = async (_) => {
 					return {
 						client: getClient("@_puppet_1_fox:example.org"),
 						mxid: "!someroom:example.org",
@@ -621,7 +621,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should send a formatted body, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -663,7 +663,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should set an external URL, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -703,7 +703,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should associate the new event ID, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -729,7 +729,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should fall back to normal messages, if the remote event isn't found", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -764,7 +764,7 @@ describe("RemoteEventHandler", () => {
 	describe("sendRedact", () => {
 		it("should do nothing, if no remote events are found", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -786,7 +786,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should redact an associated event", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -810,7 +810,7 @@ describe("RemoteEventHandler", () => {
 	describe("sendReply", () => {
 		it("should send a plain reply", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -845,7 +845,7 @@ describe("RemoteEventHandler", () => {
 		it("should send notice and emote replies", async () => {
 			for (const type of ["notice", "emote"]) {
 				const handler = getHandler();
-				handler.prepareSend = async (_) => {
+				handler["prepareSend"] = async (_) => {
 					return {
 						client: getClient("@_puppet_1_fox:example.org"),
 						mxid: "!someroom:example.org",
@@ -881,7 +881,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should send a formatted body, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -918,7 +918,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should set an external URL, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -954,7 +954,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should associate the new event ID, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -980,7 +980,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should fall back to normal messages, if the remote event isn't found", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -1011,7 +1011,7 @@ describe("RemoteEventHandler", () => {
 	describe("sendReaction", () => {
 		it("should pass the request on to the reaction handler", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -1036,7 +1036,7 @@ describe("RemoteEventHandler", () => {
 	describe("removeReaction", () => {
 		it("should pass the request on to the reaction handler", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -1061,7 +1061,7 @@ describe("RemoteEventHandler", () => {
 	describe("removeAllReactions", () => {
 		it("should pass the request on to the reaction handler", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -1086,7 +1086,7 @@ describe("RemoteEventHandler", () => {
 		it("should send a file by msgtype", async () => {
 			for (const msgtype of ["m.file", "m.image", "m.audio", "m.video"]) {
 				const handler = getHandler();
-				handler.prepareSend = async (_) => {
+				handler["prepareSend"] = async (_) => {
 					return {
 						client: getClient("@_puppet_1_fox:example.org"),
 						mxid: "!someroom:example.org",
@@ -1119,7 +1119,7 @@ describe("RemoteEventHandler", () => {
 		it("should autodetect the type, if specified", async () => {
 			for (const type of ["file", "audio", "image", "video"]) {
 				const handler = getHandler();
-				handler.prepareSend = async (_) => {
+				handler["prepareSend"] = async (_) => {
 					return {
 						client: getClient("@_puppet_1_fox:example.org"),
 						mxid: "!someroom:example.org",
@@ -1151,7 +1151,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should download a remote URL and set external_url, if set", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -1183,7 +1183,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should set a custom external URL, if set", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -1216,7 +1216,7 @@ describe("RemoteEventHandler", () => {
 		});
 		it("should associate an event ID, if present", async () => {
 			const handler = getHandler();
-			handler.prepareSend = async (_) => {
+			handler["prepareSend"] = async (_) => {
 				return {
 					client: getClient("@_puppet_1_fox:example.org"),
 					mxid: "!someroom:example.org",
@@ -1251,7 +1251,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			const ret = await handler.maybePrepareSend(params);
+			const ret = await handler["maybePrepareSend"](params);
 			expect(ret).to.be.null;
 		});
 		it("should return null if the user isn't found", async () => {
@@ -1266,7 +1266,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			const ret = await handler.maybePrepareSend(params);
+			const ret = await handler["maybePrepareSend"](params);
 			expect(ret).to.be.null;
 		});
 		it("should return client and mxid, if both are found", async () => {
@@ -1281,7 +1281,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			const ret = await handler.maybePrepareSend(params);
+			const ret = await handler["maybePrepareSend"](params);
 			expect(ret.mxid).to.equal("!someroom:example.org");
 			expect(await ret.client.getUserId()).to.equal("@_puppet_1_fox:example.org");
 		});
@@ -1299,7 +1299,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			const ret = await handler.prepareSend(params);
+			const ret = await handler["prepareSend"](params);
 			expect(ret.mxid).to.equal("!someroom:example.org");
 			expect(await ret.client.getUserId()).to.equal("@_puppet_1_fox:example.org");
 		});
@@ -1315,7 +1315,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			await handler.prepareSend(params);
+			await handler["prepareSend"](params);
 			expect(ROOM_SYNC_GET_MXID_INVITES.includes("@user:example.org")).to.be.true;
 		});
 		it("should set the bridge bot to invite, should we be the puppet", async () => {
@@ -1332,7 +1332,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			await handler.prepareSend(params);
+			await handler["prepareSend"](params);
 			expect(ROOM_SYNC_GET_MXID_INVITES.includes("@_puppet_bot:example.org")).to.be.true;
 		});
 		it("should join the ghost to rooms", async () => {
@@ -1347,7 +1347,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			await handler.prepareSend(params);
+			await handler["prepareSend"](params);
 			expect(INTENT_REGISTERED_AND_JOINED).to.equal("!someroom:example.org");
 		});
 		it("should apply room overrides for the ghost, if the room just got created", async () => {
@@ -1364,7 +1364,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			await handler.prepareSend(params);
+			await handler["prepareSend"](params);
 			expect(USER_SYNC_SET_ROOM_OVERRIDE).to.equal("fox;foxhole");
 		});
 		it("should delay-leave the ghost of the puppet", async () => {
@@ -1379,7 +1379,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			await handler.prepareSend(params);
+			await handler["prepareSend"](params);
 			await DELAYED_FUNCTION_SET();
 			expect(ROOMSYNC_MAYBE_LEAVE_GHOST).to.equal("@_puppet_1_puppet:example.org;!someroom:example.org");
 		});
@@ -1395,7 +1395,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			await handler.prepareSend(params);
+			await handler["prepareSend"](params);
 			expect(CLIENT_INVITE_USER).to.equal("@user:example.org;!someroom:example.org");
 		});
 		it("should auto-join the room, if double-puppeting is enabled", async () => {
@@ -1412,7 +1412,7 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
-			await handler.prepareSend(params);
+			await handler["prepareSend"](params);
 			expect(CLIENT_JOIN_ROOM).to.equal("!someroom:example.org");
 		});
 	});
