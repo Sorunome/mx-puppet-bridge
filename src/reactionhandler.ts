@@ -102,11 +102,11 @@ export class ReactionHandler {
 			log.warn("No original event found, ignoring...");
 			return; // nothing to do
 		}
-		const reactions = await this.reactionStore.getForEvent(params.room.puppetId, origEvent);
+		const reactions = await this.reactionStore.getForEvent(params.room.puppetId, eventId);
 		for (const reaction of reactions) {
 			await this.bridge.redactEvent(client, mxid, reaction.reactionMxid);
 		}
-		await this.reactionStore.deleteForEvent(eventId);
+		await this.reactionStore.deleteForEvent(params.room.puppetId, eventId);
 	}
 
 	public async addMatrix(room: IRemoteRoom, eventId: string, reactionMxid: string, key: string) {

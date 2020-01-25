@@ -99,8 +99,10 @@ export class DbReactionStore {
 		await this.db.Run("DELETE FROM reaction_store WHERE reaction_mxid = $reactionMxid", { reactionMxid });
 	}
 
-	public async deleteForEvent(eventId: string) {
-		await this.db.Run("DELETE FROM reaction_store WHERE event_id = $eventId", { eventId });
+	public async deleteForEvent(puppetId: number, eventId: string) {
+		await this.db.Run("DELETE FROM reaction_store WHERE puppet_id = $puppetId AND event_id = $eventId",
+			{ puppetId, eventId },
+		);
 	}
 
 	private getFromRow(row: ISqlRow | null): IReactionStoreEntry | null {
