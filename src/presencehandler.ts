@@ -38,7 +38,7 @@ export class PresenceHandler {
 		this.presenceQueue = [];
 	}
 
-	get queueCount(): number {
+	public get queueCount(): number {
 		return this.presenceQueue.length;
 	}
 
