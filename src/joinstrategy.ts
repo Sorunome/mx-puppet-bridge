@@ -32,11 +32,19 @@ export class PuppetBridgeJoinRoomStrategy implements IJoinRoomStrategy {
 			return await apiCall(roomIdOrAlias);
 		} catch (err) {
 			log.info("Attempting join strategy...");
+			let haveBotClient = false;
 			let client = await this.bridge.roomSync.getRoomOp(roomIdOrAlias);
 			if (!client) {
+				haveBotClient = true;
 				client = this.bridge.botIntent.underlyingClient;
 			}
 			const roomId = await client.resolveRoom(roomIdOrAlias);
+			if (haveBotClient) {
+				client = await this.bridge.roomSync.getRoomOp(roomId);
+				if (!client) {
+					client = this.bridge.botIntent.underlyingClient;
+				}
+			}
 			await client.inviteUser(userId, roomId);
 			if (this.underlyingStrategy) {
 				return this.underlyingStrategy.joinRoom(roomId, userId, apiCall);

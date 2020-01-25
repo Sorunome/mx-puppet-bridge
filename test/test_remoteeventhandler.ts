@@ -13,7 +13,6 @@ limitations under the License.
 
 import { expect } from "chai";
 import * as proxyquire from "proxyquire";
-import { RemoteEventHandler } from "../src/remoteeventhandler";
 
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers
@@ -196,7 +195,7 @@ function getHandler(opts?: IHandlerOpts) {
 					};
 				}
 				return null;
-			}
+			},
 		},
 		delayedFunction: {
 			set: (key, fn, timeout, opt) => {
