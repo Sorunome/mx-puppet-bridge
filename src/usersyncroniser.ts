@@ -117,7 +117,7 @@ export class UserSyncroniser {
 			const intent = this.bridge.AS.getIntentForSuffix(`${data.puppetId}_${Util.str2mxid(data.userId)}`);
 			await intent.ensureRegistered();
 			const client = intent.underlyingClient;
-			const updateProfile = await Util.processProfileUpdate(
+			const updateProfile = await Util.ProcessProfileUpdate(
 				oldProfile, data, this.bridge.protocol.namePatterns.user,
 				async (buffer: Buffer, mimetype?: string, filename?: string) => {
 					return await this.bridge.uploadContent(client, buffer, mimetype, filename);
@@ -276,7 +276,7 @@ export class UserSyncroniser {
 		try {
 			log.info(`Updating room override for puppet ${userData.puppetId} ${userData.userId} in ${roomId}`);
 			let user = await this.userStore.getRoomOverride(userData.puppetId, userData.userId, roomId);
-			const newRoomOverride = await Util.processProfileUpdate(
+			const newRoomOverride = await Util.ProcessProfileUpdate(
 				user, roomOverride, this.bridge.protocol.namePatterns.userOverride,
 				async (buffer: Buffer, mimetype?: string, filename?: string) => {
 					return await this.bridge.uploadContent(client, buffer, mimetype, filename);

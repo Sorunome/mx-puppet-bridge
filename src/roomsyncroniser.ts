@@ -117,7 +117,7 @@ export class RoomSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
-				const updateProfile = await Util.processProfileUpdate(
+				const updateProfile = await Util.ProcessProfileUpdate(
 					null, data, this.bridge.protocol.namePatterns.room,
 					async (buffer: Buffer, mimetype?: string, filename?: string) => {
 						return await this.bridge.uploadContent(client!, buffer, mimetype, filename);
@@ -179,7 +179,7 @@ export class RoomSyncroniser {
 				if (newClient) {
 					client = newClient;
 				}
-				const updateProfile = await Util.processProfileUpdate(
+				const updateProfile = await Util.ProcessProfileUpdate(
 					room, data, this.bridge.protocol.namePatterns.room,
 					async (buffer: Buffer, mimetype?: string, filename?: string) => {
 						return await this.bridge.uploadContent(client!, buffer, mimetype, filename);

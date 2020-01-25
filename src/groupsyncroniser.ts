@@ -138,7 +138,7 @@ export class GroupSyncroniser {
 				mxid = group.mxid;
 			}
 
-			const updateProfile = await Util.processProfileUpdate(
+			const updateProfile = await Util.ProcessProfileUpdate(
 				oldProfile, data, this.bridge.protocol.namePatterns.group,
 				async (buffer: Buffer, mimetype?: string, filename?: string) => {
 					return await this.bridge.uploadContent(client, buffer, mimetype, filename);

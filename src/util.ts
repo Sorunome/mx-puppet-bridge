@@ -172,7 +172,7 @@ export class Util {
 		}
 	}
 
-	public static async processProfileUpdate(
+	public static async ProcessProfileUpdate(
 		oldProfile: IProfileDbEntry | null,
 		newProfile: IRemoteProfile,
 		namePattern: string,
