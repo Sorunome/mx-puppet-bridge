@@ -189,7 +189,7 @@ export class DbRoomStore {
 		const data = this.newData(
 			row.mxid as string,
 			row.room_id as string,
-			row.puppet_id as number,
+			Number(row.puppet_id),
 		);
 		data.name = row.name as string | null;
 		data.avatarUrl = row.avatar_url as string | null;

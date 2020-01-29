@@ -203,7 +203,7 @@ export class DbUserStore {
 			return null;
 		}
 		const data = this.newRoomOverrideData(
-			row.puppet_id as number,
+			Number(row.puppet_id),
 			row.user_id as string,
 			row.room_id as string,
 		);
