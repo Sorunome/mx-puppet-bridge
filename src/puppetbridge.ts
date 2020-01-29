@@ -641,7 +641,7 @@ export class PuppetBridge extends EventEmitter {
 	 * Upload content to matrix, automatically de-duping it
 	 */
 	public async uploadContent(
-		client: MatrixClient,
+		client: MatrixClient | null,
 		thing: string | Buffer,
 		mimetype?: string,
 		filename?: string,
@@ -649,6 +649,9 @@ export class PuppetBridge extends EventEmitter {
 		let buffer: Buffer;
 		const locks: string[] = [];
 		try {
+			if (!client) {
+				client = this.botIntent.underlyingClient;
+			}
 			if (typeof thing === "string") {
 				await this.mxcLookupLock.wait(thing);
 				locks.push(thing);
