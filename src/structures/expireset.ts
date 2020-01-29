@@ -65,7 +65,7 @@ export class ExpireSet<T> {
 	}
 
 	private scheduleGc() {
-		if (this.nextGc) {
+		if (this.nextGc || this.db.size === 0) {
 			return;
 		}
 		let ts = -1;
