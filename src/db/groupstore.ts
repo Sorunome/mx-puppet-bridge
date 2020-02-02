@@ -35,7 +35,7 @@ export class DbGroupStore {
 			groupId,
 			puppetId,
 			roomIds: [],
-		} as IGroupStoreEntry;
+		};
 	}
 
 	public async getByRemote(
@@ -62,7 +62,7 @@ export class DbGroupStore {
 			"SELECT * FROM group_store WHERE puppet_id = $puppetId", {
 			puppetId,
 		});
-		const results = [] as IGroupStoreEntry[];
+		const results: IGroupStoreEntry[] = [];
 		for (const row of rows) {
 			const res = await this.getFromRow(row);
 			if (res) {

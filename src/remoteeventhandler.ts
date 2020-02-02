@@ -98,10 +98,10 @@ export class RemoteEventHandler {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const send = {
+		const send: TextualMessageEventContent = {
 			msgtype,
 			body: opts.body,
-		} as TextualMessageEventContent;
+		};
 		(send as any).source = "remote"; // tslint:disable-line no-any
 		if (opts.formattedBody) {
 			send.format = "org.matrix.custom.html";
@@ -267,16 +267,16 @@ export class RemoteEventHandler {
 			mimetype,
 			name,
 		);
-		const info = {
+		const info: FileWithThumbnailInfo = {
 			mimetype,
 			size: buffer.byteLength,
-		} as FileWithThumbnailInfo;
-		const sendData = {
+		};
+		const sendData: FileMessageEventContent = {
 			body: name,
 			info,
 			msgtype,
 			url: fileMxc,
-		} as FileMessageEventContent;
+		};
 		(sendData as any).source = "remote"; // tslint:disable-line no-any
 		if (typeof thing === "string") {
 			(sendData as any).external_url = thing; // tslint:disable-line no-any

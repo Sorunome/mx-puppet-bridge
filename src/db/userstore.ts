@@ -33,7 +33,7 @@ export class DbUserStore {
 		return {
 			puppetId,
 			userId,
-		} as IUserStoreEntry;
+		};
 	}
 
 	public async get(puppetId: number, userId: string): Promise<IUserStoreEntry | null> {
@@ -117,7 +117,7 @@ export class DbUserStore {
 			puppetId,
 			userId,
 			roomId,
-		} as IUserStoreRoomOverrideEntry;
+		};
 	}
 
 	public async getRoomOverride(

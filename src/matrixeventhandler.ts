@@ -282,12 +282,12 @@ export class MatrixEventHandler {
 		log.info(`Handling file event with msgtype ${msgtype}...`);
 		const content = event.content;
 		const url = this.bridge.getUrlFromMxc(content.url);
-		const data = {
+		const data: IFileEvent = {
 			filename: content.body,
 			mxc: content.url,
 			url,
 			eventId: event.eventId,
-		} as IFileEvent;
+		};
 		if (content.info) {
 			data.info = content.info;
 		}
@@ -320,11 +320,11 @@ export class MatrixEventHandler {
 		}
 		// okay, we need a fallback to sending text
 		log.debug("Emitting as text fallback...");
-		const textData = {
+		const textData: IMessageEvent = {
 			body: `New ${emitEvent}: ${data.url}`,
 			emote: false,
 			eventId: event.eventId,
-		} as IMessageEvent;
+		};
 		this.bridge.emit("message", room, textData, event);
 	}
 
@@ -332,12 +332,12 @@ export class MatrixEventHandler {
 		const msgtype = this.getMessageType(event);
 		log.info(`Handling text event with msgtype ${msgtype}...`);
 		const content = event.content;
-		const msgData = {
+		const msgData: IMessageEvent = {
 			body: content.body,
 			emote: msgtype === "m.emote",
 			notice: msgtype === "m.notice",
 			eventId: event.eventId,
-		} as IMessageEvent;
+		};
 		if (content.format) {
 			msgData.formattedBody = content.formatted_body;
 		}
@@ -348,13 +348,13 @@ export class MatrixEventHandler {
 				relate.event_id || relate["m.in_reply_to"].event_id))[0];
 			if (relEvent) {
 				if (this.bridge.protocol.features.edit && relate.rel_type === "m.replace") {
-					const newContent = event.content["m.new_content"] as TextualMessageEventContent;
-					const relData = {
+					const newContent: TextualMessageEventContent = event.content["m.new_content"];
+					const relData: IMessageEvent = {
 						body: newContent.body,
 						emote: newContent.msgtype === "m.emote",
 						notice: newContent.msgtype === "m.notice",
 						eventId: event.eventId,
-					} as IMessageEvent;
+					};
 					if (newContent.format) {
 						relData.formattedBody = newContent.formatted_body;
 					}

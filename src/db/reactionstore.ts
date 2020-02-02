@@ -110,12 +110,12 @@ export class DbReactionStore {
 			return null;
 		}
 		return {
-			puppetId: row.puppet_id as number,
+			puppetId: Number(row.puppet_id),
 			roomId: row.room_id as string,
 			userId: row.user_id as string,
 			eventId: row.event_id as string,
 			reactionMxid: row.reaction_mxid as string,
 			key: row.key as string,
-		} as IReactionStoreEntry;
+		};
 	}
 }

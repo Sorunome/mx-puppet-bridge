@@ -193,7 +193,7 @@ export class Util {
 		} else {
 			checkName = newProfile.name;
 		}
-		const result = {} as IProfileDbEntry;
+		const result: IProfileDbEntry = {};
 		if (oldProfile === null) {
 			log.verbose("No old profile exists, creating a new one");
 			if (checkName) {

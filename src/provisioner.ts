@@ -121,7 +121,7 @@ export class Provisioner {
 		return {
 			hsUrl,
 			token: info.token,
-		} as ITokenResponse;
+		};
 	}
 
 	public async setToken(mxid: string, token: string | null) {
@@ -195,7 +195,7 @@ export class Provisioner {
 
 	public async getDescMxid(puppetMxid: string): Promise<IProvisionerDesc[]> {
 		const datas = await this.getForMxid(puppetMxid);
-		const descs = [] as IProvisionerDesc[];
+		const descs: IProvisionerDesc[] = [];
 		for (const data of datas) {
 			descs.push(await this.getDescFromData(data));
 		}
@@ -207,12 +207,12 @@ export class Provisioner {
 			return {
 				puppetId: data.puppetId,
 				desc: `${data.puppetMxid} (${data.puppetId})`,
-			} as IProvisionerDesc;
+			};
 		}
 		return {
 			puppetId: data.puppetId,
 			desc: await this.bridge.hooks.getDesc(data.puppetId, data.data),
-		} as IProvisionerDesc;
+		};
 	}
 
 	private isWhitelisted(mxid: string, whitelist: string[], blacklist: string[]): boolean {

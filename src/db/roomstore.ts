@@ -38,7 +38,7 @@ export class DbRoomStore {
 			mxid,
 			roomId,
 			puppetId,
-		} as IRoomStoreEntry;
+		};
 	}
 
 	public async getByRemote(puppetId: number, roomId: string): Promise<IRoomStoreEntry | null> {
@@ -59,7 +59,7 @@ export class DbRoomStore {
 			"SELECT * FROM chan_store WHERE puppet_id = $puppet_id", {
 			puppet_id: puppetId,
 		});
-		const results = [] as IRoomStoreEntry[];
+		const results: IRoomStoreEntry[] = [];
 		for (const row of rows) {
 			const res = this.getFromRow(row);
 			if (res) {

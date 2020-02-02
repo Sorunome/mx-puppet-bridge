@@ -35,14 +35,14 @@ export class ReactionHandler {
 			return; // nothing to do
 		}
 		// okay, let's create a dummy entry and check if the reaction exists already
-		const entry = {
+		const entry: IReactionStoreEntry = {
 			puppetId: params.room.puppetId,
 			roomId: params.room.roomId,
 			userId: params.user.userId,
 			eventId,
 			reactionMxid: "", // to fill in later
 			key,
-		} as IReactionStoreEntry;
+		};
 		if (await this.reactionStore.exists(entry)) {
 			log.warn("Reaction already exists, ignoring...");
 			return;
@@ -76,14 +76,14 @@ export class ReactionHandler {
 			return; // nothing to do
 		}
 		// okay, let's fetch the reaction from the DB
-		const entry = {
+		const entry: IReactionStoreEntry = {
 			puppetId: params.room.puppetId,
 			roomId: params.room.roomId,
 			userId: params.user.userId,
 			eventId,
 			reactionMxid: "", // to fill in later
 			key,
-		} as IReactionStoreEntry;
+		};
 		const reaction = await this.reactionStore.getFromKey(entry);
 		if (!reaction) {
 			log.warn("Reaction not found, ignoring...");
@@ -115,14 +115,14 @@ export class ReactionHandler {
 			return;
 		}
 		log.info(`Got reaction from matrix in room ${room.roomId} to add...`);
-		const entry = {
+		const entry: IReactionStoreEntry = {
 			puppetId: room.puppetId,
 			roomId: room.roomId,
 			userId: puppet.userId,
 			eventId,
 			reactionMxid,
 			key,
-		} as IReactionStoreEntry;
+		};
 		await this.reactionStore.insert(entry);
 	}
 

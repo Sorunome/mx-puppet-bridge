@@ -59,9 +59,10 @@ export class DbPuppetStore {
 			puppetMxid,
 			name: row.name as string | null,
 			avatarMxc: row.avatar_mxc as string | null,
+			avatarUrl: null,
 			token: row.token as string | null,
 			statusRoom: row.status_room as string | null,
-		} as IMxidInfo;
+		};
 	}
 
 	public async getOrCreateMxidInfo(puppetMxid: string): Promise<IMxidInfo> {
@@ -72,13 +73,14 @@ export class DbPuppetStore {
 			this.mxidInfoLock.release(puppetMxid);
 			return puppet;
 		}
-		const p = {
+		const p: IMxidInfo = {
 			puppetMxid,
 			name: null,
 			avatarMxc: null,
+			avatarUrl: null,
 			token: null,
 			statusRoom: null,
-		} as IMxidInfo;
+		};
 		await this.setMxidInfo(p);
 		this.mxidInfoLock.release(puppetMxid);
 		return p;
@@ -119,7 +121,7 @@ export class DbPuppetStore {
 	}
 
 	public async getAll(): Promise<IPuppet[]> {
-		const result = [] as IPuppet[];
+		const result: IPuppet[] = [];
 		const rows = await this.db.All("SELECT * FROM puppet_store");
 		for (const r of rows) {
 			const res = this.getRow(r);
@@ -131,7 +133,7 @@ export class DbPuppetStore {
 	}
 
 	public async getForMxid(puppetMxid: string): Promise<IPuppet[]> {
-		const result = [] as IPuppet[];
+		const result: IPuppet[] = [];
 		const rows = await this.db.All("SELECT * FROM puppet_store WHERE puppet_mxid=$mxid", { mxid: puppetMxid });
 		for (const r of rows) {
 			const res = this.getRow(r);
@@ -229,7 +231,7 @@ export class DbPuppetStore {
 	}
 
 	public async getGhostsInRoom(room: string): Promise<string[]> {
-		const result = [] as string[];
+		const result: string[] = [];
 		const rows = await this.db.All("SELECT * FROM ghosts_joined_chans WHERE chan_mxid = $room", { room });
 		for (const r of rows) {
 			result.push(r.ghost_mxid as string);
@@ -238,7 +240,7 @@ export class DbPuppetStore {
 	}
 
 	public async getRoomsOfGhost(ghost: string): Promise<string[]> {
-		const result = [] as string[];
+		const result: string[] = [];
 		const rows = await this.db.All("SELECT * FROM ghosts_joined_chans WHERE ghost_mxid = $ghost", { ghost });
 		for (const r of rows) {
 			result.push(r.chan_mxid as string);
@@ -261,11 +263,11 @@ export class DbPuppetStore {
 	private getRow(row: ISqlRow): IPuppet | null {
 		try {
 			return {
-				puppetId: row.puppet_id as number,
+				puppetId: Number(row.puppet_id),
 				puppetMxid: row.puppet_mxid as string,
 				data: JSON.parse(row.data as string),
 				userId: row.user_id as string | null,
-			} as IPuppet;
+			};
 		} catch (err) {
 			log.warn(`Unable to decode json data:${err} on puppet ${row.puppet_id}`);
 			return null;

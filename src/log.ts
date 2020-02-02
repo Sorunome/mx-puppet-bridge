@@ -63,18 +63,16 @@ export class Log {
 			if (typeof module === "string") {
 				allEnabled.push(module);
 			} else {
-				const mod = module as LoggingInterfaceModuleConfig;
-				allEnabled.push(mod.module);
-				enhancedEnabled[mod.module] = mod;
+				allEnabled.push(module.module);
+				enhancedEnabled[module.module] = module;
 			}
 		}
 		for (const module of config.disabled) {
 			if (typeof module === "string") {
 				allDisabled.push(module);
 			} else {
-				const mod = module as LoggingInterfaceModuleConfig;
-				allDisabled.push(mod.module);
-				enhancedDisabled[mod.module] = mod;
+				allDisabled.push(module.module);
+				enhancedDisabled[module.module] = module;
 			}
 		}
 		const doEnabled = allEnabled.length > 0;

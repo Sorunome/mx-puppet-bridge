@@ -125,7 +125,7 @@ export class PuppetBridge extends EventEmitter {
 				namePatterns: Object.assign({ user: "", userOverride: "", room: "", group: "" }, prot.namePatterns),
 			};
 		}
-		this.hooks = {} as IPuppetBridgeHooks;
+		this.hooks = {};
 		this.delayedFunction = new DelayedFunction();
 		this.mxcLookupLock = new Lock(MXC_LOOKUP_LOCK_TIMEOUT);
 	}
@@ -303,7 +303,7 @@ export class PuppetBridge extends EventEmitter {
 			homeserverName: this.config.bridge.domain,
 			homeserverUrl: this.config.bridge.homeserverUrl,
 			port: this.config.bridge.port,
-			registration: registration as IAppserviceRegistration,
+			registration: registration,
 			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
 		this.matrixEventHandler.registerAppserviceEvents();
@@ -534,16 +534,16 @@ export class PuppetBridge extends EventEmitter {
 		// okay, let's see if we can fetch the profile
 		try {
 			const ret = await this.botIntent.underlyingClient.getUserProfile(puppetMxid);
-			const p = {
-				puppetMxid,
-				name: ret.displayname || null,
-				avatarMxc: ret.avatar_url,
-				token: null,
-			} as IMxidInfo;
-			await this.store.puppetStore.setMxidInfo(p);
-			if (p.avatarMxc) {
-				p.avatarUrl = this.getUrlFromMxc(p.avatarMxc);
+			const p = await this.store.puppetStore.getOrCreateMxidInfo(puppetMxid);
+			p.name = ret.displayname || null;
+			if (ret.avatar_url) {
+				p.avatarMxc = ret.avatar_url;
+				p.avatarUrl = this.getUrlFromMxc(ret.avatar_url);
+			} else {
+				p.avatarMxc = null;
+				p.avatarUrl = null;
 			}
+			await this.store.puppetStore.setMxidInfo(p);
 			return p;
 		} catch (err) {
 			return null;

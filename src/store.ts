@@ -164,7 +164,7 @@ export class Store {
 		try {
 			// insecurely adding the table as it is in-code
 			const versionReply = await this.db.Get(`SELECT version FROM ${table}`);
-			version = versionReply!.version as number;
+			version = Number(versionReply!.version);
 		} catch (er) {
 			log.warn("Couldn't fetch schema version, defaulting to 0");
 		}

@@ -266,11 +266,11 @@ export class RoomSyncroniser {
 		const lockKey = `${roomData.puppetId};${roomData.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
-		const entry = {
+		const entry: IRoomStoreEntry = {
 			mxid,
 			roomId: roomData.roomId,
 			puppetId: roomData.puppetId,
-		} as IRoomStoreEntry;
+		};
 		await this.roomStore.set(entry);
 		this.mxidLock.release(lockKey);
 	}
@@ -358,7 +358,7 @@ export class RoomSyncroniser {
 			return {
 				roomId: room.roomId,
 				puppetId: room.puppetId,
-			} as IRemoteRoom;
+			};
 		}
 		const suffix = this.bridge.AS.getSuffixForAlias(mxid);
 		if (!suffix) {
