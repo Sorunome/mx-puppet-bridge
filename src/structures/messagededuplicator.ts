@@ -32,12 +32,10 @@ export class MessageDeduplicator {
 		this.authorIds = new ExpireSet(ldt);
 	}
 
-	public lock(roomId: string, authorId?: string, message?: string) {
+	public lock(roomId: string, authorId: string, message?: string) {
 		this.locks.set(roomId);
-		if (authorId) {
-			this.authorIds.add(authorId);
-		}
-		if (authorId && message) {
+		this.authorIds.add(authorId);
+		if (message) {
 			this.data.add(`${roomId};${authorId};m:${message}`);
 		}
 	}
@@ -52,20 +50,20 @@ export class MessageDeduplicator {
 		this.locks.release(roomId);
 	}
 
-	public async dedupe(roomId: string, authorId?: string, eventId?: string, message?: string): Promise<boolean> {
-		if (authorId && !this.authorIds.has(authorId)) {
+	public async dedupe(roomId: string, authorId: string, eventId?: string, message?: string): Promise<boolean> {
+		if (!this.authorIds.has(authorId)) {
 			return false;
 		}
 		await this.locks.wait(roomId);
 		let returnValue = false;
-		if (authorId && eventId) {
+		if (eventId) {
 			const key = `${roomId};${authorId};e:${eventId}`;
 			if (this.data.has(key)) {
 				this.data.delete(key);
 				returnValue = true;
 			}
 		}
-		if (authorId && message) {
+		if (message) {
 			const key = `${roomId};${authorId};m:${message}`;
 			if (this.data.has(key)) {
 				this.data.delete(key);

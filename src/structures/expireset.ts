@@ -50,6 +50,7 @@ export class ExpireSet<T> {
 
 	public delete(value: T) {
 		this.db.delete(value);
+		this.scheduleGc(true);
 		return this;
 	}
 
@@ -64,8 +65,12 @@ export class ExpireSet<T> {
 		this.scheduleGc();
 	}
 
-	private scheduleGc() {
-		if (this.nextGc || this.db.size === 0) {
+	private scheduleGc(force: boolean = false) {
+		if (force && this.nextGc) {
+			clearTimeout(this.nextGc);
+			this.nextGc = null;
+		}
+		if (this.nextGc !== null || this.db.size === 0) {
 			return;
 		}
 		let ts = -1;
