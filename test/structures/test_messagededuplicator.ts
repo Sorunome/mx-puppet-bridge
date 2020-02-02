@@ -118,6 +118,6 @@ describe("MessageDeduplicator", () => {
 			}, 75);
 			const ret = await dedupe.dedupe("room", "author", "event", "hello world");
 			expect(ret).to.be.true;
-		})
+		});
 	});
 });

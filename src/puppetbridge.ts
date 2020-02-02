@@ -303,7 +303,7 @@ export class PuppetBridge extends EventEmitter {
 			homeserverName: this.config.bridge.domain,
 			homeserverUrl: this.config.bridge.homeserverUrl,
 			port: this.config.bridge.port,
-			registration: registration,
+			registration,
 			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
 		this.matrixEventHandler.registerAppserviceEvents();

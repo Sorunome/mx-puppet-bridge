@@ -62,7 +62,7 @@ export class Provisioner {
 	}
 
 	public async loginWithSharedSecret(mxid: string): Promise<string | null> {
-		const homeserver = mxid.split(":")[1];
+		const homeserver = mxid.substring(mxid.indexOf(":") + 1);
 		const sharedSecret = this.bridge.config.bridge.loginSharedSecretMap[homeserver];
 		if (!sharedSecret) {
 			// Shared secret login not enabled for this homeserver.
@@ -70,7 +70,7 @@ export class Provisioner {
 		}
 
 		const hmac = createHmac("sha512", sharedSecret);
-		const password = hmac.update(new Buffer(mxid, "utf-8")).digest("hex");
+		const password = hmac.update(Buffer.from(mxid, "utf-8")).digest("hex");
 
 		const homeserverUrl = await this.getHsUrl(mxid);
 		const auth = new MatrixAuth(homeserverUrl);
@@ -86,7 +86,7 @@ export class Provisioner {
 
 	public async getHsUrl(mxid: string): Promise<string> {
 		log.verbose(`Looking up Homserver URL for mxid ${mxid}...`);
-		let hsUrl = mxid.split(":")[1];
+		let hsUrl = mxid.substring(mxid.indexOf(":") + 1);
 		if (this.bridge.config.homeserverUrlMap[hsUrl]) {
 			hsUrl = this.bridge.config.homeserverUrlMap[hsUrl];
 			log.verbose(`Override to ${hsUrl}`);
@@ -100,7 +100,10 @@ export class Provisioner {
 		try {
 			const wellKnownStr = (await Util.DownloadFile(hsUrl + "/.well-known/matrix/client")).toString("utf-8");
 			const wellKnown = JSON.parse(wellKnownStr);
-			hsUrl = wellKnown["m.homeserver"].base_url;
+			const maybeUrl = wellKnown["m.homeserver"].base_url;
+			if (typeof maybeUrl === "string") {
+				hsUrl = maybeUrl;
+			}
 		} catch (err) { } // do nothing
 		log.verbose(`Resolved to ${hsUrl}`);
 		return hsUrl;
