@@ -174,19 +174,14 @@ export class BotProvisioner {
 							}
 							await (this.commands[name].fn as PidCommandFn)(pid, p, sendMessage);
 						} else {
-							await (this.commands[name].fn as FullCommandFn)(sender, param, sendMessage);
+							await (this.commands[name].fn as FullCommandFn)(sender, param || "", sendMessage);
 						}
 						break;
 					}
 				}
 				if (!handled) {
-					const commands = ["help", "link", "unlink", "relink"];
-					for (const name in this.commands) {
-						if (this.commands.hasOwnProperty(name)) {
-							commands.push(name);
-						}
-					}
-					await this.sendMessage(roomId, "Available commands: " + commands.join(", "));
+					await this.sendMessage(roomId, "Command not found! Please type `help` to see a list of" +
+						" all commands or `help <command>` to get help on a specific command.");
 				}
 			}
 		}
@@ -244,6 +239,32 @@ export class BotProvisioner {
 	}
 
 	private registerDefaultCommands() {
+		this.registerCommand("help", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				param = param.trim();
+				if (!param) {
+					const commands = ["`help`", "`link`", "`unlink`", "`relink`"];
+					for (const name in this.commands) {
+						if (this.commands.hasOwnProperty(name)) {
+							commands.push(`\`${name}\``);
+						}
+					}
+					const msg = `Available commands: ${commands.join(", ")}\n\nType \`help <command>\` to get more help on them.`;
+					await sendMessage(msg);
+					return;
+				}
+				// alright, let's display some help!
+				if (!this.commands[param]) {
+					await sendMessage(`Command \`${param}\` not found!`);
+					return;
+				}
+				await sendMessage(this.commands[param].help);
+			},
+			help: `List all commands and optionally get help on specific ones.
+
+Usage: \`help\`, \`help <command>\``,
+			withPid: false,
+		});
 		this.registerCommand("list", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
 				const descs = await this.provisioner.getDescMxid(sender);
@@ -262,7 +283,9 @@ export class BotProvisioner {
 				}
 				await sendMessage(sendStr);
 			},
-			help: "List all set links",
+			help: `List all set links along with their information.
+
+Usage: \`list\``,
 			withPid: false,
 		});
 		this.registerCommand("setmatrixtoken", {
@@ -285,7 +308,9 @@ export class BotProvisioner {
 				await this.provisioner.setToken(sender, token);
 				await sendMessage(`Set matrix token`);
 			},
-			help: "Sets a matrix token to enable double-puppeting",
+			help: `Sets a matrix token to enable double-puppeting.
+
+Usage: \`setmatrixtoken <token>\``,
 			withPid: false,
 		});
 		this.registerCommand("listusers", {
@@ -323,7 +348,9 @@ export class BotProvisioner {
 				}
 				await sendMessage(reply);
 			},
-			help: "Lists all users that are linked",
+			help: `Lists all users that are linked currently, from all links.
+
+Usage: \`listusers\``,
 			withPid: false,
 		});
 		this.registerCommand("listrooms", {
@@ -361,7 +388,9 @@ export class BotProvisioner {
 				}
 				await sendMessage(reply);
 			},
-			help: "List all rooms that are linked",
+			help: `List all rooms that are linked currently, from all links.
+
+Usage: \`listrooms\``,
 			withPid: false,
 		});
 	}
