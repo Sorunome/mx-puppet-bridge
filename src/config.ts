@@ -38,6 +38,7 @@ class BridgeConfig {
 	public port: number;
 	public domain: string;
 	public homeserverUrl: string;
+	public mediaUrl: string;
 	public loginSharedSecretMap: {[homeserver: string]: string} = {};
 	public displayname?: string;
 	public avatarUrl?: string;

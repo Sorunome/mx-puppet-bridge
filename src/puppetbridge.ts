@@ -499,8 +499,19 @@ export class PuppetBridge extends EventEmitter {
 	/**
 	 * Get the URL from an MXC uri
 	 */
-	public getUrlFromMxc(mxc: string): string {
-		return `${this.config.bridge.homeserverUrl}/_matrix/media/v1/download/${mxc.substring("mxc://".length)}`;
+	public getUrlFromMxc(mxc: string, width?: number, height?: number, method?: string): string {
+		const baseUrl = this.config.bridge.mediaUrl || this.config.bridge.homeserverUrl;
+		const mxcPath = mxc.substring("mxc://".length);
+		if (!width || !height) {
+			return `${baseUrl}/_matrix/media/r0/download/${mxcPath}`;
+		}
+		if (!method) {
+			method = "crop";
+		}
+		const widthUri = encodeURIComponent(width);
+		const heightUri = encodeURIComponent(height);
+		method = encodeURIComponent(method);
+		return `${baseUrl}/_matrix/media/r0/thumbnail/${mxcPath}?width=${widthUri}&height=${heightUri}&method=${method}`;
 	}
 
 	/**
