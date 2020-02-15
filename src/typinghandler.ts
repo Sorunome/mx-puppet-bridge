@@ -13,20 +13,34 @@ limitations under the License.
 
 import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
+import { ExpireSet } from "./structures/expireset";
 
 const log = new Log("TypingHandler");
 
 export class TypingHandler {
+	private typingUsers: ExpireSet<string>;
 	constructor(
 		private bridge: PuppetBridge,
 		private timeout: number,
-	) { }
+	) {
+		this.typingUsers = new ExpireSet(this.timeout);
+	}
 
 	public async set(mxid: string, roomId: string, typing: boolean) {
 		if (!this.handled(mxid)) {
 			return;
 		}
 		log.verbose(`Updating typing for ${mxid} in room ${roomId} to ${typing}`);
+		const key = `${mxid};${roomId}`;
+		if (typing) {
+			this.typingUsers.add(key);
+		} else {
+			if (!this.typingUsers.has(key)) {
+				// we weren't typing anyways
+				return;
+			}
+			this.typingUsers.delete(key);
+		}
 		try {
 			const intent = this.bridge.AS.getIntentForUserId(mxid);
 			await intent.ensureRegistered();

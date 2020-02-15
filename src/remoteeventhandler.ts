@@ -114,6 +114,8 @@ export class RemoteEventHandler {
 		if (matrixEventId && params.eventId) {
 			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
+		// aaand stop typing
+		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
 	}
 
 	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
@@ -167,6 +169,8 @@ export class RemoteEventHandler {
 		if (matrixEventId && params.eventId) {
 			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
+		// aaand stop typing
+		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
 	}
 
 	public async sendRedact(params: IReceiveParams, eventId: string) {
@@ -215,6 +219,8 @@ export class RemoteEventHandler {
 		if (matrixEventId && params.eventId) {
 			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
+		// aaand stop typing
+		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
 	}
 
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
@@ -288,6 +294,8 @@ export class RemoteEventHandler {
 		if (matrixEventId && params.eventId) {
 			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
+		// aaand stop typing
+		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
 	}
 
 	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {

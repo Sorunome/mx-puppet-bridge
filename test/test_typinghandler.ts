@@ -13,6 +13,7 @@ limitations under the License.
 
 import { expect } from "chai";
 import { TypingHandler } from "../src/typinghandler";
+import { Util } from "../src/util";
 
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal
@@ -46,6 +47,8 @@ function getIntent(userId) {
 }
 
 function getHandler() {
+	getIntent("");
+	getClient("");
 	const bridge = {
 		AS: {
 			isNamespacedUser: (userId) => userId.startsWith("@_puppet"),
@@ -80,6 +83,25 @@ describe("TypingHandler", () => {
 				typing: true,
 				timeout: 50,
 			});
+		});
+		it("should do nothing if the user isn't typing anyways", async () => {
+			const handler = getHandler();
+			const mxid = "@_puppet_1_fox:example.org";
+			const roomId = "!someroom:example.org";
+			const typing = false;
+			await handler.set(mxid, roomId, typing);
+			expect(CLIENT_REQUEST_METHOD).to.equal("");
+		});
+		it("should do nothing, if the typing user timeouts", async () => {
+			const handler = getHandler();
+			const mxid = "@_puppet_1_fox:example.org";
+			const roomId = "!someroom:example.org";
+			await handler.set(mxid, roomId, true);
+			expect(CLIENT_REQUEST_METHOD).to.equal("PUT");
+			getClient("");
+			await Util.sleep(55);
+			await handler.set(mxid, roomId, false);
+			expect(CLIENT_REQUEST_METHOD).to.equal("");
 		});
 	});
 	describe("handled", () => {

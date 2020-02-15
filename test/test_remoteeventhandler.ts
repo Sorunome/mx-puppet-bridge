@@ -540,6 +540,30 @@ describe("RemoteEventHandler", () => {
 			await handler.sendMessage(params, msg);
 			expect(EVENT_STORE_INSERT).to.equal("1;$newevent;newevent");
 		});
+		it("should stop the typing indicator", async () => {
+			const handler = getHandler();
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const msg = {
+				body: "Hey there!",
+			} as any;
+			await handler.sendMessage(params, msg);
+			expect(TYPING_HANDLER_SET).to.equal("@_puppet_1_fox:example.org;!someroom:example.org;false");
+		});
 	});
 	describe("sendEdit", () => {
 		it("should send a plain edit", async () => {
@@ -759,6 +783,31 @@ describe("RemoteEventHandler", () => {
 					body: "Hey there!",
 				},
 			});
+		});
+		it("should stop the typing indicator", async () => {
+			const handler = getHandler();
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const msg = {
+				body: "Hey there!",
+			} as any;
+			await handler.sendEdit(params, eventId, msg);
+			expect(TYPING_HANDLER_SET).to.equal("@_puppet_1_fox:example.org;!someroom:example.org;false");
 		});
 	});
 	describe("sendRedact", () => {
@@ -1007,6 +1056,31 @@ describe("RemoteEventHandler", () => {
 				source: "remote",
 			});
 		});
+		it("should stop the typing indicator", async () => {
+			const handler = getHandler();
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const msg = {
+				body: "Hey there!",
+			} as any;
+			await handler.sendReply(params, eventId, msg);
+			expect(TYPING_HANDLER_SET).to.equal("@_puppet_1_fox:example.org;!someroom:example.org;false");
+		});
 	});
 	describe("sendReaction", () => {
 		it("should pass the request on to the reaction handler", async () => {
@@ -1236,6 +1310,28 @@ describe("RemoteEventHandler", () => {
 			const thing = "image/jpeg";
 			await handler.sendFileByType("detect", params, thing);
 			expect(EVENT_STORE_INSERT).to.equal("1;$newevent;newevent");
+		});
+		it("should stop the typing indicator", async () => {
+			const handler = getHandler();
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const thing = Buffer.from("myfile");
+			await handler.sendFileByType("m.file", params, thing);
+			expect(TYPING_HANDLER_SET).to.equal("@_puppet_1_fox:example.org;!someroom:example.org;false");
 		});
 	});
 	describe("maybePrepareSend", () => {

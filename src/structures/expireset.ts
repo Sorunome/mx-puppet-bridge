@@ -49,8 +49,10 @@ export class ExpireSet<T> {
 	}
 
 	public delete(value: T) {
-		this.db.delete(value);
-		this.scheduleGc(true);
+		if (this.db.has(value)) {
+			this.db.delete(value);
+			this.scheduleGc(true);
+		}
 		return this;
 	}
 
