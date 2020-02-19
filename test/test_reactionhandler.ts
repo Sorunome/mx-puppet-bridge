@@ -46,6 +46,9 @@ function getHandler() {
 	BRIDGE_REDACT_EVENT = "";
 	BRIDGE_EVENTS_EMITTED = [];
 	const bridge = {
+		protocol: {
+			id: "remote",
+		},
 		emit: (type) => {
 			BRIDGE_EVENTS_EMITTED.push(type);
 		},

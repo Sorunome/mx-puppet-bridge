@@ -91,6 +91,7 @@ function getHandler(opts?: IHandlerOpts) {
 	DELAYED_FUNCTION_SET = async () => {};
 	const bridge = {
 		protocol: {
+			id: "remote",
 			features: {
 				presence: opts.enablePresence,
 			},

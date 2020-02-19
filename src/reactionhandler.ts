@@ -49,7 +49,7 @@ export class ReactionHandler {
 		}
 		// this type needs to be any-type, as the interfaces don't do reactions yet
 		const send = {
-			"source": "remote",
+			"source": this.bridge.protocol.id,
 			"m.relates_to": {
 				rel_type: "m.annotation",
 				event_id: origEvent,

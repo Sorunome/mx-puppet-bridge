@@ -102,7 +102,7 @@ export class RemoteEventHandler {
 			msgtype,
 			body: opts.body,
 		};
-		(send as any).source = "remote"; // tslint:disable-line no-any
+		(send as any).source = this.bridge.protocol.id; // tslint:disable-line no-any
 		if (opts.formattedBody) {
 			send.format = "org.matrix.custom.html";
 			send.formatted_body = opts.formattedBody;
@@ -141,7 +141,7 @@ export class RemoteEventHandler {
 		const send = {
 			"msgtype": msgtype,
 			"body": `* ${opts.body}`,
-			"source": "remote",
+			"source": this.bridge.protocol.id,
 			"m.new_content": {
 				body: opts.body,
 				msgtype,
@@ -197,7 +197,7 @@ export class RemoteEventHandler {
 		const send = {
 			msgtype,
 			body: opts.body,
-			source: "remote",
+			source: this.bridge.protocol.id,
 		} as any; // tslint:disable-line no-any
 		if (origEvent) {
 			send["m.relates_to"] = {
@@ -283,7 +283,7 @@ export class RemoteEventHandler {
 			msgtype,
 			url: fileMxc,
 		};
-		(sendData as any).source = "remote"; // tslint:disable-line no-any
+		(sendData as any).source = this.bridge.protocol.id; // tslint:disable-line no-any
 		if (typeof thing === "string") {
 			(sendData as any).external_url = thing; // tslint:disable-line no-any
 		}

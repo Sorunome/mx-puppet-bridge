@@ -91,6 +91,7 @@ function getHandler(opts?: IHandlerOpts) {
 			createRoom: opts!.createRoomHook || true,
 		} : {},
 		protocol: {
+			id: "remote",
 			features: {
 				image: opts!.featureImage || false,
 				audio: opts!.featureAudio || false,

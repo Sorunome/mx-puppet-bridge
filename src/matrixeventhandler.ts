@@ -215,7 +215,7 @@ export class MatrixEventHandler {
 			return; // this isn't our puppeted user, so let's not do anything
 		}
 		// tslint:disable-next-line no-any
-		if ((event.content as any).source === "remote") {
+		if ((event.content as any).source === this.bridge.protocol.id) {
 			log.verbose("Dropping event due to de-duping...");
 			return;
 		}
@@ -265,7 +265,7 @@ export class MatrixEventHandler {
 
 		// we use a custom property "source" on the content
 		// tslint:disable-next-line no-any
-		if ((event.content as any).source === "remote") {
+		if ((event.content as any).source === this.bridge.protocol.id) {
 			log.verbose("Dropping event due to de-duping...");
 			return;
 		}
