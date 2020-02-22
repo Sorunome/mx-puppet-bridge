@@ -23,8 +23,12 @@ const UNAUTHORIZED = 401;
 const FORBIDDEN = 403;
 const NOT_IMPLEMENTED = 501;
 
-export interface IPuppetWithDescription extends IPuppet {
+interface IPuppetWithDescription extends IPuppet {
 	description: string | null;
+}
+
+interface IAuthedRequest extends Request {
+	userId: string;
 }
 
 export class ProvisioningAPI {
@@ -52,7 +56,7 @@ export class ProvisioningAPI {
 		return this.apiRouterV1;
 	}
 
-	private async checkProvisioningSharedSecret(req: Request, res: Response, next: () => void) {
+	private async checkProvisioningSharedSecret(req: IAuthedRequest, res: Response, next: () => void) {
 		if (!this.apiSharedSecret) {
 			res.status(FORBIDDEN).json({
 				error: "The provisioning API is disabled",
@@ -69,12 +73,13 @@ export class ProvisioningAPI {
 				errcode: "M_BAD_REQUEST",
 			});
 		} else {
+			req.userId = req.query.user_id;
 			next();
 		}
 	}
 
-	private async status(req: Request, res: Response) {
-		const puppets = await this.bridge.provisioner.getForMxid(req.query.user_id) as IPuppetWithDescription[];
+	private async status(req: IAuthedRequest, res: Response) {
+		const puppets = await this.bridge.provisioner.getForMxid(req.userId) as IPuppetWithDescription[];
 		if (this.bridge.hooks.getDesc) {
 			for (const data of puppets) {
 				data.description = await this.bridge.hooks.getDesc(data.puppetId, data.data);
@@ -83,21 +88,21 @@ export class ProvisioningAPI {
 		res.json({
 			puppets,
 			permissions: {
-				create: this.bridge.provisioner.canCreate(req.query.user_id),
-				relay: this.bridge.provisioner.canRelay(req.query.user_id),
+				create: this.bridge.provisioner.canCreate(req.userId),
+				relay: this.bridge.provisioner.canRelay(req.userId),
 			},
 		});
 	}
 
-	private async link(req: Request, res: Response) {
-		const puppetId = await this.bridge.provisioner.new(req.query.user_id, req.body.data, req.body.remote_user_id);
+	private async link(req: IAuthedRequest, res: Response) {
+		const puppetId = await this.bridge.provisioner.new(req.userId, req.body.data, req.body.remote_user_id);
 		res.status(CREATED).json({ puppet_id: puppetId });
 	}
 
-	private async getPuppetId(req: Request, res: Response): Promise<number | null> {
+	private async getPuppetId(req: IAuthedRequest, res: Response): Promise<number | null> {
 		const puppetId = Number(req.params.puppetId);
 		const data = await this.bridge.provisioner.get(puppetId);
-		if (!data || data.puppetMxid !== req.query.user_id) {
+		if (!data || data.puppetMxid !== req.userId) {
 			res.status(FORBIDDEN).json({
 				error: "You must own the puppet ID",
 				errcode: "M_FORBIDDEN",
@@ -107,16 +112,16 @@ export class ProvisioningAPI {
 		return puppetId;
 	}
 
-	private async unlink(req: Request, res: Response) {
+	private async unlink(req: IAuthedRequest, res: Response) {
 		const puppetId = await this.getPuppetId(req, res);
 		if (!puppetId) {
 			return;
 		}
-		await this.bridge.provisioner.delete(req.query.user_id, puppetId);
+		await this.bridge.provisioner.delete(req.userId, puppetId);
 		res.status(NO_CONTENT);
 	}
 
-	private async listUsers(req: Request, res: Response) {
+	private async listUsers(req: IAuthedRequest, res: Response) {
 		if (!this.bridge.hooks.listUsers) {
 			res.status(NOT_IMPLEMENTED).json({
 				error: "listUsers hook not implemented",
@@ -131,7 +136,7 @@ export class ProvisioningAPI {
 		res.status(OK).json(await this.bridge.hooks.listUsers(puppetId));
 	}
 
-	private async listRooms(req: Request, res: Response) {
+	private async listRooms(req: IAuthedRequest, res: Response) {
 		if (!this.bridge.hooks.listRooms) {
 			res.status(NOT_IMPLEMENTED).json({
 				error: "listUsers hook not implemented",
