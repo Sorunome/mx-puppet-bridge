@@ -219,7 +219,7 @@ export class PuppetBridge extends EventEmitter {
 		if (!opts.botUser) {
 			opts.botUser = opts.prefix + "bot";
 		}
-		const reg = {
+		const reg: IAppserviceRegistration = {
 			as_token: uuid(),
 			hs_token: uuid(),
 			id: opts.id,
@@ -238,7 +238,7 @@ export class PuppetBridge extends EventEmitter {
 			rate_limited: false,
 			sender_localpart: opts.botUser,
 			url: opts.url,
-		} as IAppserviceRegistration;
+		};
 		fs.writeFileSync(this.registrationPath, yaml.safeDump(reg));
 	}
 

@@ -108,7 +108,7 @@ export class RemoteEventHandler {
 			send.formatted_body = opts.formattedBody;
 		}
 		if (params.externalUrl) {
-			(send as any).external_url = params.externalUrl; // tslint:disable-line no-any
+			send.external_url = params.externalUrl;
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
@@ -285,10 +285,10 @@ export class RemoteEventHandler {
 		};
 		(sendData as any).source = this.bridge.protocol.id; // tslint:disable-line no-any
 		if (typeof thing === "string") {
-			(sendData as any).external_url = thing; // tslint:disable-line no-any
+			sendData.external_url = thing;
 		}
 		if (params.externalUrl) {
-			(sendData as any).external_url = params.externalUrl; // tslint:disable-line no-any
+			sendData.external_url = params.externalUrl;
 		}
 		const matrixEventId = await client.sendMessage(mxid, sendData);
 		if (matrixEventId && params.eventId) {
