@@ -40,6 +40,7 @@ import { Store } from "./store";
 import { Lock } from "./structures/lock";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner, ICommand } from "./botprovisioner";
+import { ProvisioningAPI } from "./provisioningapi";
 import { PresenceHandler, MatrixPresence } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
 import { ReactionHandler } from "./reactionhandler";
@@ -95,6 +96,7 @@ export class PuppetBridge extends EventEmitter {
 	public protocol: ISetProtocolInformation;
 	public delayedFunction: DelayedFunction;
 	public botProvisioner: BotProvisioner;
+	public provisioningAPI: ProvisioningAPI;
 	public typingHandler: TypingHandler;
 	public presenceHandler: PresenceHandler;
 	public reactionHandler: ReactionHandler;
@@ -167,6 +169,7 @@ export class PuppetBridge extends EventEmitter {
 		this.remoteEventHandler = new RemoteEventHandler(this);
 
 		this.botProvisioner = new BotProvisioner(this);
+		this.provisioningAPI = new ProvisioningAPI(this);
 
 		// pipe matrix-bot-sdk logging int ours
 		const logMap = new Map<string, Log>();
