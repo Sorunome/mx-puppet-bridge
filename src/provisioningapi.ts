@@ -148,6 +148,6 @@ export class ProvisioningAPI {
 		if (!puppetId) {
 			return;
 		}
-		res.status(OK).json(await this.bridge.hooks.listRooms(+req.params.puppetId));
+		res.status(OK).json(await this.bridge.hooks.listRooms(puppetId));
 	}
 }
