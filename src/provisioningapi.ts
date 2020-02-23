@@ -27,7 +27,7 @@ interface IPuppetWithDescription extends IPuppet {
 	description: string | null;
 }
 
-interface IAuthedRequest extends Request {
+export interface IAuthedRequest extends Request {
 	userId: string;
 }
 
