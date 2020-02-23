@@ -310,6 +310,7 @@ export class PuppetBridge extends EventEmitter {
 			joinStrategy: new PuppetBridgeJoinRoomStrategy(new SimpleRetryJoinStrategy(), this),
 		});
 		this.matrixEventHandler.registerAppserviceEvents();
+		this.provisioningAPI.registerProvisioningAPI();
 		await this.appservice.begin();
 		log.info("Application service started!");
 		log.info("Setting bridge user data...");

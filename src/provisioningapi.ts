@@ -32,6 +32,7 @@ export interface IAuthedRequest extends Request {
 }
 
 export class ProvisioningAPI {
+	private readonly mainRouter: Router;
 	private readonly apiRouterV1: Router;
 	private readonly apiSharedSecret: string;
 	constructor(
@@ -40,16 +41,19 @@ export class ProvisioningAPI {
 		this.apiRouterV1 = Router();
 		this.apiSharedSecret = bridge.config.provisioning.sharedSecret;
 
-		const apiRouter = Router();
-		bridge.AS.expressAppInstance.use(bridge.config.provisioning.apiPrefix, apiRouter);
-		apiRouter.use(this.checkProvisioningSharedSecret);
-		apiRouter.use("/v1", this.apiRouterV1);
+		this.mainRouter = Router();
+		this.mainRouter.use(this.checkProvisioningSharedSecret.bind(this));
+		this.mainRouter.use("/v1", this.apiRouterV1);
 
-		this.apiRouterV1.get("/status", this.status);
-		this.apiRouterV1.post("/link", this.link);
-		this.apiRouterV1.post("/:puppetId(\d+)/unlink", this.unlink);
-		this.apiRouterV1.get("/:puppetId(\d+)/users", this.listUsers);
-		this.apiRouterV1.get("/:puppetId(\d+)/rooms", this.listRooms);
+		this.apiRouterV1.get("/status", this.status.bind(this));
+		this.apiRouterV1.post("/link", this.link.bind(this));
+		this.apiRouterV1.post("/:puppetId(\\d+)/unlink", this.unlink.bind(this));
+		this.apiRouterV1.get("/:puppetId(\\d+)/users", this.listUsers.bind(this));
+		this.apiRouterV1.get("/:puppetId(\\d+)/rooms", this.listRooms.bind(this));
+	}
+
+	public registerProvisioningAPI() {
+		this.bridge.AS.expressAppInstance.use(this.bridge.config.provisioning.apiPrefix, this.mainRouter);
 	}
 
 	get v1(): Router {
@@ -118,7 +122,7 @@ export class ProvisioningAPI {
 			return;
 		}
 		await this.bridge.provisioner.delete(req.userId, puppetId);
-		res.status(NO_CONTENT);
+		res.status(NO_CONTENT).send();
 	}
 
 	private async listUsers(req: IAuthedRequest, res: Response) {
