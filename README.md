@@ -62,3 +62,16 @@ the secert for that homeserver in the `bridge.loginSharedSecretMap` mapping.
 ## Bridging new protocols
 To bridge a new protocol only a small amount of features has to be implemented. For examples see
 the corresponding section. For a full list of available endpoints, see [bridge.md](https://github.com/Sorunome/mx-puppet-bridge/blob/master/bridge.md).
+### Features
+Not all features need to be implemented by protocol implementations. Here are some features and which hooks are required to get them working:
+
+| Feature | Hooks |
+|---------|-------|
+| normal functionality | `botHeaderMsg`, `getDataFromStr`, `getDesc` |
+| make `listusers` working | `listUsers` |
+| make `listrooms` working | `listRooms` |
+| inject data on user creation | `createUser` |
+| inject data on room creation | `createRoom` |
+| enable group syncing | `createGroup` |
+| initiate 1:1 rooms from the matrix side | `getDmRoomId`, `createRoom` |
+| initiate rooms from the matrix side | `createRoom` |
