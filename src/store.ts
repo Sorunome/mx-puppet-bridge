@@ -26,7 +26,7 @@ import { IDatabaseConnector } from "./db/connector";
 import { Util } from "./util";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 10;
+export const CURRENT_SCHEMA = 11;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 

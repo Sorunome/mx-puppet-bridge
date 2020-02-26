@@ -14,7 +14,7 @@ limitations under the License.
 import { createHmac } from "crypto";
 import { MatrixAuth } from "matrix-bot-sdk";
 import { PuppetBridge } from "./puppetbridge";
-import { DbPuppetStore, IPuppet } from "./db/puppetstore";
+import { DbPuppetStore, IPuppet, PuppetType } from "./db/puppetstore";
 import { Log } from "./log";
 import { Util } from "./util";
 import { IPuppetData } from "./interfaces";
@@ -24,17 +24,13 @@ const log = new Log("Provisioner");
 export interface IProvisionerDesc {
 	puppetId: number;
 	desc: string;
+	type: PuppetType;
+	isPublic: boolean;
 }
 
 export interface ITokenResponse {
 	token: string;
 	hsUrl: string;
-}
-
-export interface IDescData {
-	puppetId: number;
-	puppetMxid: string;
-	data: IPuppetData;
 }
 
 export class Provisioner {
@@ -141,6 +137,14 @@ export class Provisioner {
 		await this.puppetStore.setData(puppetId, data);
 	}
 
+	public async setType(puppetId: number, type: PuppetType) {
+		await this.puppetStore.setType(puppetId, type);
+	}
+
+	public async setIsPublic(puppetId: number, isPublic: boolean) {
+		await this.puppetStore.setIsPublic(puppetId, isPublic);
+	}
+
 	public canCreate(mxid: string): boolean {
 		return this.isWhitelisted(mxid, this.bridge.config.provisioning.whitelist,
 			this.bridge.config.provisioning.blacklist);
@@ -205,16 +209,20 @@ export class Provisioner {
 		return descs;
 	}
 
-	private async getDescFromData(data: IDescData): Promise<IProvisionerDesc> {
+	private async getDescFromData(data: IPuppet): Promise<IProvisionerDesc> {
 		if (!this.bridge.hooks.getDesc) {
 			return {
 				puppetId: data.puppetId,
 				desc: `${data.puppetMxid} (${data.puppetId})`,
+				type: data.type,
+				isPublic: data.isPublic,
 			};
 		}
 		return {
 			puppetId: data.puppetId,
 			desc: await this.bridge.hooks.getDesc(data.puppetId, data.data),
+			type: data.type,
+			isPublic: data.isPublic,
 		};
 	}
 

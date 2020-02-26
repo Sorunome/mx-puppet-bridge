@@ -24,11 +24,16 @@ const PUPPET_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 const MXID_INFO_LOCK_TIMEOUT = 1000;
 // tslint:enable:no-magic-numbers
 
+export type PuppetType = "puppet" | "relay" | "invalid";
+export const PUPPET_TYPES: PuppetType[] = ["puppet", "relay"];
+
 export interface IPuppet {
 	puppetId: number;
 	puppetMxid: string;
 	data: IPuppetData;
 	userId: string | null;
+	type: PuppetType;
+	isPublic: boolean;
 }
 
 export interface IMxidInfo {
@@ -187,6 +192,20 @@ export class DbPuppetStore {
 		});
 	}
 
+	public async setType(puppetId: number, type: PuppetType) {
+		await this.db.Run("UPDATE puppet_store SET type=$t WHERE puppet_id=$id", {
+			id: puppetId,
+			t: PUPPET_TYPES.indexOf(type),
+		});
+	}
+
+	public async setIsPublic(puppetId: number, isPublic: boolean) {
+		await this.db.Run("UPDATE puppet_store SET is_public=$p WHERE puppet_id=$id", {
+			id: puppetId,
+			p: Number(isPublic), // booleans are stored as numbers
+		});
+	}
+
 	public async new(puppetMxid: string, data: IPuppetData, userId?: string): Promise<number> {
 		let dataStr = "";
 		try {
@@ -196,11 +215,13 @@ export class DbPuppetStore {
 			return -1;
 		}
 		const puppetId = await this.db.Run(
-			"INSERT INTO puppet_store (puppet_mxid, data, user_id) VALUES ($mxid, $data, $uid)"
+			"INSERT INTO puppet_store (puppet_mxid, data, user_id, type, is_public) VALUES ($mxid, $data, $uid, $type, $isPublic)"
 		, {
 			mxid: puppetMxid,
 			data: dataStr,
 			uid: userId || null,
+			type: PUPPET_TYPES.indexOf("puppet"),
+			isPublic: false,
 		}, "puppet_id");
 		return puppetId;
 	}
@@ -267,6 +288,8 @@ export class DbPuppetStore {
 				puppetMxid: row.puppet_mxid as string,
 				data: JSON.parse(row.data as string),
 				userId: row.user_id as string | null,
+				type: PUPPET_TYPES[row.type as number] || "invalid",
+				isPublic: Boolean(Number(row.is_public)),
 			};
 		} catch (err) {
 			log.warn(`Unable to decode json data:${err} on puppet ${row.puppet_id}`);

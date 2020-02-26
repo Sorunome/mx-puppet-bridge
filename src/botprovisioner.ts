@@ -14,6 +14,7 @@ limitations under the License.
 import { PuppetBridge } from "./puppetbridge";
 import { RetDataFn, IRetData, IRemoteRoom } from "./interfaces";
 import { Provisioner } from "./provisioner";
+import { PuppetType, PUPPET_TYPES } from "./db/puppetstore";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
 import * as MarkdownIt from "markdown-it";
@@ -274,7 +275,14 @@ Usage: \`help\`, \`help <command>\``,
 				}
 				let sendStr = "Links:\n";
 				for (const d of descs) {
-					const sendStrPart = ` - ${d.puppetId}: ${d.desc}\n`;
+					let sendStrPart = ` - ${d.puppetId}: ${d.desc}`;
+					if (d.type !== "puppet") {
+						sendStrPart += ` (type: ${d.type})`;
+					}
+					if (d.isPublic) {
+						sendStrPart += " **public!**";
+					}
+					sendStrPart += "\n";
 					if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 						await sendMessage(sendStr);
 						sendStr = "";
@@ -392,6 +400,29 @@ Usage: \`listusers\``,
 
 Usage: \`listrooms\``,
 			withPid: false,
+		});
+		this.registerCommand("settype", {
+			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
+				if (!PUPPET_TYPES.includes(param as PuppetType)) {
+					sendMessage("ERROR: Invalid type. Valid types are: " + PUPPET_TYPES.map((s) => `\`${s}\``).join(", "));
+					return;
+				}
+				await this.provisioner.setType(puppetId, param as PuppetType);
+				sendMessage(`Set puppet type to ${param}`);
+			},
+			help: `Sets the type of a given puppet. Valid types are "puppet" and "relay".
+
+Usage: \`settype <puppetId> <type>\``,
+		});
+		this.registerCommand("setispublic", {
+			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
+				const isPublic = param === "1" || param === "true";
+				await this.provisioner.setIsPublic(puppetId, isPublic);
+				sendMessage(`Set puppet to ${isPublic ? "public" : "private"}`);
+			},
+			help: `Sets if the given puppet is public.
+
+Usage: \`setispublic <puppetId> <1/0>`,
 		});
 	}
 
