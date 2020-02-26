@@ -13,7 +13,7 @@ limitations under the License.
 
 import { IStringFormatterVars } from "./structures/stringformatter";
 
-type PuppetDataSingleType = string | number | boolean | IPuppetData;
+type PuppetDataSingleType = string | number | boolean | IPuppetData | null | undefined;
 export interface IPuppetData {
 	[key: string]: PuppetDataSingleType | PuppetDataSingleType[];
 }
