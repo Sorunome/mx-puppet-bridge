@@ -77,6 +77,9 @@ export class DatabaseConfig {
 class ProvisioningConfig {
 	public whitelist: string[] = [];
 	public blacklist: string[] = [];
+
+	public sharedSecret: string;
+	public apiPrefix: string = "/_matrix/provision";
 }
 
 class PresenceConfig {
