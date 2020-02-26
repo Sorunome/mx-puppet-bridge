@@ -497,6 +497,21 @@ export class PuppetBridge extends EventEmitter {
 	 * Get the mxid for a given remote room
 	 */
 	public async getMxidForRoom(room: IRemoteRoom): Promise<string> {
+		const roomInfo = await this.roomSync.maybeGet(room);
+		if (roomInfo) {
+			const client = (await this.roomSync.getRoomOp(roomInfo.mxid)) || this.botIntent.underlyingClient;
+			if (client) {
+				let al = "";
+				try {
+					const al = (await client.getRoomStateEvent(
+						roomInfo.mxid, "m.room.canonical_alias", "",
+					)).alias;
+					if (typeof al === "string" && al[0] === "#") {
+						return al;
+					}
+				} catch (err) { } // do nothing
+			}
+		}
 		return this.appservice.getAliasForSuffix(`${room.puppetId}_${Util.str2mxid(room.roomId)}`);
 	}
 
