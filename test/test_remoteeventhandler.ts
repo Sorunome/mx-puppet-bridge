@@ -21,6 +21,7 @@ interface IHandlerOpts {
 	enablePresence?: boolean;
 	roomCreated?: boolean;
 	doublePuppeting?: boolean;
+	noautoinvite?: boolean;
 }
 
 let CLIENT_SEND_READ_RECEIPT = "";
@@ -193,6 +194,7 @@ function getHandler(opts?: IHandlerOpts) {
 					return {
 						puppetMxid: "@user:example.org",
 						userId: "puppet",
+						autoinvite: !opts!.noautoinvite
 					};
 				}
 				return null;
@@ -1511,6 +1513,21 @@ describe("RemoteEventHandler", () => {
 			} as any;
 			await handler["prepareSend"](params);
 			expect(CLIENT_JOIN_ROOM).to.equal("!someroom:example.org");
+		});
+		it("should not invite the puppet, if set", async () => {
+			const handler = getHandler({noautoinvite: true});
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			await handler["prepareSend"](params);
+			expect(CLIENT_INVITE_USER).to.equal("");
 		});
 	});
 });

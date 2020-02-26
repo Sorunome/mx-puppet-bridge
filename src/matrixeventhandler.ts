@@ -537,13 +537,15 @@ export class MatrixEventHandler {
 				"m.audio": "an audio file",
 			};
 			const url = this.bridge.getUrlFromMxc(content.url);
+			delete content.url;
 			const msg = typeMap[content.msgtype];
 			const escapeUrl = escapeHtml(url);
-			content.body = `${member.displayname} sent ${msg}: ${url}`;
+			const filename = content.body;
+			content.body = `${member.displayname} sent ${msg} ${filename}: ${url}`;
 			content.msgtype = "m.text";
 			content.format = "org.matrix.custom.html";
-			content.formatted_body = `<strong>${displaynameEscaped}</strong> sent ${msg}: <a href="${escapeUrl}">`
-				+ `${escapeUrl}</a>`;
+			content.formatted_body = `<strong>${displaynameEscaped}</strong> sent ${msg} <em>${escapeHtml(filename)}</em>: `
+				+ `<a href="${escapeUrl}">${escapeUrl}</a>`;
 		}
 	}
 

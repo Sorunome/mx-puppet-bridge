@@ -23,12 +23,16 @@ const puppetEntries = [
 		puppetMxid: "@fox:example.org",
 		data: { name: "Fox", token: "fox" },
 		userId: "fox",
+		type: "puppet",
+		isPublic: false,
 	},
 	{
 		puppetId: 2,
 		puppetMxid: "@bunny:example.org",
 		data: { name: "Bunny", token: "bunny" },
 		userId: "bunny",
+		type: "puppet",
+		isPublic: false,
 	},
 ];
 const mxidInfoEntries = [
@@ -422,6 +426,8 @@ describe("Provisioner", () => {
 			expect(ret).eql({
 				puppetId: 1,
 				desc: "Fox (fox)",
+				type: "puppet",
+				isPublic: false,
 			});
 		});
 	});
@@ -432,16 +438,25 @@ describe("Provisioner", () => {
 			expect(ret).eql([{
 				puppetId: 1,
 				desc: "Fox (fox)",
+				type: "puppet",
+				isPublic: false,
 			}]);
 		});
 	});
 	describe("getDescFromData", () => {
 		it("should return a descriptor based on data", async () => {
 			const provisioner = getProvisioner();
-			const ret = await provisioner.getDescFromData({ puppetId: 42, data: {name: "Beep", token: "boop"}});
+			const ret = await provisioner.getDescFromData({
+				puppetId: 42,
+				data: {name: "Beep", token: "boop"},
+				type: "puppet",
+				isPublic: false,
+			});
 			expect(ret).eql({
 				puppetId: 42,
 				desc: "Beep (boop)",
+				type: "puppet",
+				isPublic: false,
 			});
 		});
 	});

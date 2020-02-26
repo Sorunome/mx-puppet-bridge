@@ -81,11 +81,6 @@ function getHandler(opts?: IHandlerOpts) {
 	REACTION_HANDLER_HANDLED_REDACT = false;
 	PRESENCE_HANDLER_SET_STATUS_IN_ROOM = "";
 	const bridge = {
-		config: {
-			relay: {
-				enabled: opts!.relayEnabled || false,
-			},
-		},
 		hooks: opts!.createDmHook ? {
 			getDmRoomId: opts!.getDmRoomIdHook || true,
 			createRoom: opts!.createRoomHook || true,
@@ -245,6 +240,9 @@ function getHandler(opts?: IHandlerOpts) {
 					return {
 						puppetMxid: "@user:example.org",
 						userId: "puppetGhost",
+						type: opts!.relayEnabled ? "relay" : "puppet",
+						autoinvite: true,
+						isPrivate: true,
 					};
 				}
 				return null;
@@ -551,67 +549,6 @@ describe("MatrixEventHandler", () => {
 			await handler["handleLeaveEvent"](roomId, event);
 			expect(PUPPETSTORE_LEAVE_GHOST_FROM_ROOM).to.equal(`${ghostId};${roomId}`);
 			expect(BRIDGE_ROOM_MXID_UNBRIDGED).to.equal("");
-		});
-		it("should unbridge a room, if a ghost got kicked", async () => {
-			const handler = getHandler();
-			const userId = "@user:example.org";
-			const ghostId = "@_puppet_1_fox:example.org";
-			const event = new MembershipEvent({
-				type: "m.room.member",
-				state_key: ghostId,
-				sender: userId,
-				content: {
-					membership: "leave",
-				},
-			});
-			const roomId = "!blah:example.org";
-			await handler["handleLeaveEvent"](roomId, event);
-			expect(PUPPETSTORE_LEAVE_GHOST_FROM_ROOM).to.equal(`${ghostId};${roomId}`);
-			expect(BRIDGE_ROOM_MXID_UNBRIDGED).to.equal(roomId);
-		});
-		it("should ignore the leave event if it is an unknown room", async () => {
-			const handler = getHandler();
-			const userId = "@user:example.org";
-			const event = new MembershipEvent({
-				type: "m.room.member",
-				state_key: userId,
-				content: {
-					membership: "leave",
-				},
-			});
-			const roomId = "!blah:example.org";
-			await handler["handleLeaveEvent"](roomId, event);
-			expect(PROVISIONER_GET_MXID_CALLED).to.be.false;
-			expect(BRIDGE_ROOM_ID_UNBRIDGED).to.equal("");
-		});
-		it("should ignore, if the puppet wasn't us", async () => {
-			const handler = getHandler();
-			const userId = "@wronguser:example.org";
-			const event = new MembershipEvent({
-				type: "m.room.member",
-				state_key: userId,
-				content: {
-					membership: "leave",
-				},
-			});
-			const roomId = "!foxdm:example.org";
-			await handler["handleLeaveEvent"](roomId, event);
-			expect(PROVISIONER_GET_MXID_CALLED).to.be.true;
-			expect(BRIDGE_ROOM_ID_UNBRIDGED).to.equal("");
-		});
-		it("should unbridge the room, if it was the correct puppet", async () => {
-			const handler = getHandler();
-			const userId = "@user:example.org";
-			const event = new MembershipEvent({
-				type: "m.room.member",
-				state_key: userId,
-				content: {
-					membership: "leave",
-				},
-			});
-			const roomId = "!foxdm:example.org";
-			await handler["handleLeaveEvent"](roomId, event);
-			expect(BRIDGE_ROOM_ID_UNBRIDGED).to.equal("foxdm");
 		});
 	});
 	describe("handleRedactEvent", () => {
@@ -1332,11 +1269,15 @@ describe("MatrixEventHandler", () => {
 			const content = {
 				msgtype: "m.file",
 				body: "hello world",
+				url: "mxc://somefile",
 			};
 			await handler["applyRelayFormatting"](roomId, userId, content);
 			expect(content).eql({
 				msgtype: "m.text",
-				body: "User sent a file",
+				body: "User sent a file hello world: https://mxc://somefile",
+				format: "org.matrix.custom.html",
+				formatted_body: "<strong>User</strong> sent a file <em>hello world</em>: <a href=\"https://mxc://somefile\">" +
+					"https://mxc://somefile</a>",
 			});
 		});
 		it("should proceed into edits appropriately", async () => {
@@ -1354,7 +1295,9 @@ describe("MatrixEventHandler", () => {
 			await handler["applyRelayFormatting"](roomId, userId, content);
 			expect(content).eql({
 				"msgtype": "m.text",
-				"body": "hello world",
+				"body": "User: hello world",
+				"format": "org.matrix.custom.html",
+				"formatted_body": "<strong>User</strong>: hello world",
 				"m.new_content": {
 					msgtype: "m.text",
 					body: "User: hello world",
