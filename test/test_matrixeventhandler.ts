@@ -699,10 +699,10 @@ describe("MatrixEventHandler", () => {
 		it("should drop the message, if it wasn't sent by us", async () => {
 			const handler = getHandler();
 			let messageHandled = false;
-			handler["handleFileEvent"] = async (rid, room, evt) => {
+			handler["handleFileEvent"] = async (rid, room, puppet, evt) => {
 				messageHandled = true;
 			};
-			handler["handleTextEvent"] = async (rid, room, evt) => {
+			handler["handleTextEvent"] = async (rid, room, puppet, evt) => {
 				messageHandled = true;
 			};
 			const event = new MessageEvent<MessageEventContent>({
@@ -718,10 +718,10 @@ describe("MatrixEventHandler", () => {
 				relayEnabled: true,
 			});
 			let messageHandled = false;
-			handler["handleFileEvent"] = async (rid, room, evt) => {
+			handler["handleFileEvent"] = async (rid, room, puppet, evt) => {
 				messageHandled = true;
 			};
-			handler["handleTextEvent"] = async (rid, room, evt) => {
+			handler["handleTextEvent"] = async (rid, room, puppet, evt) => {
 				messageHandled = true;
 			};
 			const event = new MessageEvent<MessageEventContent>({
@@ -762,10 +762,10 @@ describe("MatrixEventHandler", () => {
 		it("should de-duplicate messages, if the remote flag is set", async () => {
 			const handler = getHandler();
 			let messageHandled = false;
-			handler["handleFileEvent"] = async (rid, room, evt) => {
+			handler["handleFileEvent"] = async (rid, room, puppet, evt) => {
 				messageHandled = true;
 			};
-			handler["handleTextEvent"] = async (rid, room, evt) => {
+			handler["handleTextEvent"] = async (rid, room, puppet, evt) => {
 				messageHandled = true;
 			};
 			const event = new MessageEvent<MessageEventContent>({
@@ -781,7 +781,7 @@ describe("MatrixEventHandler", () => {
 			for (const msgtype of ["m.file", "m.image", "m.audio", "m.sticker", "m.video"]) {
 				const handler = getHandler();
 				let fileMessageHandled = false;
-				handler["handleFileEvent"] = async (rid, room, evt) => {
+				handler["handleFileEvent"] = async (rid, room, puppet, evt) => {
 					fileMessageHandled = true;
 				};
 				const event = new MessageEvent<MessageEventContent>({
@@ -798,7 +798,7 @@ describe("MatrixEventHandler", () => {
 			for (const msgtype of ["m.text", "m.notice", "m.emote", "m.reaction"]) {
 				const handler = getHandler();
 				let textMessageHandled = false;
-				handler["handleTextEvent"] = async (rid, room, evt) => {
+				handler["handleTextEvent"] = async (rid, room, puppet, evt) => {
 					textMessageHandled = true;
 				};
 				const event = new MessageEvent<MessageEventContent>({
@@ -825,7 +825,8 @@ describe("MatrixEventHandler", () => {
 				});
 				const roomId = "!foxdm:example.org";
 				const room = {} as any;
-				await handler["handleFileEvent"](roomId, room, event);
+				const puppet = {} as any;
+				await handler["handleFileEvent"](roomId, room, puppet, event);
 				expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 			}
 		});
@@ -847,7 +848,8 @@ describe("MatrixEventHandler", () => {
 				});
 				const roomId = "!foxdm:example.org";
 				const room = {} as any;
-				await handler["handleFileEvent"](roomId, room, event);
+				const puppet = {} as any;
+				await handler["handleFileEvent"](roomId, room, puppet, event);
 				expect(BRIDGE_EVENTS_EMITTED).to.eql([msgtype.substring(2)]);
 			}
 		});
@@ -865,7 +867,8 @@ describe("MatrixEventHandler", () => {
 				});
 				const roomId = "!foxdm:example.org";
 				const room = {} as any;
-				await handler["handleFileEvent"](roomId, room, event);
+				const puppet = {} as any;
+				await handler["handleFileEvent"](roomId, room, puppet, event);
 				expect(BRIDGE_EVENTS_EMITTED).to.eql(["file"]);
 			}
 		});
@@ -882,7 +885,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleFileEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleFileEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["image"]);
 		});
 	});
@@ -907,7 +911,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["edit"]);
 		});
 		it("should fall edits back to messages, if the remote id isn't found", async () => {
@@ -930,7 +935,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should fall edits back to messages, if the feature is disabled", async () => {
@@ -951,7 +957,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should detect and send replies, if they are enabled", async () => {
@@ -971,7 +978,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["reply"]);
 		});
 		it("should fall replies back to messages, if the remote isn't found", async () => {
@@ -991,7 +999,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should fall replies back to messages, if the feature is disabled", async () => {
@@ -1009,7 +1018,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 		it("should detect reactions", async () => {
@@ -1025,7 +1035,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(REACTION_HANDLER_ADDED_MATRIX).to.be.true;
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["reaction"]);
 		});
@@ -1039,7 +1050,8 @@ describe("MatrixEventHandler", () => {
 			});
 			const roomId = "!foxdm:example.org";
 			const room = {} as any;
-			await handler["handleTextEvent"](roomId, room, event);
+			const puppet = {} as any;
+			await handler["handleTextEvent"](roomId, room, puppet, event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["message"]);
 		});
 	});

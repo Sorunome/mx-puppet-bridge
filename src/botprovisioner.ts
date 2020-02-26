@@ -424,6 +424,16 @@ Usage: \`settype <puppetId> <type>\``,
 
 Usage: \`setispublic <puppetId> <1/0>`,
 		});
+		this.registerCommand("setautoinvite", {
+			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
+				const autoinvite = param === "1" || param === "true";
+				await this.provisioner.setAutoinvite(puppetId, autoinvite);
+				sendMessage(`Set puppet to ${autoinvite ? "autoinvite" : "ignore"}`);
+			},
+			help: `Sets if the given puppet should autoinvite you to new rooms.
+
+Usage: \`setautoinvite <puppetId> <1/0>`,
+		});
 	}
 
 	private async sendMessage(roomId: string, message: string, client?: MatrixClient) {

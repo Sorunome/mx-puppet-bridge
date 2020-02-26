@@ -50,6 +50,9 @@ Relay mode is a mode where the remote puppet acts as a relay bot, rather than a 
 relay mode the display name of the author of the message on the matrix side is prepended to the
 message.
 
+To activate relay mode for a puppet type `settype <puppetId> relay`. If you want the rooms of said
+relay to be publicly usable, type `setispublic <puppetId> 1`.
+
 ### Automatic double-puppeting
 It can be a hassle to have to tell the bridge what your access token is to enable double-puppeting.
 To circumvent that automatic double-puppeting is available. Configure your homeserver with

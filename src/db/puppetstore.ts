@@ -34,6 +34,7 @@ export interface IPuppet {
 	userId: string | null;
 	type: PuppetType;
 	isPublic: boolean;
+	autoinvite: boolean;
 }
 
 export interface IMxidInfo {
@@ -206,6 +207,13 @@ export class DbPuppetStore {
 		});
 	}
 
+	public async setAutoinvite(puppetId: number, autoinvite: boolean) {
+		await this.db.Run("UPDATE puppet_store SET autoinvite=$a WHERE puppet_id=$id", {
+			id: puppetId,
+			a: Number(autoinvite), // booleans are stored as numbers
+		});
+	}
+
 	public async new(puppetMxid: string, data: IPuppetData, userId?: string): Promise<number> {
 		let dataStr = "";
 		try {
@@ -290,6 +298,7 @@ export class DbPuppetStore {
 				userId: row.user_id as string | null,
 				type: PUPPET_TYPES[row.type as number] || "invalid",
 				isPublic: Boolean(Number(row.is_public)),
+				autoinvite: Boolean(Number(row.autoinvite)),
 			};
 		} catch (err) {
 			log.warn(`Unable to decode json data:${err} on puppet ${row.puppet_id}`);

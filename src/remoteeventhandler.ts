@@ -314,7 +314,10 @@ export class RemoteEventHandler {
 	private async prepareSend(params: IReceiveParams): Promise<ISendInfo> {
 		log.verbose(`Preparing send parameters`, params);
 		const puppetData = await this.bridge.provisioner.get(params.room.puppetId);
-		const puppetMxid = puppetData ? puppetData.puppetMxid : "";
+		if (!puppetData) {
+			throw new Error("puppetData wasn't found, THIS SHOULD NEVER HAPPEN!");
+		}
+		const puppetMxid = puppetData.puppetMxid;
 		const client = await this.bridge.userSync.getClient(params.user);
 		const userId = await client.getUserId();
 		// we could be the one creating the room, no need to invite ourself
@@ -325,7 +328,7 @@ export class RemoteEventHandler {
 			// else we need the bot client in order to be able to receive matrix messages
 			invites.push(await this.bridge.botIntent.underlyingClient.getUserId());
 		}
-		const { mxid, created } = await this.bridge.roomSync.getMxid(params.room, client, invites);
+		const { mxid, created } = await this.bridge.roomSync.getMxid(params.room, client, invites, true, puppetData.isPublic);
 
 		// ensure that the intent is in the room
 		if (this.bridge.AS.isNamespacedUser(userId)) {
@@ -333,7 +336,7 @@ export class RemoteEventHandler {
 			const intent = this.bridge.AS.getIntentForUserId(userId);
 			await intent.ensureRegisteredAndJoined(mxid);
 			// if the ghost was ourself, leave it again
-			if (puppetData && puppetData.userId === params.user.userId) {
+			if (puppetData.userId === params.user.userId) {
 				const delayedKey = `${userId}_${mxid}`;
 				this.bridge.delayedFunction.set(delayedKey, async () => {
 					await this.bridge.roomSync.maybeLeaveGhost(mxid, userId);
@@ -347,37 +350,39 @@ export class RemoteEventHandler {
 		}
 
 		// ensure our puppeted user is in the room
-		const cacheKey = `${params.room.puppetId}_${mxid}`;
-		try {
-			const cache = this.ghostInviteCache.get(cacheKey);
-			if (!cache) {
-				let inviteClient = await this.bridge.roomSync.getRoomOp(mxid);
-				if (!inviteClient) {
-					inviteClient = client;
-				}
-				// we can't really invite ourself...
-				if (await inviteClient.getUserId() !== puppetMxid) {
-					// we just invited if we created, don't try to invite again
-					if (!created) {
-						log.silly("Inviting puppet to room...");
-						await inviteClient.inviteUser(puppetMxid, mxid);
+		if (puppetData.autoinvite) {
+			const cacheKey = `${params.room.puppetId}_${mxid}`;
+			try {
+				const cache = this.ghostInviteCache.get(cacheKey);
+				if (!cache) {
+					let inviteClient = await this.bridge.roomSync.getRoomOp(mxid);
+					if (!inviteClient) {
+						inviteClient = client;
 					}
-					this.ghostInviteCache.set(cacheKey, true);
+					// we can't really invite ourself...
+					if (await inviteClient.getUserId() !== puppetMxid) {
+						// we just invited if we created, don't try to invite again
+						if (!created) {
+							log.silly("Inviting puppet to room...");
+							await inviteClient.inviteUser(puppetMxid, mxid);
+						}
+						this.ghostInviteCache.set(cacheKey, true);
 
-					// let's try to also join the room, if we use double-puppeting
-					const puppetClient = await this.bridge.userSync.getPuppetClient(params.room.puppetId);
-					if (puppetClient) {
-						log.silly("Joining the room...");
-						await puppetClient.joinRoom(mxid);
+						// let's try to also join the room, if we use double-puppeting
+						const puppetClient = await this.bridge.userSync.getPuppetClient(params.room.puppetId);
+						if (puppetClient) {
+							log.silly("Joining the room...");
+							await puppetClient.joinRoom(mxid);
+						}
 					}
 				}
-			}
-		} catch (err) {
-			if (err.body && err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
-				log.verbose("Failed to invite user, as they are already in there");
-				this.ghostInviteCache.set(cacheKey, true);
-			} else {
-				log.warn("Failed to invite user:", err.error || err.body || err);
+			} catch (err) {
+				if (err.body && err.body.errcode === "M_FORBIDDEN" && err.body.error.includes("is already in the room")) {
+					log.verbose("Failed to invite user, as they are already in there");
+					this.ghostInviteCache.set(cacheKey, true);
+				} else {
+					log.warn("Failed to invite user:", err.error || err.body || err);
+				}
 			}
 		}
 

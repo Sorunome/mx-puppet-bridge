@@ -19,6 +19,7 @@ import {
 } from "matrix-bot-sdk";
 import { IFileEvent, IMessageEvent, IRemoteRoom } from "./interfaces";
 import * as escapeHtml from "escape-html";
+import { IPuppet } from "./db/puppetstore";
 
 const log = new Log("MatrixEventHandler");
 
@@ -209,8 +210,18 @@ export class MatrixEventHandler {
 			log.verbose("Room not found, ignoring...");
 			return;
 		}
-		const puppetMxid = await this.bridge.provisioner.getMxid(room.puppetId);
-		if (event.sender !== puppetMxid) {
+		const puppetData = await this.bridge.provisioner.get(room.puppetId);
+		if (!puppetData) {
+			log.error("Puppet not found. Something is REALLY wrong!!!!");
+			return;
+		}
+		const puppetMxid = puppetData.puppetMxid;
+		if (puppetData.type === "relay") {
+			if (!this.bridge.provisioner.canRelay(event.sender)) {
+				log.verbose("Redact wasn't from a relay-able person, ignoring...");
+				return;
+			}
+		} else if (event.sender !== puppetMxid) {
 			log.verbose("Redact wasn't by the pupperted user, ignoring...");
 			return; // this isn't our puppeted user, so let's not do anything
 		}
@@ -242,15 +253,22 @@ export class MatrixEventHandler {
 		}
 		log.info(`Got new message in ${roomId} from ${event.sender}!`);
 		const puppetData = await this.bridge.provisioner.get(room.puppetId);
-		const puppetMxid = puppetData ? puppetData.puppetMxid : "";
+		if (!puppetData) {
+			log.error("Puppet not found. Something is REALLY wrong!!!!");
+			return;
+		}
+		const puppetMxid = puppetData.puppetMxid;
 
 		// check if we should bridge this room and/or if to apply relay formatting
-		if (event.sender !== puppetMxid) {
-			if (!this.bridge.config.relay.enabled || !this.bridge.provisioner.canRelay(event.sender)) {
-				log.verbose("Message wasn't sent from the correct puppet, dropping....");
-				return; // relaying not enabled or no permission to be relayed
+		if (puppetData.type === "relay") {
+			if (!this.bridge.provisioner.canRelay(event.sender)) {
+				log.verbose("Message wasn't sent from a relay-able person, dropping...");
+				return;
 			}
 			await this.applyRelayFormatting(roomId, event.sender, event.content);
+		} else if (event.sender !== puppetMxid) {
+			log.verbose("Message wasn't sent from the correct puppet, dropping...");
+			return;
 		}
 
 		// maybe trigger a leave for our ghost puppet in the room
@@ -271,13 +289,18 @@ export class MatrixEventHandler {
 		}
 
 		if (["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(this.getMessageType(event))) {
-			await this.handleFileEvent(roomId, room, new MessageEvent<FileMessageEventContent>(event.raw));
+			await this.handleFileEvent(roomId, room, puppetData, new MessageEvent<FileMessageEventContent>(event.raw));
 		} else {
-			await this.handleTextEvent(roomId, room, new MessageEvent<TextualMessageEventContent>(event.raw));
+			await this.handleTextEvent(roomId, room, puppetData, new MessageEvent<TextualMessageEventContent>(event.raw));
 		}
 	}
 
-	private async handleFileEvent(roomId: string, room: IRemoteRoom, event: MessageEvent<FileMessageEventContent>) {
+	private async handleFileEvent(
+		roomId: string,
+		room: IRemoteRoom,
+		puppetData: IPuppet,
+		event: MessageEvent<FileMessageEventContent>,
+	) {
 		const msgtype = this.getMessageType(event);
 		log.info(`Handling file event with msgtype ${msgtype}...`);
 		const content = event.content;
@@ -328,7 +351,12 @@ export class MatrixEventHandler {
 		this.bridge.emit("message", room, textData, event);
 	}
 
-	private async handleTextEvent(roomId: string, room: IRemoteRoom, event: MessageEvent<TextualMessageEventContent>) {
+	private async handleTextEvent(
+		roomId: string,
+		room: IRemoteRoom,
+		puppetData: IPuppet,
+		event: MessageEvent<TextualMessageEventContent>,
+	) {
 		const msgtype = this.getMessageType(event);
 		log.info(`Handling text event with msgtype ${msgtype}...`);
 		const content = event.content;
@@ -505,18 +533,19 @@ export class MatrixEventHandler {
 	// tslint:disable-next-line no-any
 	private async applyRelayFormatting(roomId: string, sender: string, content: any) {
 		if (content["m.new_content"]) {
-			return this.applyRelayFormatting(roomId, sender, content["m.new_content"]);
+			this.applyRelayFormatting(roomId, sender, content["m.new_content"]);
 		}
 		const member = await this.getRoomMemberInfo(roomId, sender);
+		const displaynameEscaped = escapeHtml(member.displayname);
 		if (content.msgtype === "m.text" || content.msgtype === "m.notice") {
 			const formattedBody = content.formatted_body || escapeHtml(content.body).replace("\n", "<br>");
-			content.formatted_body = `<strong>${member.displayname}</strong>: ${formattedBody}`;
+			content.formatted_body = `<strong>${displaynameEscaped}</strong>: ${formattedBody}`;
 			content.format = "org.matrix.custom.html";
 			content.body = `${member.displayname}: ${content.body}`;
 		} else if (content.msgtype === "m.emote" ) {
 			const formattedBody = content.formatted_body || escapeHtml(content.body).replace("\n", "<br>");
 			content.msgtype = "m.text";
-			content.formatted_body = `*<strong>${member.displayname}</strong> ${formattedBody}`;
+			content.formatted_body = `*<strong>${displaynameEscaped}</strong> ${formattedBody}`;
 			content.format = "org.matrix.custom.html";
 			content.body = `*${member.displayname} ${content.body}`;
 		} else {
@@ -527,8 +556,13 @@ export class MatrixEventHandler {
 				"m.sticker": "a sticker",
 				"m.audio": "an audio file",
 			};
-			content.body = `${member.displayname} sent ${typeMap[content.msgtype]}`;
+			const url = this.bridge.getUrlFromMxc(content.url);
+			const msg = typeMap[content.msgtype];
+			const escapeUrl = escapeHtml(url);
+			content.body = `${member.displayname} sent ${msg}: ${url}`;
 			content.msgtype = "m.text";
+			content.format = "org.matrix.custom.html";
+			content.formatted_body = `<strong>${displaynameEscaped}</strong> sent ${msg}: <a href="${escapeUrl}">${escapeUrl}</a>`
 		}
 	}
 

@@ -145,6 +145,10 @@ export class Provisioner {
 		await this.puppetStore.setIsPublic(puppetId, isPublic);
 	}
 
+	public async setAutoinvite(puppetId: number, autoinvite: boolean) {
+		await this.puppetStore.setAutoinvite(puppetId, autoinvite);
+	}
+
 	public canCreate(mxid: string): boolean {
 		return this.isWhitelisted(mxid, this.bridge.config.provisioning.whitelist,
 			this.bridge.config.provisioning.blacklist);

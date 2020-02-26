@@ -88,7 +88,6 @@ class PresenceConfig {
 }
 
 class RelayConfig {
-	public enabled: boolean = false;
 	public whitelist: string[] = [];
 	public blacklist: string[] = [];
 }

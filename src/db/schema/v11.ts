@@ -19,6 +19,7 @@ export class Schema implements IDbSchema {
 	public async run(store: Store) {
 		await store.db.Exec("ALTER TABLE puppet_store ADD type INTEGER DEFAULT '0'");
 		await store.db.Exec("ALTER TABLE puppet_store ADD is_public INTEGER DEFAULT '0'");
+		await store.db.Exec("ALTER TABLE puppet_store ADD autoinvite INTEGER DEFAULT '1'");
 	}
 
 	public async rollBack(store: Store) {

@@ -82,6 +82,7 @@ export class RoomSyncroniser {
 		client?: MatrixClient,
 		invites?: string[],
 		doCreate: boolean = true,
+		isPublic: boolean = false,
 	): Promise<{ mxid: string; created: boolean; }> {
 		const lockKey = `${data.puppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
@@ -127,8 +128,8 @@ export class RoomSyncroniser {
 				log.verbose("Initial invites:", invites);
 				// ooookay, we need to create this room
 				const createParams = {
-					visibility: "private",
-					preset: "private_chat",
+					visibility: isPublic ? "public" : "private",
+					preset: isPublic ? "public_chat" : "private_chat",
 					power_level_content_override: {
 						notifications: {
 							room: 0,
