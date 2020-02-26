@@ -501,7 +501,6 @@ export class PuppetBridge extends EventEmitter {
 		if (roomInfo) {
 			const client = (await this.roomSync.getRoomOp(roomInfo.mxid)) || this.botIntent.underlyingClient;
 			if (client) {
-				let al = "";
 				try {
 					const al = (await client.getRoomStateEvent(
 						roomInfo.mxid, "m.room.canonical_alias", "",

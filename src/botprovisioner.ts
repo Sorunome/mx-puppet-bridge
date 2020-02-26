@@ -404,11 +404,11 @@ Usage: \`listrooms\``,
 		this.registerCommand("settype", {
 			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
 				if (!PUPPET_TYPES.includes(param as PuppetType)) {
-					sendMessage("ERROR: Invalid type. Valid types are: " + PUPPET_TYPES.map((s) => `\`${s}\``).join(", "));
+					await sendMessage("ERROR: Invalid type. Valid types are: " + PUPPET_TYPES.map((s) => `\`${s}\``).join(", "));
 					return;
 				}
 				await this.provisioner.setType(puppetId, param as PuppetType);
-				sendMessage(`Set puppet type to ${param}`);
+				await sendMessage(`Set puppet type to ${param}`);
 			},
 			help: `Sets the type of a given puppet. Valid types are "puppet" and "relay".
 
@@ -418,7 +418,7 @@ Usage: \`settype <puppetId> <type>\``,
 			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
 				const isPublic = param === "1" || param === "true";
 				await this.provisioner.setIsPublic(puppetId, isPublic);
-				sendMessage(`Set puppet to ${isPublic ? "public" : "private"}`);
+				await sendMessage(`Set puppet to ${isPublic ? "public" : "private"}`);
 			},
 			help: `Sets if the given puppet is public.
 
@@ -428,11 +428,25 @@ Usage: \`setispublic <puppetId> <1/0>`,
 			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
 				const autoinvite = param === "1" || param === "true";
 				await this.provisioner.setAutoinvite(puppetId, autoinvite);
-				sendMessage(`Set puppet to ${autoinvite ? "autoinvite" : "ignore"}`);
+				await sendMessage(`Set puppet to ${autoinvite ? "autoinvite" : "ignore"}`);
 			},
 			help: `Sets if the given puppet should autoinvite you to new rooms.
 
 Usage: \`setautoinvite <puppetId> <1/0>`,
+		});
+		this.registerCommand("invite", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				const success = await this.provisioner.invite(sender, param);
+				if (success) {
+					await sendMessage("Sent invite to the room!");
+				} else {
+					await sendMessage("Couldn't send invite to the room. Perhaps you don't have permission to see it?");
+				}
+			},
+			help: `Receive an invite to a room. The room identifier can be a matrix.to link, a room ID, an alias or a user ID.
+
+Usage: \`invite <room>\``,
+			withPid: false,
 		});
 	}
 

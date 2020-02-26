@@ -175,28 +175,8 @@ export class MatrixEventHandler {
 		if (this.bridge.AS.isNamespacedUser(userId)) {
 			log.verbose("Is a ghost, removing from room cache...");
 			await this.bridge.puppetStore.leaveGhostFromRoom(userId, roomId);
-			if (userId !== event.sender) {
-				// puppet got kicked, unbridging room
-				log.verbose("Ghost got kicked, unbridging room...");
-				await this.bridge.unbridgeRoomByMxid(roomId);
-			}
 			return;
 		}
-
-		const room = await this.bridge.roomSync.getPartsFromMxid(roomId);
-		if (!room) {
-			log.verbose("Room not found, ignoring...");
-			return; // this isn't a room we handle, just ignore it
-		}
-
-		const puppetMxid = await this.bridge.provisioner.getMxid(room.puppetId);
-		if (userId !== puppetMxid) {
-			log.verbose("It wasn't our puppet, ignroing...");
-			return; // it wasn't us
-		}
-
-		log.verbose("Puppet left the room, unbridging...");
-		await this.bridge.unbridgeRoom(room);
 	}
 
 	private async handleRedactEvent(roomId: string, event: RedactionEvent) {
@@ -533,7 +513,7 @@ export class MatrixEventHandler {
 	// tslint:disable-next-line no-any
 	private async applyRelayFormatting(roomId: string, sender: string, content: any) {
 		if (content["m.new_content"]) {
-			this.applyRelayFormatting(roomId, sender, content["m.new_content"]);
+			await this.applyRelayFormatting(roomId, sender, content["m.new_content"]);
 		}
 		const member = await this.getRoomMemberInfo(roomId, sender);
 		const displaynameEscaped = escapeHtml(member.displayname);
@@ -562,7 +542,8 @@ export class MatrixEventHandler {
 			content.body = `${member.displayname} sent ${msg}: ${url}`;
 			content.msgtype = "m.text";
 			content.format = "org.matrix.custom.html";
-			content.formatted_body = `<strong>${displaynameEscaped}</strong> sent ${msg}: <a href="${escapeUrl}">${escapeUrl}</a>`
+			content.formatted_body = `<strong>${displaynameEscaped}</strong> sent ${msg}: <a href="${escapeUrl}">`
+				+ `${escapeUrl}</a>`;
 		}
 	}
 

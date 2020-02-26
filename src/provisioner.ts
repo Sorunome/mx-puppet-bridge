@@ -19,6 +19,8 @@ import { Log } from "./log";
 import { Util } from "./util";
 import { IPuppetData } from "./interfaces";
 
+const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
+
 const log = new Log("Provisioner");
 
 export interface IProvisionerDesc {
@@ -211,6 +213,70 @@ export class Provisioner {
 			descs.push(await this.getDescFromData(data));
 		}
 		return descs;
+	}
+
+	public async invite(userId: string, inviteIdent: string): Promise<boolean> {
+		if (inviteIdent.startsWith(MATRIX_URL_SCHEME_MASK)) {
+			inviteIdent = inviteIdent.slice(MATRIX_URL_SCHEME_MASK.length);
+		}
+		let roomId = "";
+		if (inviteIdent[0] === "#") {
+			try {
+				roomId = await this.bridge.botIntent.underlyingClient.resolveRoom(inviteIdent);
+			} catch (err) {
+				return false;
+			}
+		} else if (inviteIdent[0] === "!") {
+			roomId = inviteIdent;
+		} else if (inviteIdent[0] === "@") {
+			if (!this.bridge.AS.isNamespacedUser(inviteIdent) || !this.bridge.hooks.getDmRoomId) {
+				return false;
+			}
+			const userParts = this.bridge.userSync.getPartsFromMxid(inviteIdent);
+			if (!userParts) {
+				return false;
+			}
+			const maybeRoomId = await this.bridge.hooks.getDmRoomId(userParts);
+			if (!maybeRoomId) {
+				return false;
+			}
+			const maybeRoom = await this.bridge.roomSync.maybeGet({
+				puppetId: userParts.puppetId,
+				roomId: maybeRoomId,
+			});
+			if (!maybeRoom) {
+				return false;
+			}
+			roomId = maybeRoom.mxid;
+		} else {
+			return false; // TODO: add more logic
+		}
+		// alright, we have the roomId....let's check if it already exists
+		const roomParts = await this.bridge.roomSync.getPartsFromMxid(roomId);
+		if (!roomParts) {
+			return false;
+		}
+		const room = await this.bridge.roomSync.maybeGet(roomParts);
+		if (!room) {
+			return false;
+		}
+		// alright, it exists.....time to check if we can join it
+		const puppet = await this.get(room.puppetId);
+		if (!puppet) {
+			return false;
+		}
+		if ((puppet.type === "puppet" && puppet.puppetMxid === userId) ||
+			(puppet.type === "relay" && this.bridge.provisioner.canRelay(userId))) {
+			const client = (await this.bridge.roomSync.getRoomOp(room.mxid)) || this.bridge.botIntent.underlyingClient;
+			try {
+				await client.inviteUser(userId, room.mxid);
+				return true;
+			} catch (err) {
+				log.warn(`Failed to invite ${userId} to ${room.mxid}`, err);
+				return false;
+			}
+		}
+		return false;
 	}
 
 	private async getDescFromData(data: IPuppet): Promise<IProvisionerDesc> {
