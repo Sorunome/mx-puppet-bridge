@@ -223,14 +223,15 @@ export class DbPuppetStore {
 			return -1;
 		}
 		const puppetId = await this.db.Run(
-			`INSERT INTO puppet_store (puppet_mxid, data, user_id, type, is_public)
-			VALUES ($mxid, $data, $uid, $type, $isPublic)`
+			`INSERT INTO puppet_store (puppet_mxid, data, user_id, type, is_public, autoinvite)
+			VALUES ($mxid, $data, $uid, $type, $isPublic, $autoinvite)`
 		, {
 			mxid: puppetMxid,
 			data: dataStr,
 			uid: userId || null,
 			type: PUPPET_TYPES.indexOf("puppet"),
-			isPublic: false,
+			isPublic: Number(false),
+			autoinvite: Number(true),
 		}, "puppet_id");
 		return puppetId;
 	}
