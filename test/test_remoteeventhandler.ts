@@ -194,7 +194,7 @@ function getHandler(opts?: IHandlerOpts) {
 					return {
 						puppetMxid: "@user:example.org",
 						userId: "puppet",
-						autoinvite: !opts!.noautoinvite
+						autoinvite: !opts!.noautoinvite,
 					};
 				}
 				return null;
