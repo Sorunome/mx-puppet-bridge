@@ -59,6 +59,10 @@ To circumvent that automatic double-puppeting is available. Configure your homes
 [matrix-synapse-secret-auth](https://github.com/devture/matrix-synapse-shared-secret-auth) and set
 the secert for that homeserver in the `bridge.loginSharedSecretMap` mapping.
 
+### Adding of metadata for images, videos and audio
+Sent images, video and audio can have metadata added to them, for that make sure that `ffprobe`
+is installed in your `$PATH`. It usually comes bundled with `ffmpeg`.
+
 ## Bridging new protocols
 To bridge a new protocol only a small amount of features has to be implemented. For examples see
 the corresponding section. For a full list of available endpoints, see [bridge.md](https://github.com/Sorunome/mx-puppet-bridge/blob/master/bridge.md).

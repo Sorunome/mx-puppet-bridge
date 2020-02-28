@@ -22,6 +22,7 @@ import * as request from "request-promise";
 import { IProfileDbEntry } from "./db/interfaces";
 import { IRemoteProfile } from "./interfaces";
 import { StringFormatter } from "./structures/stringformatter";
+import { spawn } from "child_process";
 
 const log = new Log("Util");
 
@@ -226,5 +227,37 @@ export class Util {
 			}
 		}
 		return result;
+	}
+
+	// tslint:disable-next-line no-any
+	public static async ffprobe(buffer: Buffer): Promise<any> {
+		// tslint:disable-next-line no-any
+		return new Promise<any>((resolve, reject) => {
+			const cmd = spawn("ffprobe", ["-i", "-", "-v", "error", "-print_format", "json", "-show_format", "-show_streams"]);
+			const TIMEOUT = 500;
+			const timeout = setTimeout(() => {
+				cmd.kill();
+			}, TIMEOUT);
+			let databuf = "";
+			cmd.stdout.on("data", (data: string) => {
+				databuf += data;
+			});
+			cmd.stdout.on("error", (error) => { }); // disregard
+			cmd.on("error", (error) => {
+				cmd.kill();
+				clearTimeout(timeout);
+				reject(error);
+			});
+			cmd.on("close", (code: number) => {
+				clearTimeout(timeout);
+				try {
+					resolve(JSON.parse(databuf));
+				} catch (err) {
+					reject(err);
+				}
+			});
+			cmd.stdin.on("error", (error) => { }); // disregard
+			cmd.stdin.end(buffer);
+		});
 	}
 }

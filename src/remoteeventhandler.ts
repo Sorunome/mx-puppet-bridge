@@ -18,7 +18,8 @@ import { TimedCache } from "./structures/timedcache";
 import { IRemoteUser, IReceiveParams, IMessageEvent } from "./interfaces";
 import { MatrixPresence } from "./presencehandler";
 import {
-	TextualMessageEventContent, FileMessageEventContent, FileWithThumbnailInfo, MatrixClient,
+	TextualMessageEventContent, FileMessageEventContent, FileWithThumbnailInfo, MatrixClient, DimensionalFileInfo,
+	VideoFileInfo, TimedFileInfo,
 } from "matrix-bot-sdk";
 
 const log = new Log("RemoteEventHandler");
@@ -277,6 +278,58 @@ export class RemoteEventHandler {
 			mimetype,
 			size: buffer.byteLength,
 		};
+		// alright, let's add some stuffs to the different msgtypes
+		if (msgtype === "m.image") {
+			try {
+				const i = info as DimensionalFileInfo;
+				const data = await Util.ffprobe(buffer);
+				const imageData = data.streams.find((e) => e.codec_type === "video");
+				if (typeof imageData.width === "number") {
+					i.w = imageData.width;
+				}
+				if (typeof imageData.height === "number") {
+					i.h = imageData.height;
+				}
+			} catch (err) {
+				log.debug("Error adding information for image", err);
+			}
+		}
+		if (msgtype === "m.video") {
+			try {
+				const i = info as VideoFileInfo;
+				const data = await Util.ffprobe(buffer);
+				const imageData = data.streams.find((e) => e.codec_type === "video");
+				if (typeof imageData.width === "number") {
+					i.w = imageData.width;
+				}
+				if (typeof imageData.height === "number") {
+					i.h = imageData.height;
+				}
+				const duration = Number(data.format.duration);
+				if (!isNaN(duration)) {
+					i.duration = Math.round(duration * 1000);
+				}
+			} catch (err) {
+				log.debug("Error adding inromation for video", err);
+			}
+		}
+		if (msgtype === "m.audio") {
+			try {
+				const i = info as TimedFileInfo;
+				const data = await Util.ffprobe(buffer);
+				let duration = Number(data.format.duration);
+				if (!isNaN(duration)) {
+					i.duration = Math.round(duration * 1000);
+				} else {
+					duration = Number(data.format.tags.TLEN);
+					if (!isNaN(duration)) {
+						i.duration = Math.round(duration);
+					}
+				}
+			} catch (err) {
+				log.debug("Error adding inromation for video", err);
+			}
+		}
 		const sendData: FileMessageEventContent = {
 			body: name,
 			info,
