@@ -59,6 +59,7 @@ const log = new Log("PuppetBridge");
 // tslint:disable no-magic-numbers
 const DEFAULT_TYPING_TIMEOUT = 30000;
 const MXC_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
+const AVATAR_SIZE = 800;
 // tslint:enable no-magic-numbers
 
 export interface IPuppetBridgeHooks {
@@ -545,7 +546,7 @@ export class PuppetBridge extends EventEmitter {
 		const info = await this.store.puppetStore.getMxidInfo(puppetMxid);
 		if (info) {
 			if (info.avatarMxc) {
-				info.avatarUrl = this.getUrlFromMxc(info.avatarMxc);
+				info.avatarUrl = this.getUrlFromMxc(info.avatarMxc, AVATAR_SIZE, AVATAR_SIZE, "scale");
 			}
 			return info;
 		}
@@ -556,7 +557,7 @@ export class PuppetBridge extends EventEmitter {
 			p.name = ret.displayname || null;
 			if (ret.avatar_url) {
 				p.avatarMxc = ret.avatar_url;
-				p.avatarUrl = this.getUrlFromMxc(ret.avatar_url);
+				p.avatarUrl = this.getUrlFromMxc(ret.avatar_url, AVATAR_SIZE, AVATAR_SIZE, "scale");
 			} else {
 				p.avatarMxc = null;
 				p.avatarUrl = null;

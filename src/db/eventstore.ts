@@ -29,6 +29,13 @@ export class DbEventStore {
 		});
 	}
 
+	public async remove(puppetId: number, remoteId: string) {
+		await this.db.Run("DELETE FROM event_store WHERE puppet_id = $p AND remote_id = $r", {
+			p: puppetId,
+			r: remoteId,
+		});
+	}
+
 	public async getMatrix(puppetId: number, remoteId: string): Promise<string[]> {
 		const result: string[] = [];
 		const rows = await this.db.All("SELECT * FROM event_store WHERE puppet_id=$p AND remote_id=$r", {

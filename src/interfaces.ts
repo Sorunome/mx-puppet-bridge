@@ -80,6 +80,9 @@ export interface IPuppetBridgeFeatures {
 	// event types
 	edit?: boolean;
 	reply?: boolean;
+
+	// advanced relay
+	advancedRelay?: boolean;
 }
 
 export interface IReceiveParams {
@@ -139,6 +142,13 @@ export interface IProtocolInformation {
 	externalUrl?: string;
 	features?: IPuppetBridgeFeatures;
 	namePatterns?: IProtocolInformationNamePatterns;
+}
+
+export interface ISendingUser {
+	avatarMxc: string | null;
+	avatarUrl: string | null;
+	displayname: string;
+	mxid: string;
 }
 
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;

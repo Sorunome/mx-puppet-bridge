@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteRoom, IRemoteUser, IReceiveParams } from "./interfaces";
+import { IRemoteRoom, IRemoteUser, IReceiveParams, ISendingUser } from "./interfaces";
 import { MatrixClient, RedactionEvent } from "matrix-bot-sdk";
 import { DbReactionStore, IReactionStoreEntry } from "./db/reactionstore";
 import { Log } from "./log";
@@ -126,7 +126,7 @@ export class ReactionHandler {
 		await this.reactionStore.insert(entry);
 	}
 
-	public async handleRedactEvent(room: IRemoteRoom, event: RedactionEvent) {
+	public async handleRedactEvent(room: IRemoteRoom, event: RedactionEvent, asUser: ISendingUser | null) {
 		for (const redacts of event.redactsEventIds) {
 			const reaction = await this.reactionStore.getFromReactionMxid(redacts);
 			if (!reaction) {
@@ -138,7 +138,7 @@ export class ReactionHandler {
 				continue;
 			}
 			log.debug("Emitting removeReaction event...");
-			this.bridge.emit("removeReaction", room, reaction.eventId, reaction.key, event);
+			this.bridge.emit("removeReaction", room, reaction.eventId, reaction.key, asUser, event);
 			// and finally delete it off of the DB
 			await this.reactionStore.delete(reaction.reactionMxid);
 		}

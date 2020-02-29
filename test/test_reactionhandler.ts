@@ -399,7 +399,7 @@ describe("ReactionHandler", () => {
 			const event = new RedactionEvent({
 				redacts: "$nonexisting",
 			});
-			await handler.handleRedactEvent(room, event);
+			await handler.handleRedactEvent(room, event, null);
 			expect(BRIDGE_EVENTS_EMITTED).eql([]);
 			expect(REACTION_STORE_DELETE).to.equal("");
 		});
@@ -412,7 +412,7 @@ describe("ReactionHandler", () => {
 			const event = new RedactionEvent({
 				redacts: "$oldreaction",
 			});
-			await handler.handleRedactEvent(room, event);
+			await handler.handleRedactEvent(room, event, null);
 			expect(BRIDGE_EVENTS_EMITTED).eql([]);
 			expect(REACTION_STORE_DELETE).to.equal("");
 		});
@@ -425,7 +425,7 @@ describe("ReactionHandler", () => {
 			const event = new RedactionEvent({
 				redacts: "$oldreaction",
 			});
-			await handler.handleRedactEvent(room, event);
+			await handler.handleRedactEvent(room, event, null);
 			expect(BRIDGE_EVENTS_EMITTED).eql(["removeReaction"]);
 			expect(REACTION_STORE_DELETE).to.equal("$oldreaction");
 		});

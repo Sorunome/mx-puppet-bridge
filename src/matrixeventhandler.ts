@@ -17,7 +17,7 @@ import {
 	MembershipEvent, RedactionEvent, RoomEvent, MessageEvent, FileMessageEventContent, TextualMessageEventContent,
 	MembershipEventContent, RoomEventContent, MessageEventContent,
 } from "matrix-bot-sdk";
-import { IFileEvent, IMessageEvent, IRemoteRoom } from "./interfaces";
+import { IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser } from "./interfaces";
 import * as escapeHtml from "escape-html";
 import { IPuppet } from "./db/puppetstore";
 
@@ -25,6 +25,7 @@ const log = new Log("MatrixEventHandler");
 
 // tslint:disable no-magic-numbers
 const GHOST_PUPPET_LEAVE_TIMEOUT = 1000 * 60 * 60;
+const AVATAR_SIZE = 800;
 // tslint:enable no-magic-numbers
 
 export class MatrixEventHandler {
@@ -155,7 +156,7 @@ export class MatrixEventHandler {
 			update = true;
 		}
 		if (newAvatarMxc !== puppet.avatarMxc) {
-			const url = this.bridge.getUrlFromMxc(newAvatarMxc);
+			const url = this.bridge.getUrlFromMxc(newAvatarMxc, AVATAR_SIZE, AVATAR_SIZE, "scale");
 			const puppets = await this.bridge.provisioner.getForMxid(puppetMxid);
 			for (const p of puppets) {
 				log.verbose("Emitting puppetAvatar event...");
@@ -210,13 +211,16 @@ export class MatrixEventHandler {
 			log.verbose("Dropping event due to de-duping...");
 			return;
 		}
+		const asUser = await this.getSendingUser(puppetData, roomId, event.sender);
 		// handle reation redactions
-		await this.bridge.reactionHandler.handleRedactEvent(room, event);
+		if (puppetData.type !== "relay" || this.bridge.protocol.features.advancedRelay) {
+			await this.bridge.reactionHandler.handleRedactEvent(room, event, asUser);
+		}
 		for (const redacts of event.redactsEventIds) {
 			const eventIds = await this.bridge.eventStore.getRemote(room.puppetId, redacts);
 			for (const eventId of eventIds) {
 				log.verbose("Emitting redact event...");
-				this.bridge.emit("redact", room, eventId, event);
+				this.bridge.emit("redact", room, eventId, asUser, event);
 			}
 		}
 	}
@@ -245,7 +249,9 @@ export class MatrixEventHandler {
 				log.verbose("Message wasn't sent from a relay-able person, dropping...");
 				return;
 			}
-			await this.applyRelayFormatting(roomId, event.sender, event.content);
+			if (!this.bridge.protocol.features.advancedRelay) {
+				await this.applyRelayFormatting(roomId, event.sender, event.content);
+			}
 		} else if (event.sender !== puppetMxid) {
 			log.verbose("Message wasn't sent from the correct puppet, dropping...");
 			return;
@@ -303,22 +309,23 @@ export class MatrixEventHandler {
 		if (!emitEvent) {
 			emitEvent = "file";
 		}
+		const asUser = await this.getSendingUser(puppetData, roomId, event.sender);
 		// alright, now determine fallbacks etc.
 		if (this.bridge.protocol.features[emitEvent]) {
 			log.debug(`Emitting as ${emitEvent}...`);
-			this.bridge.emit(emitEvent, room, data, event);
+			this.bridge.emit(emitEvent, room, data, asUser, event);
 			return;
 		}
 		// send stickers as images
 		if (emitEvent === "sticker" && this.bridge.protocol.features.image) {
 			log.debug("Emitting as image...");
-			this.bridge.emit("image", room, data, event);
+			this.bridge.emit("image", room, data, asUser, event);
 			return;
 		}
 		// and finally send anything as file
 		if (this.bridge.protocol.features.file) {
 			log.debug("Emitting as file...");
-			this.bridge.emit("file", room, data, event);
+			this.bridge.emit("file", room, data, asUser, event);
 			return;
 		}
 		// okay, we need a fallback to sending text
@@ -328,7 +335,7 @@ export class MatrixEventHandler {
 			emote: false,
 			eventId: event.eventId,
 		};
-		this.bridge.emit("message", room, textData, event);
+		this.bridge.emit("message", room, textData, asUser, event);
 	}
 
 	private async handleTextEvent(
@@ -350,6 +357,7 @@ export class MatrixEventHandler {
 			msgData.formattedBody = content.formatted_body;
 		}
 		const relate = event.content["m.relates_to"]; // there is no relates_to interface yet :[
+		const asUser = await this.getSendingUser(puppetData, roomId, event.sender);
 		if (relate) {
 			// it only makes sense to process with relation if it is associated with a remote id
 			const relEvent = (await this.bridge.eventStore.getRemote(room.puppetId,
@@ -367,25 +375,27 @@ export class MatrixEventHandler {
 						relData.formattedBody = newContent.formatted_body;
 					}
 					log.debug("Emitting edit event...");
-					this.bridge.emit("edit", room, relEvent, relData, event);
+					this.bridge.emit("edit", room, relEvent, relData, asUser, event);
 					return;
 				}
 				if (this.bridge.protocol.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
 					log.debug("Emitting reply event...");
-					this.bridge.emit("reply", room, relEvent, msgData, event);
+					this.bridge.emit("reply", room, relEvent, msgData, asUser, event);
 					return;
 				}
 				if (relate.rel_type === "m.annotation") {
 					// no feature setting as reactions are hidden if they aren't supported
-					await this.bridge.reactionHandler.addMatrix(room, relEvent, event.eventId, relate.key);
-					log.debug("Emitting reaction event...");
-					this.bridge.emit("reaction", room, relEvent, relate.key, event);
+					if (puppetData.type !== "relay" || this.bridge.protocol.features.advancedRelay) {
+						await this.bridge.reactionHandler.addMatrix(room, relEvent, event.eventId, relate.key);
+						log.debug("Emitting reaction event...");
+						this.bridge.emit("reaction", room, relEvent, relate.key, asUser, event);
+					}
 					return;
 				}
 			}
 		}
 		log.debug("Emitting message event...");
-		this.bridge.emit("message", room, msgData, event);
+		this.bridge.emit("message", room, msgData, asUser, event);
 	}
 
 	private async handleInviteEvent(roomId: string, invite: MembershipEvent) {
@@ -558,5 +568,32 @@ export class MatrixEventHandler {
 			msgtype = event.type;
 		}
 		return msgtype;
+	}
+
+	private async getSendingUser(puppetData: IPuppet, roomId: string, userId: string): Promise<ISendingUser | null> {
+		if (puppetData.type !== "relay") {
+			return null;
+		}
+		const membership = await this.getRoomMemberInfo(roomId, userId);
+		if (!membership) {
+			return {
+				displayname: userId.substr(1).split(":")[0],
+				mxid: userId,
+				avatarMxc: null,
+				avatarUrl: null,
+			};
+		}
+		let avatarMxc: string | null = null;
+		let avatarUrl: string | null = null;
+		if (typeof membership.avatar_url === "string") {
+			avatarMxc = membership.avatar_url;
+			avatarUrl = this.bridge.getUrlFromMxc(avatarMxc, AVATAR_SIZE, AVATAR_SIZE, "scale");
+		}
+		return {
+			displayname: membership.displayname!,
+			mxid: userId,
+			avatarMxc,
+			avatarUrl,
+		};
 	}
 }
