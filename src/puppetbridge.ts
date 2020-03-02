@@ -668,6 +668,22 @@ export class PuppetBridge extends EventEmitter {
 	}
 
 	/**
+	 * Wraps a matrix client to use the mediaUrl endpoint instead
+	 */
+	public async getMediaClient(client: MatrixClient): Promise<MatrixClient> {
+		if (!this.config.bridge.mediaUrl) {
+			return client;
+		}
+		const mediaClient = new MatrixClient(this.config.bridge.mediaUrl, client.accessToken);
+		mediaClient.metrics = client.metrics;
+		const userId = await client.getUserId();
+		if (this.appservice.isNamespacedUser(userId) && userId !== this.appservice.botUserId) {
+			mediaClient.impersonateUserId(userId);
+		}
+		return mediaClient;
+	}
+
+	/**
 	 * Upload content to matrix, automatically de-duping it
 	 */
 	public async uploadContent(
@@ -716,7 +732,8 @@ export class PuppetBridge extends EventEmitter {
 			if (!mimetype) {
 				mimetype = Util.GetMimeType(buffer);
 			}
-			const mxcUrl = await client.uploadContent(buffer, mimetype, filename);
+			const mediaClient = await this.getMediaClient(client);
+			const mxcUrl = await mediaClient.uploadContent(buffer, mimetype, filename);
 			if (typeof thing === "string") {
 				await this.store.setFileMxc(thing, mxcUrl, filename);
 			}
