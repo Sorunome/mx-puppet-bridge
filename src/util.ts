@@ -234,7 +234,7 @@ export class Util {
 		// tslint:disable-next-line no-any
 		return new Promise<any>((resolve, reject) => {
 			const cmd = spawn("ffprobe", ["-i", "-", "-v", "error", "-print_format", "json", "-show_format", "-show_streams"]);
-			const TIMEOUT = 500;
+			const TIMEOUT = 5000;
 			const timeout = setTimeout(() => {
 				cmd.kill();
 			}, TIMEOUT);
