@@ -11,6 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+const MAX_AUTOJOIN_USERS = 200;
+const ROOM_USER_AUTOJOIN_DELAY = 5000;
+
 export class Config {
 	public bridge: BridgeConfig = new BridgeConfig();
 	public logging: LoggingConfig = new LoggingConfig();
@@ -20,6 +23,7 @@ export class Config {
 	public relay: RelayConfig = new RelayConfig();
 	public homeserverUrlMap: {[key: string]: string} = {};
 	public namePatterns: NamePatternsConfig = new NamePatternsConfig();
+	public limits: LimitsConfig = new LimitsConfig();
 
 	// tslint:disable-next-line no-any
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
@@ -97,4 +101,9 @@ class NamePatternsConfig {
 	public userOverride: string;
 	public room: string;
 	public group: string;
+}
+
+class LimitsConfig {
+	public maxAutojoinUsers: number = MAX_AUTOJOIN_USERS;
+	public roomUserAutojoinDelay: number = ROOM_USER_AUTOJOIN_DELAY;
 }

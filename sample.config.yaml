@@ -120,3 +120,11 @@ namePatterns:
   userOverride: :name
   room: :name
   group: :name
+
+limits:
+  # Up to how many users should be auto-joined on room creation? -1 to disable
+  # Defaults to 200
+  #maxAutojoinUsers: 200
+  # How long the delay between two autojoin users should be, in millisectonds.
+  # Defaults to 5000
+  #roomUserAutojoinDelay: 5000

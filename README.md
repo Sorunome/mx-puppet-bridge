@@ -79,3 +79,4 @@ Not all features need to be implemented by protocol implementations. Here are so
 | enable group syncing | `createGroup` |
 | initiate 1:1 rooms from the matrix side | `getDmRoomId`, `createRoom` |
 | initiate rooms from the matrix side | `createRoom` |
+| autopopulate rooms with users | `getUserIdsInRoom` |

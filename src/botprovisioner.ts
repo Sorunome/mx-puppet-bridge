@@ -443,9 +443,23 @@ Usage: \`setautoinvite <puppetId> <1/0>`,
 					await sendMessage("Couldn't send invite to the room. Perhaps you don't have permission to see it?");
 				}
 			},
-			help: `Receive an invite to a room. The room identifier can be a matrix.to link, a room ID, an alias or a user ID.
+			help: `Receive an invite to a room. The room resolvable can be a matrix.to link, a room ID, an alias or a user ID.
 
-Usage: \`invite <room>\``,
+Usage: \`invite <room resolvable>\``,
+			withPid: false,
+		});
+		this.registerCommand("unbridge", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				const success = await this.provisioner.unbridge(sender, param);
+				if (success) {
+					await sendMessage("Unbridged the room!");
+				} else {
+					await sendMessage("Couldn't unbridge the room. Perhaps it doesn't exist or you aren't the owner of it?");
+				}
+			},
+			help: `Unbridge a room. The room resolvable can be a matrix.to link, a room ID, an alias or a user ID.
+
+Usage: \`unbridge <room resolvable>\``,
 			withPid: false,
 		});
 	}

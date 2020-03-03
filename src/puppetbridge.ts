@@ -51,7 +51,7 @@ import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
 	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
 	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
-	IRemoteGroup, IPuppetData,
+	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -72,6 +72,7 @@ export interface IPuppetBridgeHooks {
 	getDmRoomId?: GetDmRoomIdHook;
 	listUsers?: ListUsersHook;
 	listRooms?: ListRoomsHook;
+	getUserIdsInRoom?: GetUserIdsInRoomHook;
 }
 
 interface ISetProtocolInformation extends IProtocolInformation {
@@ -371,6 +372,10 @@ export class PuppetBridge extends EventEmitter {
 		this.hooks.listRooms = hook;
 	}
 
+	public setGetUserIdsInRoomHook(hook: GetUserIdsInRoomHook) {
+		this.hooks.getUserIdsInRoom = hook;
+	}
+
 	/**
 	 * Set what the remote user ID of a puppet is
 	 */
@@ -430,8 +435,11 @@ export class PuppetBridge extends EventEmitter {
 		if (!puppet) {
 			return;
 		}
-		const invites = [puppet.puppetMxid];
+		const invites = new Set<string>();
+		invites.add(puppet.puppetMxid);
 		await this.roomSync.getMxid(room, undefined, invites);
+		// tslint:disable-next-line no-floating-promises
+		this.roomSync.addGhosts(room);
 	}
 
 	/**
@@ -479,6 +487,20 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendReadReceipt(params: IReceiveParams) {
 		await this.remoteEventHandler.sendReadReceipt(params);
+	}
+
+	/**
+	 * Adds a user to a room
+	 */
+	public async addUser(params: IReceiveParams) {
+		await this.remoteEventHandler.addUser(params);
+	}
+
+	/**
+	 * Removes a user from a room
+	 */
+	public async removeUser(params: IReceiveParams) {
+		await this.remoteEventHandler.removeUser(params);
 	}
 
 	/**

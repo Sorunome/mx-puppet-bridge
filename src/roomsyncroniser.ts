@@ -26,6 +26,7 @@ const log = new Log("RoomSync");
 
 // tslint:disable-next-line:no-magic-numbers
 const MXID_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
+const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
 
 interface ISingleBridgeInformation {
 	id: string;
@@ -80,7 +81,7 @@ export class RoomSyncroniser {
 	public async getMxid(
 		data: IRemoteRoom,
 		client?: MatrixClient,
-		invites?: string[],
+		invites?: Set<string>,
 		doCreate: boolean = true,
 		isPublic: boolean = false,
 	): Promise<{ mxid: string; created: boolean; }> {
@@ -139,7 +140,7 @@ export class RoomSyncroniser {
 						},
 					},
 					is_direct: data.isDirect,
-					invite: invites,
+					invite: invites ? Array.from(invites) : null,
 					initial_state: [],
 				} as any; // tslint:disable-line no-any
 				if (!data.isDirect) {
@@ -382,6 +383,64 @@ export class RoomSyncroniser {
 		};
 	}
 
+	public async addGhosts(room: IRemoteRoom) {
+		if (!this.bridge.hooks.getUserIdsInRoom) {
+			// alright, we don't have this feature
+			return;
+		}
+		log.info(`Got request to add ghosts to room puppetId=${room.puppetId} roomId=${room.roomId}`);
+		const mxid = await this.maybeGetMxid(room);
+		if (!mxid) {
+			log.info("Room not found, returning...");
+			return;
+		}
+		const roomUserIds = await this.bridge.hooks.getUserIdsInRoom(room);
+		if (!roomUserIds) {
+			log.info("No ghosts to add, returning...");
+			return;
+		}
+		const puppetData = await this.bridge.provisioner.get(room.puppetId);
+		if (!puppetData) {
+			log.error("puppetData wasn't found, THIS SHOULD NEVER HAPPEN!");
+			return;
+		}
+		const maxAutojoinUsers = this.bridge.config.limits.maxAutojoinUsers;
+		if (maxAutojoinUsers !== -1) {
+			// alright, let's make sure that we do not have too many ghosts to autojoin
+			let i = 0;
+			roomUserIds.forEach((userId: string) => {
+				if (i < maxAutojoinUsers) {
+					i++;
+				} else {
+					roomUserIds.delete(userId);
+				}
+			});
+		}
+		// cleanup
+		if (puppetData.userId) {
+			roomUserIds.delete(puppetData.userId);
+		}
+
+		// and now iterate over and do all the joins!
+		log.info(`Joining ${roomUserIds.size} ghosts...`);
+		const promiseList: Promise<void>[] = [];
+		let delay = this.bridge.config.limits.roomUserAutojoinDelay;
+		for (const userId of roomUserIds) {
+			promiseList.push((async () => {
+				await Util.sleep(delay);
+				log.verbose(`Joining ${userId} to room puppetId=${room.puppetId} roomId=${room.roomId}`);
+				const client = await this.bridge.userSync.getClient({
+					puppetId: room.puppetId,
+					userId,
+				});
+				const intent = this.bridge.AS.getIntentForUserId(await client.getUserId());
+				await intent.ensureRegisteredAndJoined(mxid);
+			})());
+			delay += this.bridge.config.limits.roomUserAutojoinDelay;
+		}
+		await Promise.all(promiseList);
+	}
+
 	public async maybeLeaveGhost(roomMxid: string, userMxid: string) {
 		log.info(`Maybe leaving ghost ${userMxid} from ${roomMxid}`);
 		const ghosts = await this.bridge.puppetStore.getGhostsInRoom(roomMxid);
@@ -446,6 +505,84 @@ export class RoomSyncroniser {
 		await this.deleteEntries(entries);
 	}
 
+	public async resolve(str: string): Promise<IRemoteRoom | null> {
+		if (str.startsWith(MATRIX_URL_SCHEME_MASK)) {
+			str = str.slice(MATRIX_URL_SCHEME_MASK.length);
+		}
+		switch (str[0]) {
+			case "#": {
+				const room = await this.getPartsFromMxid(str);
+				if (room) {
+					return room;
+				}
+				// no break, as we roll over to the `!` case and re-try as that
+			}
+			case "!": {
+				try {
+					const roomMxid = await this.bridge.botIntent.underlyingClient.resolveRoom(str);
+					return await this.getPartsFromMxid(roomMxid);
+				} catch (err) {
+					return null;
+				}
+			}
+			case "@": {
+				if (!this.bridge.AS.isNamespacedUser(str) || !this.bridge.hooks.getDmRoomId) {
+					return null;
+				}
+				const userParts = this.bridge.userSync.getPartsFromMxid(str);
+				if (!userParts) {
+					return null;
+				}
+				const maybeRoomId = await this.bridge.hooks.getDmRoomId(userParts);
+				if (!maybeRoomId) {
+					return null;
+				}
+				return {
+					puppetId: userParts.puppetId,
+					roomId: maybeRoomId,
+				};
+			}
+			default: {
+				const parts = str.split(" ");
+				const puppetId = Number(parts[0]);
+				if (!isNaN(puppetId)) {
+					return {
+						puppetId,
+						roomId: parts[1],
+					};
+				}
+				return null;
+			}
+		}
+	}
+
+	private async removeGhostsFromRoom(mxid: string, keepUsers: boolean) {
+		log.info("Removing ghosts from room....");
+		const ghosts = await this.bridge.puppetStore.getGhostsInRoom(mxid);
+		const promiseList: Promise<void>[] = [];
+		let delay = this.bridge.config.limits.roomUserAutojoinDelay;
+		for (const ghost of ghosts) {
+			promiseList.push((async () => {
+				await Util.sleep(delay);
+				log.verbose(`Removing ghost ${ghost} from room ${mxid}`);
+				if (!keepUsers) {
+					await this.bridge.userSync.deleteForMxid(ghost);
+				}
+				const intent = this.bridge.AS.getIntentForUserId(ghost);
+				if (intent) {
+					try {
+						await intent.leaveRoom(mxid);
+					} catch (err) {
+						log.warn("Failed to trigger client leave room", err.error || err.body || err);
+					}
+				}
+			})());
+			delay += this.bridge.config.limits.roomUserAutojoinDelay;
+		}
+		await Promise.all(promiseList);
+		await this.bridge.puppetStore.emptyGhostsInRoom(mxid);
+	}
+
 	private async deleteEntries(entries: IRoomStoreEntry[], keepUsers: boolean = false) {
 		log.info("Deleting entries", entries);
 		for (const entry of entries) {
@@ -461,7 +598,9 @@ export class RoomSyncroniser {
 					try {
 						const aliases = await opClient.getRoomStateEvent(entry.mxid, "m.room.aliases", this.bridge.config.bridge.domain);
 						for (const alias of aliases.aliases) {
-							await opClient.deleteRoomAlias(alias);
+							if (this.bridge.AS.isNamespacedAlias(alias)) {
+								await opClient.deleteRoomAlias(alias);
+							}
 						}
 					} catch (err) {
 						log.info("No aliases set");
@@ -485,22 +624,8 @@ export class RoomSyncroniser {
 				}
 			}
 
-			log.info("Removing ghosts from room....");
-			const ghosts = await this.bridge.puppetStore.getGhostsInRoom(entry.mxid);
-			for (const ghost of ghosts) {
-				if (!keepUsers) {
-					await this.bridge.userSync.deleteForMxid(ghost);
-				}
-				const intent = this.bridge.AS.getIntentForUserId(ghost);
-				if (intent) {
-					try {
-						await intent.leaveRoom(entry.mxid);
-					} catch (err) {
-						log.warn("Failed to trigger client leave room", err.error || err.body || err);
-					}
-				}
-			}
-			await this.bridge.puppetStore.emptyGhostsInRoom(entry.mxid);
+			// tslint:disable-next-line no-floating-promises
+			this.removeGhostsFromRoom(entry.mxid, keepUsers);
 		}
 	}
 }

@@ -90,6 +90,39 @@ export class RemoteEventHandler {
 		}
 	}
 
+	public async addUser(params: IReceiveParams) {
+		log.info(`Got request to add userId=${params.user.userId} to roomId=${params.room.roomId}` +
+			` puppetId=${params.room.puppetId}`);
+		const mxid = await this.bridge.roomSync.maybeGetMxid(params.room);
+		if (!mxid) {
+			return;
+		}
+		const client = await this.bridge.userSync.getClient(params.user);
+		const userId = await client.getUserId();
+		if (!this.bridge.AS.isNamespacedUser(userId)) {
+			return;
+		}
+		const intent = this.bridge.AS.getIntentForUserId(userId);
+		await intent.ensureRegisteredAndJoined(mxid);
+	}
+
+	public async removeUser(params: IReceiveParams) {
+		log.info(`Got request to remove userId=${params.user.userId} from roomId=${params.room.roomId}` +
+			` puppetId=${params.room.puppetId}`);
+		const ret = await this.maybePrepareSend(params);
+		if (!ret) {
+			return;
+		}
+		const userId = await ret.client.getUserId();
+		if (!this.bridge.AS.isNamespacedUser(userId)) {
+			return;
+		}
+		const intent = this.bridge.AS.getIntentForUserId(userId);
+		try {
+			await intent.leaveRoom(ret.mxid);
+		} catch (err) { } // not in room
+	}
+
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
 		log.info(`Received message from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
@@ -373,15 +406,36 @@ export class RemoteEventHandler {
 		const puppetMxid = puppetData.puppetMxid;
 		const client = await this.bridge.userSync.getClient(params.user);
 		const userId = await client.getUserId();
-		// we could be the one creating the room, no need to invite ourself
-		const invites: string[] = [];
-		if (userId !== puppetMxid) {
-			invites.push(puppetMxid);
-		} else {
-			// else we need the bot client in order to be able to receive matrix messages
-			invites.push(await this.bridge.botIntent.underlyingClient.getUserId());
+		let mxid = await this.bridge.roomSync.maybeGetMxid(params.room);
+		let created = false;
+		if (!mxid) {
+			// alright, the room doesn't exist yet....time to create it!
+			// we could be the one creating the room, no need to invite ourself
+			const invites = new Set<string>();
+			if (this.bridge.hooks.getUserIdsInRoom) {
+				const roomUserIds = await this.bridge.hooks.getUserIdsInRoom(params.room);
+				if (roomUserIds) {
+					for (const thisUserId of roomUserIds) {
+						if (thisUserId !== userId && thisUserId !== puppetData.userId) {
+							invites.add(this.bridge.AS.getUserIdForSuffix(`${params.user.puppetId}_${Util.str2mxid(thisUserId)}`));
+							break;
+						}
+					}
+				}
+			}
+			if (userId !== puppetMxid && puppetData.autoinvite) {
+				invites.add(puppetMxid);
+			}
+			if (userId === puppetMxid && invites.size === 0) {
+				// if we are creating the room via double-puppeting, make sure that *someone* is in there at all times
+				invites.add(await this.bridge.botIntent.underlyingClient.getUserId());
+			}
+			const retCall = await this.bridge.roomSync.getMxid(params.room, client, invites, true, puppetData.isPublic);
+			mxid = retCall.mxid;
+			created = retCall.created;
+			// tslint:disable-next-line no-floating-promises
+			this.bridge.roomSync.addGhosts(params.room);
 		}
-		const { mxid, created } = await this.bridge.roomSync.getMxid(params.room, client, invites, true, puppetData.isPublic);
 
 		// ensure that the intent is in the room
 		if (this.bridge.AS.isNamespacedUser(userId)) {
@@ -392,7 +446,7 @@ export class RemoteEventHandler {
 			if (puppetData.userId === params.user.userId) {
 				const delayedKey = `${userId}_${mxid}`;
 				this.bridge.delayedFunction.set(delayedKey, async () => {
-					await this.bridge.roomSync.maybeLeaveGhost(mxid, userId);
+					await this.bridge.roomSync.maybeLeaveGhost(mxid!, userId);
 				}, GHOST_PUPPET_LEAVE_TIMEOUT);
 			}
 			// set the correct m.room.member override if the room just got created

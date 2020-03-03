@@ -19,8 +19,6 @@ import { Log } from "./log";
 import { Util } from "./util";
 import { IPuppetData } from "./interfaces";
 
-const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
-
 const log = new Log("Provisioner");
 
 export interface IProvisionerDesc {
@@ -215,44 +213,26 @@ export class Provisioner {
 		return descs;
 	}
 
-	public async invite(userId: string, inviteIdent: string): Promise<boolean> {
-		if (inviteIdent.startsWith(MATRIX_URL_SCHEME_MASK)) {
-			inviteIdent = inviteIdent.slice(MATRIX_URL_SCHEME_MASK.length);
+	public async unbridge(userId: string, ident: string): Promise<boolean> {
+		const roomParts = await this.bridge.roomSync.resolve(ident);
+		if (!roomParts) {
+			return false;
 		}
-		let roomId = "";
-		if (inviteIdent[0] === "#") {
-			try {
-				roomId = await this.bridge.botIntent.underlyingClient.resolveRoom(inviteIdent);
-			} catch (err) {
-				return false;
-			}
-		} else if (inviteIdent[0] === "!") {
-			roomId = inviteIdent;
-		} else if (inviteIdent[0] === "@") {
-			if (!this.bridge.AS.isNamespacedUser(inviteIdent) || !this.bridge.hooks.getDmRoomId) {
-				return false;
-			}
-			const userParts = this.bridge.userSync.getPartsFromMxid(inviteIdent);
-			if (!userParts) {
-				return false;
-			}
-			const maybeRoomId = await this.bridge.hooks.getDmRoomId(userParts);
-			if (!maybeRoomId) {
-				return false;
-			}
-			const maybeRoom = await this.bridge.roomSync.maybeGet({
-				puppetId: userParts.puppetId,
-				roomId: maybeRoomId,
-			});
-			if (!maybeRoom) {
-				return false;
-			}
-			roomId = maybeRoom.mxid;
-		} else {
-			return false; // TODO: add more logic
+		const room = await this.bridge.roomSync.maybeGet(roomParts);
+		if (!room) {
+			return false;
 		}
-		// alright, we have the roomId....let's check if it already exists
-		const roomParts = await this.bridge.roomSync.getPartsFromMxid(roomId);
+		const puppet = await this.get(room.puppetId);
+		if (!puppet || puppet.puppetMxid !== userId) {
+			return false;
+		}
+		// alright, unbridge the room
+		await this.bridge.roomSync.delete(roomParts, true);
+		return true;
+	}
+
+	public async invite(userId: string, ident: string): Promise<boolean> {
+		const roomParts = await this.bridge.roomSync.resolve(ident);
 		if (!roomParts) {
 			return false;
 		}
