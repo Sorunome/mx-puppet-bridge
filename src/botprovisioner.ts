@@ -321,6 +321,42 @@ Usage: \`list\``,
 Usage: \`setmatrixtoken <token>\``,
 			withPid: false,
 		});
+		this.registerCommand("adminme", {
+			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
+				// Puppet to refer to.
+				const puppet = await this.provisioner.get(puppetId);
+				if (!puppet) {
+					await sendMessage("Puppet not found.");
+					return;
+				}
+				// Owner of the puppet (The user to make admin).
+				const userId = puppet.puppetMxid;
+				// This Matrix client will allow us to make the user admin.
+				const client = await this.bridge.roomSync.getRoomOp(param);
+				// If the client wasn't gotten then the room ID isn't valid.
+				if (!client) {
+					await sendMessage("Room not found.");
+					return;
+				}
+				// Check to see if this user is in the room before providing a power level.
+				const members = await client.getJoinedRoomMembers(param);
+				if (!members.includes(userId)) {
+					await sendMessage("You're not in this room.");
+					return;
+				}
+
+				// Then finally set power level 100 (admin)
+				// tslint:disable-next-line:no-magic-numbers
+				await client.setUserPowerLevel(userId, param, 100);
+				// Notify the user that the power level has been set.
+				await sendMessage("Admin level set.");
+			},
+			help: `Sets you as admin for a certain room
+
+Usage: \`adminme <puppetID> <roomID>\``,
+			withPid: true,
+		});
+
 		this.registerCommand("listusers", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
 				if (!this.bridge.hooks.listUsers) {
