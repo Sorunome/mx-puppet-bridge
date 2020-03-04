@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteRoom } from "./interfaces";
+import { IRemoteRoom, RemoteRoomResolvable, IRemoteUser } from "./interfaces";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbRoomStore } from "./db/roomstore";
@@ -505,7 +505,26 @@ export class RoomSyncroniser {
 		await this.deleteEntries(entries);
 	}
 
-	public async resolve(str: string): Promise<IRemoteRoom | null> {
+	public async resolve(str: RemoteRoomResolvable): Promise<IRemoteRoom | null> {
+		if (typeof str !== "string") {
+			if ((str as IRemoteRoom).roomId) {
+				return str as IRemoteRoom;
+			}
+			if ((str as IRemoteUser).userId) {
+				if (!this.bridge.hooks.getDmRoomId) {
+					return null;
+				}
+				const maybeRoomId = await this.bridge.hooks.getDmRoomId(str as IRemoteUser);
+				if (!maybeRoomId) {
+					return null;
+				}
+				return {
+					puppetId: (str as IRemoteUser).puppetId,
+					roomId: maybeRoomId,
+				};
+			}
+			return null;
+		}
 		if (str.startsWith(MATRIX_URL_SCHEME_MASK)) {
 			str = str.slice(MATRIX_URL_SCHEME_MASK.length);
 		}

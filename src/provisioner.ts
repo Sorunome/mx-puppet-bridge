@@ -17,7 +17,7 @@ import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet, PuppetType } from "./db/puppetstore";
 import { Log } from "./log";
 import { Util } from "./util";
-import { IPuppetData } from "./interfaces";
+import { IPuppetData, RemoteRoomResolvable } from "./interfaces";
 
 const log = new Log("Provisioner");
 
@@ -213,7 +213,7 @@ export class Provisioner {
 		return descs;
 	}
 
-	public async unbridge(userId: string, ident: string): Promise<boolean> {
+	public async unbridge(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {
 		const roomParts = await this.bridge.roomSync.resolve(ident);
 		if (!roomParts) {
 			return false;
@@ -231,7 +231,7 @@ export class Provisioner {
 		return true;
 	}
 
-	public async invite(userId: string, ident: string): Promise<boolean> {
+	public async invite(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {
 		const roomParts = await this.bridge.roomSync.resolve(ident);
 		if (!roomParts) {
 			return false;

@@ -55,6 +55,10 @@ export interface IRemoteGroup extends IRemoteBase {
 	roomIds?: string[] | null;
 }
 
+export type RemoteUserResolvable = IRemoteRoom | IRemoteUser | string;
+export type RemoteRoomResolvable = IRemoteRoom | IRemoteUser | string;
+export type RemoteGroupResolvable = RemoteRoomResolvable | IRemoteGroup | string;
+
 export interface IPuppetBridgeRegOpts {
 	prefix: string;
 	id: string;
