@@ -148,7 +148,7 @@ export class DbRoomStore {
 	}
 
 	public async setRoomOp(roomMxid: string, userMxid: string) {
-		const row = await this.db.Get("SELECT * FROM chan_op WHERE chan_mxid=$chan", {
+		const row = await this.db.Get("SELECT * FROM chan_op WHERE chan_mxid=$chan LIMIT 1", {
 			chan: roomMxid,
 		});
 		if (row) {
@@ -172,7 +172,7 @@ export class DbRoomStore {
 		if (cached) {
 			return cached;
 		}
-		const row = await this.db.Get("SELECT user_mxid FROM chan_op WHERE chan_mxid=$chan", {
+		const row = await this.db.Get("SELECT user_mxid FROM chan_op WHERE chan_mxid=$chan LIMIT 1", {
 			chan: roomMxid,
 		});
 		if (!row) {
