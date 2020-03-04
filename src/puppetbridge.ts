@@ -46,6 +46,7 @@ import { TypingHandler } from "./typinghandler";
 import { ReactionHandler } from "./reactionhandler";
 import { MatrixEventHandler } from "./matrixeventhandler";
 import { RemoteEventHandler } from "./remoteeventhandler";
+import { NamespaceHandler } from "./namespacehandler";
 import { DelayedFunction } from "./structures/delayedfunction";
 import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
@@ -102,6 +103,7 @@ export class PuppetBridge extends EventEmitter {
 	public typingHandler: TypingHandler;
 	public presenceHandler: PresenceHandler;
 	public reactionHandler: ReactionHandler;
+	public namespaceHandler: NamespaceHandler;
 	private appservice: Appservice;
 	private mxcLookupLock: Lock<string>;
 	private matrixEventHandler: MatrixEventHandler;
@@ -169,6 +171,7 @@ export class PuppetBridge extends EventEmitter {
 		this.reactionHandler = new ReactionHandler(this);
 		this.matrixEventHandler = new MatrixEventHandler(this);
 		this.remoteEventHandler = new RemoteEventHandler(this);
+		this.namespaceHandler = new NamespaceHandler(this);
 
 		this.botProvisioner = new BotProvisioner(this);
 		this.provisioningAPI = new ProvisioningAPI(this);
@@ -513,7 +516,8 @@ export class PuppetBridge extends EventEmitter {
 				return puppetData.puppetMxid;
 			}
 		}
-		return this.appservice.getUserIdForSuffix(`${user.puppetId}_${Util.str2mxid(user.userId)}`);
+		const suffix = await this.namespaceHandler.getSuffix(user.puppetId, user.userId);
+		return this.appservice.getUserIdForSuffix(suffix);
 	}
 
 	/**
@@ -534,7 +538,8 @@ export class PuppetBridge extends EventEmitter {
 				} catch (err) { } // do nothing
 			}
 		}
-		return this.appservice.getAliasForSuffix(`${room.puppetId}_${Util.str2mxid(room.roomId)}`);
+		const suffix = await this.namespaceHandler.getSuffix(room.puppetId, room.roomId);
+		return this.appservice.getAliasForSuffix(suffix);
 	}
 
 	/**

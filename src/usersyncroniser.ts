@@ -66,7 +66,8 @@ export class UserSyncroniser {
 		if (!user) {
 			return null;
 		}
-		const intent = this.bridge.AS.getIntentForSuffix(`${data.puppetId}_${Util.str2mxid(data.userId)}`);
+		const suffix = await this.bridge.namespaceHandler.getSuffix(data.puppetId, data.userId);
+		const intent = this.bridge.AS.getIntentForSuffix(suffix);
 		await intent.ensureRegistered();
 		const client = intent.underlyingClient;
 		return client;
@@ -115,7 +116,8 @@ export class UserSyncroniser {
 			} else {
 				oldProfile = user;
 			}
-			const intent = this.bridge.AS.getIntentForSuffix(`${data.puppetId}_${Util.str2mxid(data.userId)}`);
+			const suffix = await this.bridge.namespaceHandler.getSuffix(data.puppetId, data.userId);
+			const intent = this.bridge.AS.getIntentForSuffix(suffix);
 			await intent.ensureRegistered();
 			const client = intent.underlyingClient;
 			const updateProfile = await Util.ProcessProfileUpdate(
@@ -196,20 +198,13 @@ export class UserSyncroniser {
 		if (!suffix) {
 			return null;
 		}
-		const MXID_MATCH_PUPPET_ID = 1;
-		const MXID_MATCH_USER_ID = 2;
-		const matches = suffix.match(/^(\d+)_(.*)/);
-		if (!matches) {
-			return null;
-		}
-		const puppetId = Number(matches[MXID_MATCH_PUPPET_ID]);
-		const userId = Util.mxid2str(matches[MXID_MATCH_USER_ID]);
-		if (isNaN(puppetId)) {
+		const parts = this.bridge.namespaceHandler.fromSuffix(suffix);
+		if (!parts) {
 			return null;
 		}
 		return {
-			puppetId,
-			userId,
+			puppetId: parts.puppetId,
+			userId: parts.id,
 		};
 	}
 

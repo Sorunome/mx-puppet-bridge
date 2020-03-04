@@ -417,7 +417,8 @@ export class RemoteEventHandler {
 				if (roomUserIds) {
 					for (const thisUserId of roomUserIds) {
 						if (thisUserId !== userId && thisUserId !== puppetData.userId) {
-							invites.add(this.bridge.AS.getUserIdForSuffix(`${params.user.puppetId}_${Util.str2mxid(thisUserId)}`));
+							const suffix = await this.bridge.namespaceHandler.getSuffix(params.user.puppetId, thisUserId);
+							invites.add(this.bridge.AS.getUserIdForSuffix(suffix));
 							break;
 						}
 					}

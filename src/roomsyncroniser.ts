@@ -145,8 +145,8 @@ export class RoomSyncroniser {
 				} as any; // tslint:disable-line no-any
 				if (!data.isDirect) {
 					// we also want to set an alias for later reference
-					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(
-						`${data.puppetId}_${Util.str2mxid(data.roomId)}`);
+					const suffix = await this.bridge.namespaceHandler.getSuffix(data.puppetId, data.roomId);
+					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(suffix);
 				}
 				if (updateProfile.hasOwnProperty("name")) {
 					createParams.name = updateProfile.name;
@@ -366,20 +366,13 @@ export class RoomSyncroniser {
 		if (!suffix) {
 			return null;
 		}
-		const MXID_MATCH_PUPPET_ID = 1;
-		const MXID_MATCH_ROOM_ID = 2;
-		const matches = suffix.match(/^(\d+)_(.*)/);
-		if (!matches) {
-			return null;
-		}
-		const puppetId = Number(matches[MXID_MATCH_PUPPET_ID]);
-		const roomId = Util.mxid2str(matches[MXID_MATCH_ROOM_ID]);
-		if (isNaN(puppetId)) {
+		const parts = this.bridge.namespaceHandler.fromSuffix(suffix);
+		if (!parts) {
 			return null;
 		}
 		return {
-			puppetId,
-			roomId,
+			puppetId: parts.puppetId,
+			roomId: parts.id,
 		};
 	}
 
