@@ -523,6 +523,9 @@ export class RoomSyncroniser {
 				roomId: maybeRoomId,
 			};
 		};
+		if (!str) {
+			return null;
+		}
 		if (typeof str !== "string") {
 			if ((str as IRemoteRoom).roomId) {
 				return str as IRemoteRoom;
@@ -532,6 +535,7 @@ export class RoomSyncroniser {
 			}
 			return null;
 		}
+		str = str.trim();
 		if (str.startsWith(MATRIX_URL_SCHEME_MASK)) {
 			str = str.slice(MATRIX_URL_SCHEME_MASK.length);
 		}

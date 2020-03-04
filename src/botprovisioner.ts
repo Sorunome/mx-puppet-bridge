@@ -487,7 +487,7 @@ Usage: \`invite <room resolvable>\``,
 		});
 		this.registerCommand("groupinvite", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
-				const success = await this.provisioner.groupInvite(sender, param || roomId || "");
+				const success = await this.provisioner.groupInvite(sender, param || roomId);
 				if (success) {
 					await sendMessage("Sent invite to the group!");
 				} else {
@@ -502,7 +502,7 @@ Usage: \`groupinvite <group resolvable>\``,
 		});
 		this.registerCommand("unbridge", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
-				const success = await this.provisioner.unbridge(sender, param || roomId || "");
+				const success = await this.provisioner.unbridge(sender, param || roomId);
 				if (success) {
 					await sendMessage("Unbridged the room!");
 				} else {

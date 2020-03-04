@@ -319,12 +319,16 @@ export class GroupSyncroniser {
 				groupId: room.groupId,
 			};
 		};
+		if (!str) {
+			return null;
+		}
 		if (typeof str !== "string") {
 			if ((str as IRemoteGroup).groupId) {
 				return str as IRemoteGroup;
 			}
 			return await remoteRoomToGroup(str as RemoteRoomResolvable);
 		}
+		str = str.trim();
 		if (str.startsWith(MATRIX_URL_SCHEME_MASK)) {
 			str = str.slice(MATRIX_URL_SCHEME_MASK.length);
 		}

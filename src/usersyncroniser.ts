@@ -214,12 +214,16 @@ export class UserSyncroniser {
 	}
 
 	public async resolve(str: RemoteUserResolvable): Promise<IRemoteUser | null> {
+		if (!str) {
+			return null;
+		}
 		if (typeof str !== "string") {
 			if ((str as IRemoteUser).userId) {
 				return str as IRemoteUser;
 			}
 			return null;
 		}
+		str = str.trim();
 		if (str.startsWith(MATRIX_URL_SCHEME_MASK)) {
 			str = str.slice(MATRIX_URL_SCHEME_MASK.length);
 		}
