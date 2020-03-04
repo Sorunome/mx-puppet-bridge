@@ -49,6 +49,7 @@ let BRIDGE_ROOM_ID_BRIDGED = "";
 let PROVISIONER_GET_MXID_CALLED = false;
 let ROOM_SYNC_GET_PARTS_FROM_MXID_CALLED = false;
 let BOT_PROVISIONER_EVENT_PROCESSED = false;
+let BOT_PROVISIONER_ROOM_EVENT_PROCESSED = false;
 let DELAYED_FUNCTION_SET = async () => {};
 let BOT_INTENT_JOIN_ROOM = "";
 let GHOST_INTENT_LEAVE_ROOM = "";
@@ -72,6 +73,7 @@ function getHandler(opts?: IHandlerOpts) {
 	PROVISIONER_GET_MXID_CALLED = false;
 	ROOM_SYNC_GET_PARTS_FROM_MXID_CALLED = false;
 	BOT_PROVISIONER_EVENT_PROCESSED = false;
+	BOT_PROVISIONER_ROOM_EVENT_PROCESSED = false;
 	DELAYED_FUNCTION_SET = async () => {};
 	BOT_INTENT_JOIN_ROOM = "";
 	GHOST_INTENT_LEAVE_ROOM = "";
@@ -138,6 +140,9 @@ function getHandler(opts?: IHandlerOpts) {
 		botProvisioner: {
 			processEvent: async (roomId, event) => {
 				BOT_PROVISIONER_EVENT_PROCESSED = true;
+			},
+			processRoomEvent: async (roomId, event) => {
+				BOT_PROVISIONER_ROOM_EVENT_PROCESSED = true;
 			},
 		},
 		puppetStore: {
@@ -724,7 +729,10 @@ describe("MatrixEventHandler", () => {
 				const event = new MessageEvent<MessageEventContent>({
 					type: "m.room.message",
 					sender: "@user:example.org",
-					content: { msgtype },
+					content: {
+						msgtype,
+						body: "",
+					},
 				});
 				const roomId = "!foxdm:example.org";
 				await handler["handleMessageEvent"](roomId, event);
@@ -741,12 +749,34 @@ describe("MatrixEventHandler", () => {
 				const event = new MessageEvent<MessageEventContent>({
 					type: "m.room.message",
 					sender: "@user:example.org",
-					content: { msgtype },
+					content: {
+						msgtype,
+						body: "",
+					},
 				});
 				const roomId = "!foxdm:example.org";
 				await handler["handleMessageEvent"](roomId, event);
 				expect(textMessageHandled).to.be.true;
 			}
+		});
+		it("should pass the message on to the bot provisioner, if it starts with the correct prefix", async () => {
+			const handler = getHandler();
+			let textMessageHandled = false;
+			handler["handleTextEvent"] = async (rid, room, puppet, evt) => {
+				textMessageHandled = true;
+			};
+			const event = new MessageEvent<MessageEventContent>({
+				type: "m.room.message",
+				sender: "@user:example.org",
+				content: {
+					msgtype: "m.text",
+					body: "!remote fox",
+				},
+			});
+			const roomId = "!foxdm:example.org";
+			await handler["handleMessageEvent"](roomId, event);
+			expect(textMessageHandled).to.be.false;
+			expect(BOT_PROVISIONER_ROOM_EVENT_PROCESSED).to.be.true;
 		});
 	});
 	describe("handleFileEvent", () => {
