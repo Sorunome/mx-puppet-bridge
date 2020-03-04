@@ -460,6 +460,18 @@ Usage: \`settype <puppetId> <type>\``,
 
 Usage: \`setispublic <puppetId> <1/0>`,
 		});
+		if (this.bridge.protocol.features.globalNamespace) {
+			this.registerCommand("setisglobalnamespace", {
+				fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
+					const isGlobal = param === "1" || param === "true";
+					await this.provisioner.setIsGlobalNamespace(puppetId, isGlobal);
+					await sendMessage(`Set puppet to ${isGlobal ? "global" : "private"} namespace`);
+				},
+				help: `Sets if the given puppet is public.
+
+Usage: \`setisglobalnamespace <puppetId> <1/0>`,
+			});
+		}
 		this.registerCommand("setautoinvite", {
 			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
 				const autoinvite = param === "1" || param === "true";

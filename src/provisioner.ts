@@ -149,6 +149,13 @@ export class Provisioner {
 		await this.puppetStore.setAutoinvite(puppetId, autoinvite);
 	}
 
+	public async setIsGlobalNamespace(puppetId: number, isGlobalNamespace: boolean) {
+		if (!this.bridge.protocol.features.globalNamespace) {
+			return;
+		}
+		await this.puppetStore.setIsGlobalNamespace(puppetId, isGlobalNamespace);
+	}
+
 	public canCreate(mxid: string): boolean {
 		return this.isWhitelisted(mxid, this.bridge.config.provisioning.whitelist,
 			this.bridge.config.provisioning.blacklist);
@@ -163,7 +170,8 @@ export class Provisioner {
 		if (!this.canCreate(puppetMxid)) {
 			return -1;
 		}
-		const puppetId = await this.puppetStore.new(puppetMxid, data, userId);
+		const isGlobal = Boolean(this.bridge.protocol.features.globalNamespace);
+		const puppetId = await this.puppetStore.new(puppetMxid, data, userId, isGlobal);
 		log.info(`Created new puppet with id ${puppetId}`);
 		this.bridge.emit("puppetNew", puppetId, data);
 		return puppetId;

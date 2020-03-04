@@ -88,6 +88,9 @@ export interface IPuppetBridgeFeatures {
 
 	// advanced relay
 	advancedRelay?: boolean;
+
+	// global namespace
+	globalNamespace?: boolean;
 }
 
 export interface IReceiveParams {
