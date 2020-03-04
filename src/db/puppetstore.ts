@@ -48,13 +48,17 @@ export interface IMxidInfo {
 
 export class DbPuppetStore {
 	private mxidCache: TimedCache<number, string>;
+	private puppetCache: TimedCache<number, IPuppet>;
 	private mxidInfoLock: Lock<string>;
+	private allPuppetIds: Set<number> | null;
 	constructor(
 		private db: IDatabaseConnector,
 		cache: boolean = true,
 	) {
 		this.mxidCache = new TimedCache(cache ? PUPPET_CACHE_LIFETIME : 0);
-		this.mxidInfoLock = new Lock(cache ? MXID_INFO_LOCK_TIMEOUT : 0);
+		this.puppetCache = new TimedCache(cache ? PUPPET_CACHE_LIFETIME : 0);
+		this.mxidInfoLock = new Lock(MXID_INFO_LOCK_TIMEOUT);
+		this.allPuppetIds = null;
 	}
 
 	public async getMxidInfo(puppetMxid: string): Promise<IMxidInfo | null> {
@@ -128,11 +132,28 @@ export class DbPuppetStore {
 	}
 
 	public async getAll(): Promise<IPuppet[]> {
-		const result: IPuppet[] = [];
+		let result: IPuppet[] = [];
+		if (this.allPuppetIds) {
+			let haveAll = true;
+			for (const puppetId of this.allPuppetIds) {
+				const cached = this.puppetCache.get(puppetId);
+				if (!cached) {
+					haveAll = false;
+					break;
+				}
+				result.push(cached);
+			}
+			if (haveAll) {
+				return result;
+			}
+			result = [];
+		}
 		const rows = await this.db.All("SELECT * FROM puppet_store");
+		this.allPuppetIds = new Set<number>();
 		for (const r of rows) {
 			const res = this.getRow(r);
 			if (res) {
+				this.allPuppetIds.add(res.puppetId);
 				result.push(res);
 			}
 		}
@@ -152,6 +173,10 @@ export class DbPuppetStore {
 	}
 
 	public async get(puppetId: number): Promise<IPuppet | null> {
+		const cached = this.puppetCache.get(puppetId);
+		if (cached) {
+			return cached;
+		}
 		const row = await this.db.Get("SELECT * FROM puppet_store WHERE puppet_id=$id", { id: puppetId });
 		if (!row) {
 			return null;
@@ -178,6 +203,7 @@ export class DbPuppetStore {
 			uid: userId,
 			pid: puppetId,
 		});
+		this.puppetCache.delete(puppetId);
 	}
 
 	public async setData(puppetId: number, data: IPuppetData) {
@@ -192,6 +218,7 @@ export class DbPuppetStore {
 			d: dataStr,
 			id: puppetId,
 		});
+		this.puppetCache.delete(puppetId);
 	}
 
 	public async setType(puppetId: number, type: PuppetType) {
@@ -199,6 +226,7 @@ export class DbPuppetStore {
 			id: puppetId,
 			t: PUPPET_TYPES.indexOf(type),
 		});
+		this.puppetCache.delete(puppetId);
 	}
 
 	public async setIsPublic(puppetId: number, isPublic: boolean) {
@@ -206,6 +234,7 @@ export class DbPuppetStore {
 			id: puppetId,
 			p: Number(isPublic), // booleans are stored as numbers
 		});
+		this.puppetCache.delete(puppetId);
 	}
 
 	public async setAutoinvite(puppetId: number, autoinvite: boolean) {
@@ -213,6 +242,7 @@ export class DbPuppetStore {
 			id: puppetId,
 			a: Number(autoinvite), // booleans are stored as numbers
 		});
+		this.puppetCache.delete(puppetId);
 	}
 
 	public async new(puppetMxid: string, data: IPuppetData, userId?: string): Promise<number> {
@@ -234,12 +264,15 @@ export class DbPuppetStore {
 			isPublic: Number(false),
 			autoinvite: Number(true),
 		}, "puppet_id");
+		this.allPuppetIds = null;
 		return puppetId;
 	}
 
 	public async delete(puppetId: number) {
 		await this.db.Run("DELETE FROM puppet_store WHERE puppet_id=$id", { id: puppetId });
 		this.mxidCache.delete(puppetId);
+		this.puppetCache.delete(puppetId);
+		this.allPuppetIds = null;
 	}
 
 	public async isGhostInRoom(ghostMxid: string, roomMxid: string): Promise<boolean> {
@@ -294,7 +327,7 @@ export class DbPuppetStore {
 
 	private getRow(row: ISqlRow): IPuppet | null {
 		try {
-			return {
+			const ret: IPuppet = {
 				puppetId: Number(row.puppet_id),
 				puppetMxid: row.puppet_mxid as string,
 				data: JSON.parse(row.data as string),
@@ -303,6 +336,8 @@ export class DbPuppetStore {
 				isPublic: Boolean(Number(row.is_public)),
 				autoinvite: Boolean(Number(row.autoinvite)),
 			};
+			this.puppetCache.set(ret.puppetId, ret);
+			return ret;
 		} catch (err) {
 			log.warn(`Unable to decode json data:${err} on puppet ${row.puppet_id}`);
 			return null;
