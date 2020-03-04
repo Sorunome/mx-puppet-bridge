@@ -72,7 +72,7 @@ export class Postgres implements IDatabaseConnector {
 			if (!row || !returnId) {
 				return -1;
 			}
-			return row[returnId];
+			return Number(row[returnId]);
 		});
 	}
 
