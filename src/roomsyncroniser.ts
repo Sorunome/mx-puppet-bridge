@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteRoom, RemoteRoomResolvable, IRemoteUser } from "./interfaces";
+import { IRemoteRoom, RemoteRoomResolvable, IRemoteUser, RemoteUserResolvable } from "./interfaces";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbRoomStore } from "./db/roomstore";
@@ -506,22 +506,29 @@ export class RoomSyncroniser {
 	}
 
 	public async resolve(str: RemoteRoomResolvable): Promise<IRemoteRoom | null> {
+		const remoteUserToGroup = async (ident: RemoteUserResolvable): Promise<IRemoteRoom | null> => {
+			if (!this.bridge.hooks.getDmRoomId) {
+				return null;
+			}
+			const parts = await this.bridge.userSync.resolve(ident);
+			if (!parts) {
+				return null;
+			}
+			const maybeRoomId = await this.bridge.hooks.getDmRoomId(parts);
+			if (!maybeRoomId) {
+				return null;
+			}
+			return {
+				puppetId: parts.puppetId,
+				roomId: maybeRoomId,
+			};
+		};
 		if (typeof str !== "string") {
 			if ((str as IRemoteRoom).roomId) {
 				return str as IRemoteRoom;
 			}
 			if ((str as IRemoteUser).userId) {
-				if (!this.bridge.hooks.getDmRoomId) {
-					return null;
-				}
-				const maybeRoomId = await this.bridge.hooks.getDmRoomId(str as IRemoteUser);
-				if (!maybeRoomId) {
-					return null;
-				}
-				return {
-					puppetId: (str as IRemoteUser).puppetId,
-					roomId: maybeRoomId,
-				};
+				return await remoteUserToGroup(str as IRemoteUser);
 			}
 			return null;
 		}
@@ -544,23 +551,8 @@ export class RoomSyncroniser {
 					return null;
 				}
 			}
-			case "@": {
-				if (!this.bridge.AS.isNamespacedUser(str) || !this.bridge.hooks.getDmRoomId) {
-					return null;
-				}
-				const userParts = this.bridge.userSync.getPartsFromMxid(str);
-				if (!userParts) {
-					return null;
-				}
-				const maybeRoomId = await this.bridge.hooks.getDmRoomId(userParts);
-				if (!maybeRoomId) {
-					return null;
-				}
-				return {
-					puppetId: userParts.puppetId,
-					roomId: maybeRoomId,
-				};
-			}
+			case "@":
+				return await remoteUserToGroup(str);
 			default: {
 				const parts = str.split(" ");
 				const puppetId = Number(parts[0]);

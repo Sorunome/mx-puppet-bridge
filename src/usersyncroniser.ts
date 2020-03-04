@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteUser, IRemoteUserRoomOverride } from "./interfaces";
+import { IRemoteUser, IRemoteUserRoomOverride, RemoteUserResolvable } from "./interfaces";
 import { MatrixClient, Intent } from "matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
@@ -26,6 +26,7 @@ const log = new Log("UserSync");
 
 // tslint:disable-next-line:no-magic-numbers
 const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
+const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
 
 export class UserSyncroniser {
 	private userStore: DbUserStore;
@@ -210,6 +211,33 @@ export class UserSyncroniser {
 			puppetId,
 			userId,
 		};
+	}
+
+	public async resolve(str: RemoteUserResolvable): Promise<IRemoteUser | null> {
+		if (typeof str !== "string") {
+			if ((str as IRemoteUser).userId) {
+				return str as IRemoteUser;
+			}
+			return null;
+		}
+		if (str.startsWith(MATRIX_URL_SCHEME_MASK)) {
+			str = str.slice(MATRIX_URL_SCHEME_MASK.length);
+		}
+		switch (str[0]) {
+			case "@":
+				return this.getPartsFromMxid(str);
+			default: {
+				const parts = str.split(" ");
+				const puppetId = Number(parts[0]);
+				if (!isNaN(puppetId)) {
+					return {
+						puppetId,
+						userId: parts[1],
+					};
+				}
+				return null;
+			}
+		}
 	}
 
 	public async deleteForMxid(mxid: string) {

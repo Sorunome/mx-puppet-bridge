@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteGroup } from "./interfaces";
+import { IRemoteGroup, RemoteGroupResolvable, RemoteRoomResolvable } from "./interfaces";
 import { DbGroupStore } from "./db/groupstore";
 import { IGroupStoreEntry, IProfileDbEntry } from "./db/interfaces";
 import { Log } from "./log";
@@ -25,6 +25,7 @@ const log = new Log("GroupSync");
 // tslint:disable-next-line:no-magic-numbers
 const GROUP_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
 const GROUP_ID_LENGTH = 30;
+const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
 
 export class GroupSyncroniser {
 	private groupStore: DbGroupStore;
@@ -284,6 +285,63 @@ export class GroupSyncroniser {
 		try {
 			await clientUnstable.removeRoomFromGroup(dbGroup.mxid, roomMxid);
 		} catch (err) { }
+	}
+
+	public async getPartsFromMxid(mxid: string): Promise<IRemoteGroup | null> {
+		const ret = await this.groupStore.getByMxid(mxid);
+		if (!ret) {
+			return null;
+		}
+		return {
+			puppetId: ret.puppetId,
+			groupId: ret.groupId,
+		};
+	}
+
+	public async resolve(str: RemoteGroupResolvable): Promise<IRemoteGroup | null> {
+		const remoteRoomToGroup = async (ident: RemoteRoomResolvable): Promise<IRemoteGroup | null> => {
+			const parts = await this.bridge.roomSync.resolve(ident);
+			if (!parts) {
+				return null;
+			}
+			const room = await this.bridge.roomSync.maybeGet(parts);
+			if (!room || !room.groupId) {
+				return null;
+			}
+			return {
+				puppetId: room.puppetId,
+				groupId: room.groupId,
+			};
+		};
+		if (typeof str !== "string") {
+			if ((str as IRemoteGroup).groupId) {
+				return str as IRemoteGroup;
+			}
+			return await remoteRoomToGroup(str as RemoteRoomResolvable);
+		}
+		if (str.startsWith(MATRIX_URL_SCHEME_MASK)) {
+			str = str.slice(MATRIX_URL_SCHEME_MASK.length);
+		}
+		switch (str[0]) {
+			case "#":
+			case "!":
+			case "@":
+				return await remoteRoomToGroup(str);
+			case "+":
+				return await this.getPartsFromMxid(str);
+			default: {
+				const parts = str.split(" ");
+				const puppetId = Number(parts[0]);
+				if (!isNaN(puppetId)) {
+					return {
+						puppetId,
+						groupId: parts[1],
+					};
+				}
+				return null;
+			}
+		}
+		return null;
 	}
 
 	private makeRandomId(length: number): string {
