@@ -25,8 +25,9 @@ export class DbGroupStore {
 	private groupsCache: TimedCache<string, IGroupStoreEntry>;
 	constructor(
 		private db: IDatabaseConnector,
+		cache: boolean = true,
 	) {
-		this.groupsCache = new TimedCache(GROUP_CACHE_LIFETIME);
+		this.groupsCache = new TimedCache(cache ? GROUP_CACHE_LIFETIME : 0);
 	}
 
 	public newData(mxid: string, groupId: string, puppetId: number): IGroupStoreEntry {

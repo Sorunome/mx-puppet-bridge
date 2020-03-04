@@ -51,9 +51,10 @@ export class DbPuppetStore {
 	private mxidInfoLock: Lock<string>;
 	constructor(
 		private db: IDatabaseConnector,
+		cache: boolean = true,
 	) {
-		this.mxidCache = new TimedCache(PUPPET_CACHE_LIFETIME);
-		this.mxidInfoLock = new Lock(MXID_INFO_LOCK_TIMEOUT);
+		this.mxidCache = new TimedCache(cache ? PUPPET_CACHE_LIFETIME : 0);
+		this.mxidInfoLock = new Lock(cache ? MXID_INFO_LOCK_TIMEOUT : 0);
 	}
 
 	public async getMxidInfo(puppetMxid: string): Promise<IMxidInfo | null> {

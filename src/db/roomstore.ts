@@ -27,10 +27,11 @@ export class DbRoomStore {
 	private opCache: TimedCache<string, string>;
 	constructor(
 		private db: IDatabaseConnector,
+		cache: boolean = true,
 	) {
-		this.remoteCache = new TimedCache(ROOM_CACHE_LIFETIME);
-		this.mxidCache = new TimedCache(ROOM_CACHE_LIFETIME);
-		this.opCache = new TimedCache(ROOM_CACHE_LIFETIME);
+		this.remoteCache = new TimedCache(cache ? ROOM_CACHE_LIFETIME : 0);
+		this.mxidCache = new TimedCache(cache ? ROOM_CACHE_LIFETIME : 0);
+		this.opCache = new TimedCache(cache ? ROOM_CACHE_LIFETIME : 0);
 	}
 
 	public newData(mxid: string, roomId: string, puppetId: number): IRoomStoreEntry {

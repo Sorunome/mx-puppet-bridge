@@ -18,76 +18,79 @@ import { Store } from "../../src/store";
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal
 
-async function getStore(): Promise<DbGroupStore> {
+async function getStore(cache = true): Promise<DbGroupStore> {
 	const store = new Store({
 		filename: ":memory:",
 	} as any);
 	await store.init();
-	return new DbGroupStore(store.db);
+	return new DbGroupStore(store.db, cache);
 }
 
 describe("DbGroupStore", () => {
-	it("should set, get and delete", async () => {
-		const store = await getStore();
-		expect(await store.getByRemote(1, "r1")).to.be.null;
-		const group = {
-			mxid: "+group",
-			groupId: "r1",
-			puppetId: 1,
-			name: "group",
-			avatarUrl: "http://someurl",
-			avatarMxc: "mxc://someserver/someurl",
-			avatarHash: "foxies",
-			shortDescription: "short desc",
-			longDescription: "long desc",
-			roomIds: ["!room1", "!room2"],
-		};
-		await store.set(group);
-		expect(await store.getByRemote(1, "r1")).to.eql(group);
-		await store.delete(group);
-		expect(await store.getByRemote(1, "r1")).to.be.null;
-	});
-	it("should reflect room changes", async () => {
-		const store = await getStore();
-		let roomIds = ["!room1", "!room2"];
-		const group = {
-			mxid: "+group",
-			groupId: "r1",
-			puppetId: 1,
-			roomIds,
-		};
-		await store.set(group);
-		expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room1", "!room2"]);
-		roomIds.push("!room3");
-		group.roomIds = roomIds;
-		await store.set(group);
-		expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room1", "!room2", "!room3"]);
-		roomIds.push("!room4");
-		roomIds.push("!room4");
-		group.roomIds = roomIds;
-		await store.set(group);
-		expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room1", "!room2", "!room3", "!room4"]);
-		roomIds = ["!room2"];
-		group.roomIds = roomIds;
-		await store.set(group);
-		expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room2"]);
-	});
-	it("should get by mxid", async () => {
-		const store = await getStore();
-		expect(await store.getByMxid("+group")).to.be.null;
-		const group = {
-			mxid: "+group",
-			groupId: "r1",
-			puppetId: 1,
-			name: "group",
-			avatarUrl: "http://someurl",
-			avatarMxc: "mxc://someserver/someurl",
-			avatarHash: "foxies",
-			shortDescription: "short desc",
-			longDescription: "long desc",
-			roomIds: ["!room1", "!room2"],
-		};
-		await store.set(group);
-		expect(await store.getByMxid("+group")).to.eql(group);
-	});
+	for (const cache of [true, false]) {
+		const extra = (cache ? " with cache" : " without cache");
+		it("should set, get and delete" + extra, async () => {
+			const store = await getStore(cache);
+			expect(await store.getByRemote(1, "r1")).to.be.null;
+			const group = {
+				mxid: "+group",
+				groupId: "r1",
+				puppetId: 1,
+				name: "group",
+				avatarUrl: "http://someurl",
+				avatarMxc: "mxc://someserver/someurl",
+				avatarHash: "foxies",
+				shortDescription: "short desc",
+				longDescription: "long desc",
+				roomIds: ["!room1", "!room2"],
+			};
+			await store.set(group);
+			expect(await store.getByRemote(1, "r1")).to.eql(group);
+			await store.delete(group);
+			expect(await store.getByRemote(1, "r1")).to.be.null;
+		});
+		it("should reflect room changes" + extra, async () => {
+			const store = await getStore(cache);
+			let roomIds = ["!room1", "!room2"];
+			const group = {
+				mxid: "+group",
+				groupId: "r1",
+				puppetId: 1,
+				roomIds,
+			};
+			await store.set(group);
+			expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room1", "!room2"]);
+			roomIds.push("!room3");
+			group.roomIds = roomIds;
+			await store.set(group);
+			expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room1", "!room2", "!room3"]);
+			roomIds.push("!room4");
+			roomIds.push("!room4");
+			group.roomIds = roomIds;
+			await store.set(group);
+			expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room1", "!room2", "!room3", "!room4"]);
+			roomIds = ["!room2"];
+			group.roomIds = roomIds;
+			await store.set(group);
+			expect((await store.getByRemote(1, "r1"))!.roomIds).to.eql(["!room2"]);
+		});
+		it("should get by mxid" + extra, async () => {
+			const store = await getStore(cache);
+			expect(await store.getByMxid("+group")).to.be.null;
+			const group = {
+				mxid: "+group",
+				groupId: "r1",
+				puppetId: 1,
+				name: "group",
+				avatarUrl: "http://someurl",
+				avatarMxc: "mxc://someserver/someurl",
+				avatarHash: "foxies",
+				shortDescription: "short desc",
+				longDescription: "long desc",
+				roomIds: ["!room1", "!room2"],
+			};
+			await store.set(group);
+			expect(await store.getByMxid("+group")).to.eql(group);
+		});
+	}
 });

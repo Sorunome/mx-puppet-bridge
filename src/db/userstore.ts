@@ -25,8 +25,9 @@ export class DbUserStore {
 	private usersCache: TimedCache<string, IUserStoreEntry>;
 	constructor(
 		private db: IDatabaseConnector,
+		cache: boolean = true,
 	) {
-		this.usersCache = new TimedCache(USERS_CACHE_LIFETIME);
+		this.usersCache = new TimedCache(cache ? USERS_CACHE_LIFETIME : 0);
 	}
 
 	public newData(puppetId: number, userId: string): IUserStoreEntry {

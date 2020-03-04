@@ -82,7 +82,7 @@ export class DbReactionStore {
 
 	public async getForEvent(puppetId: number, eventId: string): Promise<IReactionStoreEntry[]> {
 		const rows = await this.db.All(
-			"SELECT * FROM reacton_store WHERE puppet_id = $puppetId AND event_id = $eventId",
+			"SELECT * FROM reaction_store WHERE puppet_id = $puppetId AND event_id = $eventId",
 			{ puppetId, eventId },
 		);
 		const result: IReactionStoreEntry[] = [];
