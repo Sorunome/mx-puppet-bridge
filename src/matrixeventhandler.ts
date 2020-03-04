@@ -274,7 +274,12 @@ export class MatrixEventHandler {
 			return;
 		}
 
-		if (["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(this.getMessageType(event))) {
+		const msgtype = this.getMessageType(event);
+		if (msgtype === "m.text" && event.textBody.startsWith(`!${this.bridge.protocol.id} `)) {
+			await this.bridge.botProvisioner.processRoomEvent(roomId, event);
+			return;
+		}
+		if (["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(msgtype)) {
 			await this.handleFileEvent(roomId, room, puppetData, new MessageEvent<FileMessageEventContent>(event.raw));
 		} else {
 			await this.handleTextEvent(roomId, room, puppetData, new MessageEvent<TextualMessageEventContent>(event.raw));

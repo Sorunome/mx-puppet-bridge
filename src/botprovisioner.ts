@@ -35,12 +35,15 @@ interface IFnCollect {
 
 export type SendMessageFn = (s: string) => Promise<void>;
 export type PidCommandFn = (pid: number, param: string, sendMessage: SendMessageFn) => Promise<void>;
-export type FullCommandFn = (sender: string, param: string, sendMessage: SendMessageFn) => Promise<void>;
+type FullCommandFnSingle = (sender: string, param: string, sendMessage: SendMessageFn) => Promise<void>;
+type FullCommandFnRoom = (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => Promise<void>;
+export type FullCommandFn = FullCommandFnSingle | FullCommandFnRoom;
 
 export interface ICommand {
 	fn: PidCommandFn | FullCommandFn;
 	help: string;
 	withPid?: boolean;
+	inRoom?: boolean;
 }
 
 export class BotProvisioner {
@@ -188,6 +191,34 @@ export class BotProvisioner {
 		}
 	}
 
+	public async processRoomEvent(roomId: string, event: MessageEvent<TextualMessageEventContent>) {
+		if (event.type !== "m.room.message") {
+			return; // not ours to handle
+		}
+		const sender = event.sender;
+		const prefix = `!${this.bridge.protocol.id} `;
+		if (!event.textBody.startsWith(prefix)) {
+			return; // not ours to handle, either
+		}
+		const [, arg, param] = event.textBody.substr(prefix.length).split(/([^ ]*)(?: (.*))?/);
+		let handled = false;
+		const client = await this.bridge.roomSync.getRoomOp(roomId);
+		for (const name in this.commands) {
+			if (this.commands.hasOwnProperty(name) && name === arg && this.commands[name].inRoom) {
+				handled = true;
+				const sendMessage: SendMessageFn = async (s: string) => {
+					await this.sendMessage(roomId, s, client);
+				};
+				await (this.commands[name].fn as FullCommandFn)(sender, param || "", sendMessage, roomId);
+				break;
+			}
+		}
+		if (!handled) {
+			await this.sendMessage(roomId, `Command not found! Please type \`${prefix}help\` to see a list of` +
+				` all commands or \`${prefix}help <command>\` to get help on a specific command.`, client);
+		}
+	}
+
 	public async sendStatusMessage(room: number | IRemoteRoom, msg: string) {
 		let puppetId = -1;
 		if (isNaN(room as number)) {
@@ -236,21 +267,25 @@ export class BotProvisioner {
 		if (command.withPid === undefined) {
 			command.withPid = true;
 		}
+		if (command.withPid || command.inRoom === undefined) {
+			command.inRoom = false;
+		}
 		this.commands[name] = command;
 	}
 
 	private registerDefaultCommands() {
 		this.registerCommand("help", {
-			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
 				param = param.trim();
 				if (!param) {
-					const commands = ["`help`", "`link`", "`unlink`", "`relink`"];
+					const commands = roomId ? [] : ["`link`", "`unlink`", "`relink`"];
 					for (const name in this.commands) {
-						if (this.commands.hasOwnProperty(name)) {
+						if (this.commands.hasOwnProperty(name) && ((roomId && this.commands[name].inRoom) || !roomId)) {
 							commands.push(`\`${name}\``);
 						}
 					}
-					const msg = `Available commands: ${commands.join(", ")}\n\nType \`help <command>\` to get more help on them.`;
+					const helpCmd = roomId ? `!${this.bridge.protocol.id} help <command>` : "help <command>";
+					const msg = `Available commands: ${commands.join(", ")}\n\nType \`${helpCmd}\` to get more help on them.`;
 					await sendMessage(msg);
 					return;
 				}
@@ -265,6 +300,7 @@ export class BotProvisioner {
 
 Usage: \`help\`, \`help <command>\``,
 			withPid: false,
+			inRoom: true,
 		});
 		this.registerCommand("list", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
@@ -435,7 +471,7 @@ Usage: \`setispublic <puppetId> <1/0>`,
 Usage: \`setautoinvite <puppetId> <1/0>`,
 		});
 		this.registerCommand("invite", {
-			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
 				const success = await this.provisioner.invite(sender, param);
 				if (success) {
 					await sendMessage("Sent invite to the room!");
@@ -447,10 +483,11 @@ Usage: \`setautoinvite <puppetId> <1/0>`,
 
 Usage: \`invite <room resolvable>\``,
 			withPid: false,
+			inRoom: true,
 		});
 		this.registerCommand("groupinvite", {
-			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
-				const success = await this.provisioner.groupInvite(sender, param);
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
+				const success = await this.provisioner.groupInvite(sender, param || roomId || "");
 				if (success) {
 					await sendMessage("Sent invite to the group!");
 				} else {
@@ -461,10 +498,11 @@ Usage: \`invite <room resolvable>\``,
 
 Usage: \`groupinvite <group resolvable>\``,
 			withPid: false,
+			inRoom: true,
 		});
 		this.registerCommand("unbridge", {
-			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
-				const success = await this.provisioner.unbridge(sender, param);
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
+				const success = await this.provisioner.unbridge(sender, param || roomId || "");
 				if (success) {
 					await sendMessage("Unbridged the room!");
 				} else {
@@ -475,10 +513,11 @@ Usage: \`groupinvite <group resolvable>\``,
 
 Usage: \`unbridge <room resolvable>\``,
 			withPid: false,
+			inRoom: true,
 		});
 	}
 
-	private async sendMessage(roomId: string, message: string, client?: MatrixClient) {
+	private async sendMessage(roomId: string, message: string, client?: MatrixClient | null) {
 		const html = md.render(message);
 		if (!client) {
 			client = this.bridge.botIntent.underlyingClient;
