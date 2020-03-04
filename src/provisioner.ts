@@ -17,7 +17,7 @@ import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet, PuppetType } from "./db/puppetstore";
 import { Log } from "./log";
 import { Util } from "./util";
-import { IPuppetData, RemoteRoomResolvable } from "./interfaces";
+import { IPuppetData, RemoteRoomResolvable, RemoteGroupResolvable } from "./interfaces";
 
 const log = new Log("Provisioner");
 
@@ -252,7 +252,39 @@ export class Provisioner {
 				await client.inviteUser(userId, room.mxid);
 				return true;
 			} catch (err) {
-				log.warn(`Failed to invite ${userId} to ${room.mxid}`, err);
+				log.warn(`Failed to invite ${userId} to ${room.mxid}`, err.error || err.body || err);
+				return false;
+			}
+		}
+		return false;
+	}
+
+	public async groupInvite(userId: string, ident: RemoteGroupResolvable): Promise<boolean> {
+		if (!this.bridge.groupSyncEnabled) {
+			return false;
+		}
+		const groupParts = await this.bridge.groupSync.resolve(ident);
+		if (!groupParts) {
+			return false;
+		}
+		const group = await this.bridge.groupSync.maybeGet(groupParts);
+		if (!group) {
+			return false;
+		}
+		// it exists, let's check if we can join it etc.
+		const puppet = await this.get(group.puppetId);
+		if (!puppet) {
+			return false;
+		}
+		if ((puppet.type === "puppet" && puppet.puppetMxid === userId) ||
+			(puppet.type === "relay" && this.bridge.provisioner.canRelay(userId))) {
+			const client = this.bridge.botIntent.underlyingClient;
+			const clientUnstable = client.unstableApis;
+			try {
+				await clientUnstable.inviteUserToGroup(group.mxid, userId);
+				return true;
+			} catch (err) {
+				log.warn(`Failed to invite ${userId} to group ${group.mxid}`, err.error || err.body || err);
 				return false;
 			}
 		}

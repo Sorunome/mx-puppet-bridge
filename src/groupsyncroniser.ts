@@ -69,18 +69,19 @@ export class GroupSyncroniser {
 			};
 			let mxid = "";
 			let doUpdate = false;
-			let created = false;
 			let oldProfile: IProfileDbEntry | null = null;
 			let newRooms: string[] = [];
 			const removedRooms: string[] = [];
+			let invitePuppet = false;
 			if (!group) {
 				if (!doCreate) {
 					this.mxidLock.release(lockKey);
 					return "";
 				}
 				log.info("Group doesn't exist yet, creating entry...");
+				const puppetData = await this.bridge.provisioner.get(data.puppetId);
 				doUpdate = true;
-				created = true;
+				invitePuppet = Boolean(puppetData && puppetData.autoinvite);
 				// let's fetch the create data via hook
 				if (this.bridge.hooks.createGroup) {
 					log.verbose("Fetching new override data...");
@@ -111,8 +112,13 @@ export class GroupSyncroniser {
 						}
 					}
 				}
-				// set it to invite only
-				await clientUnstable.setGroupJoinPolicy(mxid, "invite");
+				if (puppetData && puppetData.isPublic) {
+					// set it to public
+					await clientUnstable.setGroupJoinPolicy(mxid, "open");
+				} else {
+					// set it to invite only
+					await clientUnstable.setGroupJoinPolicy(mxid, "invite");
+				}
 
 				group = this.groupStore.newData(mxid, data.groupId, data.puppetId);
 			} else {
@@ -188,7 +194,7 @@ export class GroupSyncroniser {
 				await this.groupStore.set(group);
 			}
 
-			if (created) {
+			if (invitePuppet) {
 				// finally invite the puppet
 				const puppetMxid = await this.bridge.provisioner.getMxid(data.puppetId);
 				if (puppetMxid) {

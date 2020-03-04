@@ -448,6 +448,20 @@ Usage: \`setautoinvite <puppetId> <1/0>`,
 Usage: \`invite <room resolvable>\``,
 			withPid: false,
 		});
+		this.registerCommand("groupinvite", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				const success = await this.provisioner.groupInvite(sender, param);
+				if (success) {
+					await sendMessage("Sent invite to the group!");
+				} else {
+					await sendMessage("Couldn't send invite to the group. Perhaps you don't have permission to see it?");
+				}
+			},
+			help: `Receive an invite to a group. The group resolvable can be a matrix.to link, a room ID or alias.
+
+Usage: \`groupinvite <group resolvable>\``,
+			withPid: false,
+		});
 		this.registerCommand("unbridge", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
 				const success = await this.provisioner.unbridge(sender, param);
