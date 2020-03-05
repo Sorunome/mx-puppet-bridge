@@ -84,7 +84,7 @@ export class RemoteEventHandler {
 			log.verbose("User/Room doesn't exist, ignoring...");
 			return;
 		}
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, params.eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, params.eventId);
 		for (const origEvent of origEvents) {
 			await ret.client.sendReadReceipt(ret.mxid, origEvent);
 		}
@@ -146,7 +146,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
@@ -161,7 +161,7 @@ export class RemoteEventHandler {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
 		if (ix < 0) {
 			// negative indexes are from the back
 			ix = origEvents.length + ix;
@@ -201,7 +201,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
@@ -210,7 +210,7 @@ export class RemoteEventHandler {
 	public async sendRedact(params: IReceiveParams, eventId: string) {
 		log.info(`Received redact from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
 		for (const origEvent of origEvents) {
 			await this.bridge.redactEvent(client, mxid, origEvent);
 		}
@@ -225,7 +225,7 @@ export class RemoteEventHandler {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
 		const origEvent = origEvents[0];
 		// this send object needs to be any-type, as the interfaces don't do replies yet
 		const send = {
@@ -251,7 +251,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
@@ -378,7 +378,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, sendData);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);

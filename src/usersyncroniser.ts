@@ -62,11 +62,12 @@ export class UserSyncroniser {
 				return puppetClient;
 			}
 		}
-		const user = await this.userStore.get(data.puppetId, data.userId);
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const user = await this.userStore.get(dbPuppetId, data.userId);
 		if (!user) {
 			return null;
 		}
-		const suffix = await this.bridge.namespaceHandler.getSuffix(data.puppetId, data.userId);
+		const suffix = await this.bridge.namespaceHandler.getSuffix(dbPuppetId, data.userId);
 		const intent = this.bridge.AS.getIntentForSuffix(suffix);
 		await intent.ensureRegistered();
 		const client = intent.underlyingClient;
@@ -91,12 +92,13 @@ export class UserSyncroniser {
 		}
 
 		// now we fetch the ghost client
-		const lockKey = `${data.puppetId};${data.userId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const lockKey = `${dbPuppetId};${data.userId}`;
 		await this.clientLock.wait(lockKey);
 		this.clientLock.set(lockKey);
-		log.info("Fetching client for " + data.userId);
+		log.info("Fetching client for " + dbPuppetId);
 		try {
-			let user = await this.userStore.get(data.puppetId, data.userId);
+			let user = await this.userStore.get(dbPuppetId, data.userId);
 			let doUpdate = false;
 			let oldProfile: IProfileDbEntry | null = null;
 			if (!user) {
@@ -112,11 +114,11 @@ export class UserSyncroniser {
 						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
 					}
 				}
-				user = this.userStore.newData(data.puppetId, data.userId);
+				user = this.userStore.newData(dbPuppetId, data.userId);
 			} else {
 				oldProfile = user;
 			}
-			const suffix = await this.bridge.namespaceHandler.getSuffix(data.puppetId, data.userId);
+			const suffix = await this.bridge.namespaceHandler.getSuffix(dbPuppetId, data.userId);
 			const intent = this.bridge.AS.getIntentForSuffix(suffix);
 			await intent.ensureRegistered();
 			const client = intent.underlyingClient;
@@ -172,7 +174,7 @@ export class UserSyncroniser {
 
 				if (promiseList.length > 0) {
 					// name or avatar of the real profile changed, we need to re-apply all our room overrides
-					const roomOverrides = await this.userStore.getAllRoomOverrides(data.puppetId, data.userId);
+					const roomOverrides = await this.userStore.getAllRoomOverrides(dbPuppetId, data.userId);
 					for (const roomOverride of roomOverrides) {
 						if (roomIdsNotToUpdate.includes(roomOverride.roomId)) {
 							continue; // nothing to do, we just did this
@@ -245,7 +247,11 @@ export class UserSyncroniser {
 			return;
 		}
 		log.info(`Deleting ghost ${mxid}`);
-		await this.userStore.delete(user);
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(user.puppetId);
+		await this.userStore.delete({
+			puppetId: dbPuppetId,
+			userId: user.userId,
+		});
 	}
 
 	public async setRoomOverride(
@@ -263,15 +269,16 @@ export class UserSyncroniser {
 			log.warn("No client found");
 			return;
 		}
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(userData.puppetId);
 		if (!origUserData) {
-			origUserData = await this.userStore.get(userData.puppetId, userData.userId);
+			origUserData = await this.userStore.get(dbPuppetId, userData.userId);
 		}
 		if (!origUserData) {
 			log.warn("Original user data not found");
 			return;
 		}
 		if (!roomOverrideData) {
-			roomOverrideData = await this.userStore.getRoomOverride(userData.puppetId, userData.userId, roomId);
+			roomOverrideData = await this.userStore.getRoomOverride(dbPuppetId, userData.userId, roomId);
 		}
 		if (!roomOverrideData) {
 			log.warn("No room override data found");
@@ -301,8 +308,9 @@ export class UserSyncroniser {
 		origUserData?: IUserStoreEntry,
 	) {
 		try {
-			log.info(`Updating room override for puppet ${userData.puppetId} ${userData.userId} in ${roomId}`);
-			let user = await this.userStore.getRoomOverride(userData.puppetId, userData.userId, roomId);
+			const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(userData.puppetId);
+			log.info(`Updating room override for puppet ${dbPuppetId} ${userData.userId} in ${roomId}`);
+			let user = await this.userStore.getRoomOverride(dbPuppetId, userData.userId, roomId);
 			const newRoomOverride = await Util.ProcessProfileUpdate(
 				user, roomOverride, this.bridge.protocol.namePatterns.userOverride,
 				async (buffer: Buffer, mimetype?: string, filename?: string) => {
@@ -311,7 +319,7 @@ export class UserSyncroniser {
 			);
 			log.verbose("Update data", newRoomOverride);
 			if (!user) {
-				user = this.userStore.newRoomOverrideData(userData.puppetId, userData.userId, roomId);
+				user = this.userStore.newRoomOverrideData(dbPuppetId, userData.userId, roomId);
 			}
 			user = Object.assign(user, newRoomOverride);
 			if (newRoomOverride.hasOwnProperty("name") || newRoomOverride.hasOwnProperty("avatarMxc")) {

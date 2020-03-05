@@ -38,9 +38,10 @@ export class GroupSyncroniser {
 	}
 
 	public async maybeGet(data: IRemoteGroup): Promise<IGroupStoreEntry | null> {
-		const lockKey = `${data.puppetId};${data.groupId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const lockKey = `${dbPuppetId};${data.groupId}`;
 		await this.mxidLock.wait(lockKey);
-		return await this.groupStore.getByRemote(data.puppetId, data.groupId);
+		return await this.groupStore.getByRemote(dbPuppetId, data.groupId);
 	}
 
 	public async maybeGetMxid(data: IRemoteGroup): Promise<string | null> {
@@ -52,15 +53,16 @@ export class GroupSyncroniser {
 	}
 
 	public async getMxid(data: IRemoteGroup, doCreate: boolean = true): Promise<string> {
-		const lockKey = `${data.puppetId};${data.groupId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const lockKey = `${dbPuppetId};${data.groupId}`;
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
-		log.info(`Fetching mxid for groupId ${data.groupId} and puppetId ${data.puppetId}`);
+		log.info(`Fetching mxid for groupId ${data.groupId} and puppetId ${dbPuppetId}`);
 		try {
 			// groups are always handled by the AS bot
 			const client = this.bridge.botIntent.underlyingClient;
 			const clientUnstable = client.unstableApis;
-			let group = await this.groupStore.getByRemote(data.puppetId, data.groupId);
+			let group = await this.groupStore.getByRemote(dbPuppetId, data.groupId);
 			const update = {
 				name: false,
 				avatar: false,
@@ -120,7 +122,7 @@ export class GroupSyncroniser {
 					await clientUnstable.setGroupJoinPolicy(mxid, "invite");
 				}
 
-				group = this.groupStore.newData(mxid, data.groupId, data.puppetId);
+				group = this.groupStore.newData(mxid, data.groupId, dbPuppetId);
 			} else {
 				oldProfile = group;
 				update.shortDescription = data.shortDescription !== undefined && data.shortDescription !== null

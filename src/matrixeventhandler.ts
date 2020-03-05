@@ -17,7 +17,7 @@ import {
 	MembershipEvent, RedactionEvent, RoomEvent, MessageEvent, FileMessageEventContent, TextualMessageEventContent,
 	MembershipEventContent, RoomEventContent, MessageEventContent,
 } from "matrix-bot-sdk";
-import { IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser } from "./interfaces";
+import { IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser } from "./interfaces";
 import * as escapeHtml from "escape-html";
 import { IPuppet } from "./db/puppetstore";
 
@@ -111,6 +111,8 @@ export class MatrixEventHandler {
 		this.bridge.presenceHandler.setStatusInRoom(ghostId, roomId);
 
 		// apply room-specific overrides, if present
+		// as we use these parts only for setting the room overrides, which translate back to -1 anyways
+		// we do not need to go via the namespace handler
 		const ghostParts = this.bridge.userSync.getPartsFromMxid(ghostId);
 		log.verbose("Ghost parts:", ghostParts);
 		if (ghostParts) {
@@ -129,7 +131,7 @@ export class MatrixEventHandler {
 	private async handleUserJoinEvent(roomId: string, event: MembershipEvent) {
 		const userId = event.membershipFor;
 		log.info(`Got new user join event from ${userId} in ${roomId}...`);
-		const room = await this.bridge.roomSync.getPartsFromMxid(roomId);
+		const room = await this.getRoomParts(roomId, event.sender);
 		if (!room) {
 			log.verbose("Room not found, ignoring...");
 			return; // this isn't a room we handle, just ignore it
@@ -186,7 +188,7 @@ export class MatrixEventHandler {
 			log.verbose("It was our own redact, ignoring...");
 			return; // we don't handle things from our own namespace
 		}
-		const room = await this.bridge.roomSync.getPartsFromMxid(roomId);
+		const room = await this.getRoomParts(roomId, event.sender);
 		if (!room) {
 			log.verbose("Room not found, ignoring...");
 			return;
@@ -217,7 +219,7 @@ export class MatrixEventHandler {
 			await this.bridge.reactionHandler.handleRedactEvent(room, event, asUser);
 		}
 		for (const redacts of event.redactsEventIds) {
-			const eventIds = await this.bridge.eventStore.getRemote(room.puppetId, redacts);
+			const eventIds = await this.bridge.eventSync.getRemote(room.puppetId, redacts);
 			for (const eventId of eventIds) {
 				log.verbose("Emitting redact event...");
 				this.bridge.emit("redact", room, eventId, asUser, event);
@@ -229,7 +231,7 @@ export class MatrixEventHandler {
 		if (this.bridge.AS.isNamespacedUser(event.sender)) {
 			return; // we don't handle things from our own namespace
 		}
-		const room = await this.bridge.roomSync.getPartsFromMxid(roomId);
+		const room = await this.getRoomParts(roomId, event.sender);
 		if (!room) {
 			// this isn't a room we handle....so let's do provisioning!
 			await this.bridge.botProvisioner.processEvent(roomId, event);
@@ -365,7 +367,7 @@ export class MatrixEventHandler {
 		const asUser = await this.getSendingUser(puppetData, roomId, event.sender);
 		if (relate) {
 			// it only makes sense to process with relation if it is associated with a remote id
-			const relEvent = (await this.bridge.eventStore.getRemote(room.puppetId,
+			const relEvent = (await this.bridge.eventSync.getRemote(room.puppetId,
 				relate.event_id || relate["m.in_reply_to"].event_id))[0];
 			if (relEvent) {
 				if (this.bridge.protocol.features.edit && relate.rel_type === "m.replace") {
@@ -420,8 +422,9 @@ export class MatrixEventHandler {
 			log.verbose("Our bridge itself did the invite, ignoring...");
 			return; // our bridge did the invite, ignore additional handling
 		}
-		const room = await this.bridge.roomSync.getPartsFromMxid(roomId);
-		if (room) {
+		// as we only check for existance, no need to go via the namespaceHandler --> a bit quicker
+		const roomPartsExist = await this.bridge.roomSync.getPartsFromMxid(roomId);
+		if (roomPartsExist) {
 			log.verbose("Room already exists, so double-puppet user probably auto-invited, ignoring...");
 			return; // we are an existing room, meaning a double-puppeted user probably auto-invited. Do nothing
 		}
@@ -434,7 +437,7 @@ export class MatrixEventHandler {
 			return;
 		}
 		// check if the mxid validates
-		const parts = this.bridge.userSync.getPartsFromMxid(userId);
+		const parts = await this.getUserParts(userId, inviteId);
 		if (!parts) {
 			log.verbose("invalid mxid, rejecting invite...");
 			await intent.leaveRoom(roomId);
@@ -488,6 +491,7 @@ export class MatrixEventHandler {
 		await createRoom(false);
 
 		// get room ID and check if it is valid
+		// TODO: figure this out
 		const parts = await this.bridge.roomSync.getPartsFromMxid(alias);
 		if (!parts) {
 			return;
@@ -600,5 +604,13 @@ export class MatrixEventHandler {
 			avatarMxc,
 			avatarUrl,
 		};
+	}
+
+	private async getUserParts(mxid: string, sender: string): Promise<IRemoteUser | null> {
+		return await this.bridge.namespaceHandler.getRemoteUser(this.bridge.userSync.getPartsFromMxid(mxid), sender);
+	}
+
+	private async getRoomParts(mxid: string, sender: string): Promise<IRemoteRoom | null> {
+		return await this.bridge.namespaceHandler.getRemoteRoom(await this.bridge.roomSync.getPartsFromMxid(mxid), sender);
 	}
 }

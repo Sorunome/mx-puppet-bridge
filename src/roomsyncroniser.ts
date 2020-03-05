@@ -65,9 +65,10 @@ export class RoomSyncroniser {
 	}
 
 	public async maybeGet(data: IRemoteRoom): Promise<IRoomStoreEntry | null> {
-		const lockKey = `${data.puppetId};${data.roomId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const lockKey = `${dbPuppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
-		return await this.roomStore.getByRemote(data.puppetId, data.roomId);
+		return await this.roomStore.getByRemote(dbPuppetId, data.roomId);
 	}
 
 	public async maybeGetMxid(data: IRemoteRoom): Promise<string | null> {
@@ -85,15 +86,16 @@ export class RoomSyncroniser {
 		doCreate: boolean = true,
 		isPublic: boolean = false,
 	): Promise<{ mxid: string; created: boolean; }> {
-		const lockKey = `${data.puppetId};${data.roomId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const lockKey = `${dbPuppetId};${data.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
-		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${data.puppetId}`);
+		log.info(`Fetching mxid for roomId ${data.roomId} and puppetId ${dbPuppetId}`);
 		try {
 			if (!client) {
 				client = this.bridge.botIntent.underlyingClient;
 			}
-			let room = await this.roomStore.getByRemote(data.puppetId, data.roomId);
+			let room = await this.roomStore.getByRemote(dbPuppetId, data.roomId);
 			let mxid = "";
 			let doUpdate = false;
 			let created = false;
@@ -145,7 +147,7 @@ export class RoomSyncroniser {
 				} as any; // tslint:disable-line no-any
 				if (!data.isDirect) {
 					// we also want to set an alias for later reference
-					const suffix = await this.bridge.namespaceHandler.getSuffix(data.puppetId, data.roomId);
+					const suffix = await this.bridge.namespaceHandler.getSuffix(dbPuppetId, data.roomId);
 					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(suffix);
 				}
 				if (updateProfile.hasOwnProperty("name")) {
@@ -166,7 +168,7 @@ export class RoomSyncroniser {
 				log.verbose("Creating room with create parameters", createParams);
 				mxid = await client!.createRoom(createParams);
 				await this.roomStore.setRoomOp(mxid, await client!.getUserId());
-				room = this.roomStore.newData(mxid, data.roomId, data.puppetId);
+				room = this.roomStore.newData(mxid, data.roomId, dbPuppetId);
 				room = Object.assign(room, updateProfile);
 				if (data.topic) {
 					room.topic = data.topic;
@@ -265,13 +267,14 @@ export class RoomSyncroniser {
 	}
 
 	public async insert(mxid: string, roomData: IRemoteRoom) {
-		const lockKey = `${roomData.puppetId};${roomData.roomId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(roomData.puppetId);
+		const lockKey = `${dbPuppetId};${roomData.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
 		const entry: IRoomStoreEntry = {
 			mxid,
 			roomId: roomData.roomId,
-			puppetId: roomData.puppetId,
+			puppetId: dbPuppetId,
 		};
 		await this.roomStore.set(entry);
 		this.mxidLock.release(lockKey);

@@ -23,6 +23,7 @@ import {
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
+import { EventSyncroniser } from "./eventsyncroniser";
 import { RoomSyncroniser } from "./roomsyncroniser";
 import { UserSyncroniser } from "./usersyncroniser";
 import { GroupSyncroniser } from "./groupsyncroniser";
@@ -89,6 +90,7 @@ interface ISetProtocolInformation extends IProtocolInformation {
 }
 
 export class PuppetBridge extends EventEmitter {
+	public eventSync: EventSyncroniser;
 	public roomSync: RoomSyncroniser;
 	public userSync: UserSyncroniser;
 	public groupSync: GroupSyncroniser;
@@ -162,6 +164,7 @@ export class PuppetBridge extends EventEmitter {
 		this.store = new Store(this.config.database);
 		await this.store.init();
 
+		this.eventSync = new EventSyncroniser(this);
 		this.roomSync = new RoomSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
 		this.groupSync = new GroupSyncroniser(this);
