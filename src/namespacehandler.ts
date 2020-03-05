@@ -14,7 +14,7 @@ limitations under the License.
 import { Log } from "./log";
 import { Util } from "./util";
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteUser, IRemoteRoom, IRemoteGroup } from "./interfaces";
+import { IRemoteUser, IRemoteRoom, IRemoteGroup, IReceiveParams } from "./interfaces";
 
 const log = new Log("NamespaceHandler");
 
@@ -135,6 +135,67 @@ export class NamespaceHandler {
 			puppetId,
 			groupId: group.groupId,
 		};
+	}
+
+	public async isMessageBlocked(params: IReceiveParams): Promise<boolean> {
+		if (!this.enabled) {
+			log.error("not blocked");
+			return false;
+		}
+		const puppetData = await this.bridge.provisioner.get(params.room.puppetId);
+		if (!puppetData) {
+			throw new Error("Puppet not found");
+		}
+		if (!puppetData.isGlobalNamespace) {
+			return false;
+		}
+		log.debug(`In global namespace, determining if it should be blocked... puppetId=${params.user.puppetId}` +
+			` userId=${params.user.userId} roomId=${params.room.roomId}`);
+		if (!this.usersInRoom.has(params.room.roomId) || true) {
+			await this.populateUsersInRoom(params.room.roomId);
+		}
+		if (!this.puppetsForRoom.has(params.room.roomId) || true) {
+			await this.populatePuppetsForRoom(params.room.roomId);
+		}
+		const userIds = this.usersInRoom.get(params.room.roomId);
+		const puppetIds = this.puppetsForRoom.get(params.room.roomId);
+		if (!userIds || !puppetIds) {
+			log.error("Noone is in the room?!");
+			throw new Error("Noone is in the room?!");
+		}
+		let relayPuppet = -1;
+		for (const puppetId of puppetIds) {
+			const thisPuppetData = await this.bridge.provisioner.get(puppetId);
+			if (thisPuppetData) {
+				if (thisPuppetData.userId && thisPuppetData.userId === params.user.userId) {
+					const block = puppetId !== params.room.puppetId;
+					log.debug(`Found user with puppetId=${puppetId}. block=${block}`);
+					return block;
+				}
+				if (thisPuppetData.type === "relay") {
+					relayPuppet = puppetId;
+				}
+			}
+		}
+		if (relayPuppet !== -1) {
+			const block = params.room.puppetId !== relayPuppet;
+			log.debug(`Found relay with puppetId=${relayPuppet}. block=${block}`);
+			return block;
+		}
+		let somePuppet = -1;
+		for (const puppetId of puppetIds) {
+			somePuppet = puppetId;
+			break;
+		}
+		if (somePuppet === -1) {
+			log.debug("No user at all found?");
+			return false;
+		}
+		{
+			const block = params.room.puppetId !== somePuppet;
+			log.debug(`Found some puppet with puppetId=${somePuppet}. block=${block}`);
+			return block;
+		}
 	}
 
 	private async populateUsersInRoom(roomId: string) {

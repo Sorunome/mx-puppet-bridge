@@ -469,7 +469,7 @@ Usage: \`setispublic <puppetId> <1/0>`,
 				},
 				help: `Sets if the given puppet is public.
 
-Usage: \`setisglobalnamespace <puppetId> <1/0>`,
+Usage: \`setisglobalnamespace <puppetId> <1/0>\``,
 			});
 		}
 		this.registerCommand("setautoinvite", {

@@ -68,6 +68,9 @@ export class RemoteEventHandler {
 	}
 
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.verbose(`Setting user typing for userId=${params.user.userId} in roomId=${params.room.roomId} to ${typing}`);
 		const ret = await this.maybePrepareSend(params);
 		if (!ret) {
@@ -78,6 +81,9 @@ export class RemoteEventHandler {
 	}
 
 	public async sendReadReceipt(params: IReceiveParams) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.verbose(`Got request to send read indicators for userId=${params.user.userId} in roomId=${params.room.roomId}`);
 		const ret = await this.maybePrepareSend(params);
 		if (!ret || !params.eventId) {
@@ -124,6 +130,9 @@ export class RemoteEventHandler {
 	}
 
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received message from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
@@ -153,6 +162,9 @@ export class RemoteEventHandler {
 	}
 
 	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received edit from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
@@ -208,6 +220,9 @@ export class RemoteEventHandler {
 	}
 
 	public async sendRedact(params: IReceiveParams, eventId: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received redact from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
@@ -217,6 +232,9 @@ export class RemoteEventHandler {
 	}
 
 	public async sendReply(params: IReceiveParams, eventId: string, opts: IMessageEvent) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received reply from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
@@ -258,21 +276,33 @@ export class RemoteEventHandler {
 	}
 
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		await this.bridge.reactionHandler.addRemote(params, eventId, reaction, client, mxid);
 	}
 
 	public async removeReaction(params: IReceiveParams, eventId: string, reaction: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		await this.bridge.reactionHandler.removeRemote(params, eventId, reaction, client, mxid);
 	}
 
 	public async removeAllReactions(params: IReceiveParams, eventId: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		await this.bridge.reactionHandler.removeRemoteAllOnMessage(params, eventId, client, mxid);
 	}
 
 	public async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received file to send from ${params.user.userId} in ${params.room.roomId}.`);
 		log.verbose(`thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
 		if (!name) {
