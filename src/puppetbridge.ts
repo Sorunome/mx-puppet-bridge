@@ -53,7 +53,7 @@ import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
 	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
 	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
-	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook,
+	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook, UserExistsHook, RoomExistsHook, GroupExistsHook,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -68,6 +68,9 @@ export interface IPuppetBridgeHooks {
 	createUser?: CreateUserHook;
 	createRoom?: CreateRoomHook;
 	createGroup?: CreateGroupHook;
+	userExists?: UserExistsHook;
+	roomExists?: RoomExistsHook;
+	groupExists?: GroupExistsHook;
 	getDesc?: GetDescHook;
 	botHeaderMsg?: BotHeaderMsgHook;
 	getDataFromStr?: GetDataFromStrHook;
@@ -344,14 +347,35 @@ export class PuppetBridge extends EventEmitter {
 
 	public setCreateUserHook(hook: CreateUserHook) {
 		this.hooks.createUser = hook;
+		if (!this.hooks.userExists) {
+			this.hooks.userExists = async (user: IRemoteUser) => await Boolean(hook(user));
+		}
 	}
 
 	public setCreateRoomHook(hook: CreateRoomHook) {
 		this.hooks.createRoom = hook;
+		if (!this.hooks.roomExists) {
+			this.hooks.roomExists = async (room: IRemoteRoom) => await Boolean(hook(room));
+		}
 	}
 
 	public setCreateGroupHook(hook: CreateGroupHook) {
 		this.hooks.createGroup = hook;
+		if (!this.hooks.groupExists) {
+			this.hooks.groupExists = async (group: IRemoteGroup) => await Boolean(hook(group));
+		}
+	}
+
+	public setUserExistsHook(hook: UserExistsHook) {
+		this.hooks.userExists = hook;
+	}
+
+	public setRoomExistsHook(hook: RoomExistsHook) {
+		this.hooks.roomExists = hook;
+	}
+
+	public setGroupExistsHook(hook: GroupExistsHook) {
+		this.hooks.groupExists = hook;
 	}
 
 	public setGetDescHook(hook: GetDescHook) {

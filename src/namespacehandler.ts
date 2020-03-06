@@ -101,6 +101,108 @@ export class NamespaceHandler {
 		return puppetId;
 	}
 
+	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
+		const validate = (origData: IRemoteUser, newData: IRemoteUser | null): IRemoteUser | null => {
+			if (newData && newData.userId === origData.userId && newData.puppetId === origData.puppetId) {
+				return newData;
+			}
+			log.warn("Override data is malformed! Old data:", origData, "New data:", newData);
+			return null;
+		};
+		if (!this.bridge.hooks.createUser) {
+			return null;
+		}
+		log.info("Fetching new user override data...");
+		if (user.puppetId !== -1) {
+			return validate(user, await this.bridge.hooks.createUser(user));
+		}
+		if (!this.puppetsForUser.has(user.userId) || true) {
+			await this.populatePuppetsForUser(user.userId);
+		}
+		const puppetIds = this.puppetsForUser.get(user.userId);
+		if (!puppetIds) {
+			return null;
+		}
+		let somePuppet = -1;
+		for (const puppetId of puppetIds) {
+			somePuppet = puppetId;
+			break;
+		}
+		const oldData: IRemoteUser = {
+			puppetId: somePuppet,
+			userId: user.userId,
+		};
+		return validate(oldData, await this.bridge.hooks.createUser(oldData));
+	}
+
+	public async createRoom(room: IRemoteRoom): Promise<IRemoteRoom | null> {
+		const validate = (origData: IRemoteRoom, newData: IRemoteRoom | null): IRemoteRoom | null => {
+			if (newData && newData.roomId === origData.roomId && newData.puppetId === origData.puppetId) {
+				return newData;
+			}
+			log.warn("Override data is malformed! Old data:", origData, "New data:", newData);
+			return null;
+		};
+		if (!this.bridge.hooks.createRoom) {
+			return null;
+		}
+		log.info("Fetching new room override data...");
+		if (room.puppetId !== -1) {
+			return validate(room, await this.bridge.hooks.createRoom(room));
+		}
+		if (!this.puppetsForRoom.has(room.roomId) || true) {
+			await this.populatePuppetsForRoom(room.roomId);
+		}
+		const puppetIds = this.puppetsForRoom.get(room.roomId);
+		if (!puppetIds) {
+			return null;
+		}
+		let somePuppet = -1;
+		for (const puppetId of puppetIds) {
+			somePuppet = puppetId;
+			break;
+		}
+		const oldData: IRemoteRoom = {
+			puppetId: somePuppet,
+			roomId: room.roomId,
+		};
+		return validate(oldData, await this.bridge.hooks.createRoom(oldData));
+	}
+
+	public async createGroup(group: IRemoteGroup): Promise<IRemoteGroup | null> {
+		const validate = (origData: IRemoteGroup, newData: IRemoteGroup | null): IRemoteGroup | null => {
+			if (newData && newData.groupId === origData.groupId && newData.puppetId === origData.puppetId) {
+				return newData;
+			}
+			log.warn("Override data is malformed! Old data:", origData, "New data:", newData);
+			return null;
+		};
+		if (!this.bridge.hooks.createGroup) {
+			return null;
+		}
+		log.info("Fetching new group override data...");
+		if (group.puppetId !== -1) {
+			return validate(group, await this.bridge.hooks.createGroup(group));
+		}
+		if (!this.puppetsForGroup.has(group.groupId) || true) {
+			await this.populatePuppetsForUser(group.groupId);
+		}
+		const puppetIds = this.puppetsForUser.get(group.groupId);
+		if (!puppetIds) {
+			return null;
+		}
+		let somePuppet = -1;
+		for (const puppetId of puppetIds) {
+			somePuppet = puppetId;
+			break;
+		}
+		const oldData: IRemoteGroup = {
+			puppetId: somePuppet,
+			groupId: group.groupId,
+		};
+		return validate(oldData, await this.bridge.hooks.createGroup(oldData));
+	}
+
 	public async getRemoteUser(user: IRemoteUser | null, sender: string): Promise<IRemoteUser | null> {
 		if (!user) {
 			return null;
@@ -266,40 +368,28 @@ export class NamespaceHandler {
 
 	private async populatePuppetsForUser(userId: string) {
 		await this.populateThingForPuppet(userId, this.puppetsForUser, async (puppetId: number) => {
-			if (!this.bridge.hooks.createUser) {
+			if (!this.bridge.hooks.userExists) {
 				return false;
 			}
-			const user = await this.bridge.hooks.createUser({
-				puppetId,
-				userId,
-			});
-			return Boolean(user);
+			return await this.bridge.hooks.userExists({ puppetId, userId });
 		});
 	}
 
 	private async populatePuppetsForRoom(roomId: string) {
 		await this.populateThingForPuppet(roomId, this.puppetsForRoom, async (puppetId: number) => {
-			if (!this.bridge.hooks.createRoom) {
+			if (!this.bridge.hooks.roomExists) {
 				return false;
 			}
-			const room = await this.bridge.hooks.createRoom({
-				puppetId,
-				roomId,
-			});
-			return Boolean(room);
+			return await this.bridge.hooks.roomExists({ puppetId, roomId });
 		});
 	}
 
 	private async populatePuppetsForGroup(groupId: string) {
 		await this.populateThingForPuppet(groupId, this.puppetsForGroup, async (puppetId: number) => {
-			if (!this.bridge.hooks.createGroup) {
+			if (!this.bridge.hooks.groupExists) {
 				return false;
 			}
-			const group = await this.bridge.hooks.createGroup({
-				puppetId,
-				groupId,
-			});
-			return Boolean(group);
+			return await this.bridge.hooks.groupExists({ puppetId, groupId });
 		});
 	}
 

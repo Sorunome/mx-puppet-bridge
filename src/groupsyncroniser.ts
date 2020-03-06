@@ -85,14 +85,9 @@ export class GroupSyncroniser {
 				doUpdate = true;
 				invitePuppet = Boolean(puppetData && puppetData.autoinvite);
 				// let's fetch the create data via hook
-				if (this.bridge.hooks.createGroup) {
-					log.verbose("Fetching new override data...");
-					const newData = await this.bridge.hooks.createGroup(data);
-					if (newData && newData.puppetId === data.puppetId && newData.groupId === data.groupId) {
-						data = newData;
-					} else {
-						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
-					}
+				const newData = await this.bridge.namespaceHandler.createGroup(data);
+				if (newData) {
+					data = newData;
 				}
 				log.verbose("Creation data:", data);
 				update.shortDescription = data.shortDescription ? true : false;

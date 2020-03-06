@@ -162,6 +162,9 @@ export interface ISendingUser {
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
 export type CreateRoomHook = (room: IRemoteRoom) => Promise<IRemoteRoom | null>;
 export type CreateGroupHook = (group: IRemoteGroup) => Promise<IRemoteGroup | null>;
+export type UserExistsHook = (user: IRemoteUser) => Promise<boolean>;
+export type RoomExistsHook = (room: IRemoteRoom) => Promise<boolean>;
+export type GroupExistsHook = (group: IRemoteGroup) => Promise<boolean>;
 export type GetDescHook = (puppetId: number, data: IPuppetData) => Promise<string>;
 export type BotHeaderMsgHook = () => string;
 export type GetDataFromStrHook = (str: string) => Promise<IRetData>;

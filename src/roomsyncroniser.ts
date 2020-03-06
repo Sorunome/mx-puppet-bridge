@@ -112,14 +112,9 @@ export class RoomSyncroniser {
 				log.info("Channel doesn't exist yet, creating entry...");
 				doUpdate = true;
 				// let's fetch the create data via hook
-				if (this.bridge.hooks.createRoom) {
-					log.verbose("Fetching new override data...");
-					const newData = await this.bridge.hooks.createRoom(data);
-					if (newData && newData.puppetId === data.puppetId && newData.roomId === data.roomId) {
-						data = newData;
-					} else {
-						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
-					}
+				const newData = await this.bridge.namespaceHandler.createRoom(data);
+				if (newData) {
+					data = newData;
 				}
 				const updateProfile = await Util.ProcessProfileUpdate(
 					null, data, this.bridge.protocol.namePatterns.room,

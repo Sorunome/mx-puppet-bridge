@@ -105,14 +105,9 @@ export class UserSyncroniser {
 				log.info("User doesn't exist yet, creating entry...");
 				doUpdate = true;
 				// let's fetch the create data via hook
-				if (this.bridge.hooks.createUser) {
-					log.verbose("Fetching new override data...");
-					const newData = await this.bridge.hooks.createUser(data);
-					if (newData && newData.userId === data.userId && newData.puppetId === data.puppetId) {
-						data = newData;
-					} else {
-						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
-					}
+				const newData = await this.bridge.namespaceHandler.createUser(data);
+				if (newData) {
+					data = newData;
 				}
 				user = this.userStore.newData(dbPuppetId, data.userId);
 			} else {
