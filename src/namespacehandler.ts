@@ -86,6 +86,81 @@ export class NamespaceHandler {
 		};
 	}
 
+	public async canSee(roomParts: IRemoteRoom, sender: string): Promise<boolean> {
+		const room = await this.bridge.roomSync.maybeGet(roomParts);
+		if (!room) {
+			return false;
+		}
+		if (room.puppetId !== -1) {
+			const puppetData = await this.bridge.provisioner.get(room.puppetId);
+			if (puppetData) {
+				if (!puppetData.isGlobalNamespace) {
+					return (puppetData.type === "puppet" && puppetData.puppetMxid === sender)
+						|| (puppetData.type === "relay" && this.bridge.provisioner.canRelay(sender));
+				}
+				if (!this.enabled) {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+		if (!this.puppetsForRoom.has(room.roomId) || true) {
+			await this.populatePuppetsForRoom(room.roomId);
+		}
+		const puppetIds = this.puppetsForRoom.get(room.roomId);
+		if (!puppetIds) {
+			return false;
+		}
+		for (const puppetId of puppetIds) {
+			const puppetData = await this.bridge.provisioner.get(puppetId);
+			if (puppetData && ((puppetData.type === "puppet" && puppetData.puppetMxid === sender)
+				|| (puppetData.type === "relay" && this.bridge.provisioner.canRelay(sender)))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public async isAdmin(roomParts: IRemoteRoom, sender: string): Promise<boolean> {
+		const room = await this.bridge.roomSync.maybeGet(roomParts);
+		if (!room) {
+			return false;
+		}
+		if (room.puppetId !== -1) {
+			const puppetData = await this.bridge.provisioner.get(room.puppetId);
+			if (puppetData) {
+				if (!puppetData.isGlobalNamespace) {
+					return puppetData.puppetMxid === sender;
+				}
+				if (!this.enabled) {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+		if (!this.enabled) {
+			return false;
+		}
+		if (!this.puppetsForRoom.has(room.roomId) || true) {
+			await this.populatePuppetsForRoom(room.roomId);
+		}
+		const puppetIds = this.puppetsForRoom.get(room.roomId);
+		if (!puppetIds || puppetIds.size !== 1) {
+			return false;
+		}
+		let thePuppet = -1;
+		for (const pid of puppetIds) {
+			thePuppet = pid;
+			break;
+		}
+		{
+			const puppetData = await this.bridge.provisioner.get(thePuppet);
+			return Boolean(puppetData && puppetData.puppetMxid === sender);
+		}
+	}
+
 	public async getDbPuppetId(puppetId: number): Promise<number> {
 		if (!this.enabled) {
 			if (puppetId === -1) {

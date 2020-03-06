@@ -230,8 +230,7 @@ export class Provisioner {
 		if (!room) {
 			return false;
 		}
-		const puppet = await this.get(room.puppetId);
-		if (!puppet || puppet.puppetMxid !== userId) {
+		if (!(await this.bridge.namespaceHandler.isAdmin(room, userId))) {
 			return false;
 		}
 		// alright, unbridge the room
@@ -248,13 +247,7 @@ export class Provisioner {
 		if (!room) {
 			return false;
 		}
-		// alright, it exists.....time to check if we can join it
-		const puppet = await this.get(room.puppetId);
-		if (!puppet) {
-			return false;
-		}
-		if ((puppet.type === "puppet" && puppet.puppetMxid === userId) ||
-			(puppet.type === "relay" && this.bridge.provisioner.canRelay(userId))) {
+		if (await this.bridge.namespaceHandler.canSee(roomParts, userId)) {
 			const client = (await this.bridge.roomSync.getRoomOp(room.mxid)) || this.bridge.botIntent.underlyingClient;
 			try {
 				await client.inviteUser(userId, room.mxid);
