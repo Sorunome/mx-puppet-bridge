@@ -86,11 +86,7 @@ export class NamespaceHandler {
 		};
 	}
 
-	public async canSee(roomParts: IRemoteRoom, sender: string): Promise<boolean> {
-		const room = await this.bridge.roomSync.maybeGet(roomParts);
-		if (!room) {
-			return false;
-		}
+	public async canSeeRoom(room: IRemoteRoom, sender: string): Promise<boolean> {
 		if (room.puppetId !== -1) {
 			const puppetData = await this.bridge.provisioner.get(room.puppetId);
 			if (puppetData) {
@@ -122,11 +118,39 @@ export class NamespaceHandler {
 		return false;
 	}
 
-	public async isAdmin(roomParts: IRemoteRoom, sender: string): Promise<boolean> {
-		const room = await this.bridge.roomSync.maybeGet(roomParts);
-		if (!room) {
+	public async canSeeGroup(group: IRemoteGroup, sender: string): Promise<boolean> {
+		if (group.puppetId !== -1) {
+			const puppetData = await this.bridge.provisioner.get(group.puppetId);
+			if (puppetData) {
+				if (!puppetData.isGlobalNamespace) {
+					return (puppetData.type === "puppet" && puppetData.puppetMxid === sender)
+						|| (puppetData.type === "relay" && this.bridge.provisioner.canRelay(sender));
+				}
+				if (!this.enabled) {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+		if (!this.puppetsForGroup.has(group.groupId) || true) {
+			await this.populatePuppetsForGroup(group.groupId);
+		}
+		const puppetIds = this.puppetsForGroup.get(group.groupId);
+		if (!puppetIds) {
 			return false;
 		}
+		for (const puppetId of puppetIds) {
+			const puppetData = await this.bridge.provisioner.get(puppetId);
+			if (puppetData && ((puppetData.type === "puppet" && puppetData.puppetMxid === sender)
+				|| (puppetData.type === "relay" && this.bridge.provisioner.canRelay(sender)))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public async isAdmin(room: IRemoteRoom, sender: string): Promise<boolean> {
 		if (room.puppetId !== -1) {
 			const puppetData = await this.bridge.provisioner.get(room.puppetId);
 			if (puppetData) {

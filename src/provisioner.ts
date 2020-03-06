@@ -247,7 +247,7 @@ export class Provisioner {
 		if (!room) {
 			return false;
 		}
-		if (await this.bridge.namespaceHandler.canSee(roomParts, userId)) {
+		if (await this.bridge.namespaceHandler.canSeeRoom(room, userId)) {
 			const client = (await this.bridge.roomSync.getRoomOp(room.mxid)) || this.bridge.botIntent.underlyingClient;
 			try {
 				await client.inviteUser(userId, room.mxid);
@@ -272,13 +272,7 @@ export class Provisioner {
 		if (!group) {
 			return false;
 		}
-		// it exists, let's check if we can join it etc.
-		const puppet = await this.get(group.puppetId);
-		if (!puppet) {
-			return false;
-		}
-		if ((puppet.type === "puppet" && puppet.puppetMxid === userId) ||
-			(puppet.type === "relay" && this.bridge.provisioner.canRelay(userId))) {
+		if (await this.bridge.namespaceHandler.canSeeGroup(group, userId)) {
 			const client = this.bridge.botIntent.underlyingClient;
 			const clientUnstable = client.unstableApis;
 			try {
