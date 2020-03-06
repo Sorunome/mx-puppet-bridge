@@ -58,6 +58,7 @@ export class GroupSyncroniser {
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
 		log.info(`Fetching mxid for groupId ${data.groupId} and puppetId ${dbPuppetId}`);
+		let invites = new Set<string>();
 		try {
 			// groups are always handled by the AS bot
 			const client = this.bridge.botIntent.underlyingClient;
@@ -74,16 +75,15 @@ export class GroupSyncroniser {
 			let oldProfile: IProfileDbEntry | null = null;
 			let newRooms: string[] = [];
 			const removedRooms: string[] = [];
-			let invitePuppet = false;
 			if (!group) {
 				if (!doCreate) {
 					this.mxidLock.release(lockKey);
 					return "";
 				}
 				log.info("Group doesn't exist yet, creating entry...");
-				const puppetData = await this.bridge.provisioner.get(data.puppetId);
+				const createInfo = await this.bridge.namespaceHandler.getGroupCreateInfo(data);
+				invites = createInfo.invites;
 				doUpdate = true;
-				invitePuppet = Boolean(puppetData && puppetData.autoinvite);
 				// let's fetch the create data via hook
 				const newData = await this.bridge.namespaceHandler.createGroup(data);
 				if (newData) {
@@ -109,7 +109,7 @@ export class GroupSyncroniser {
 						}
 					}
 				}
-				if (puppetData && puppetData.isPublic) {
+				if (createInfo.public) {
 					// set it to public
 					await clientUnstable.setGroupJoinPolicy(mxid, "open");
 				} else {
@@ -191,12 +191,8 @@ export class GroupSyncroniser {
 				await this.groupStore.set(group);
 			}
 
-			if (invitePuppet) {
-				// finally invite the puppet
-				const puppetMxid = await this.bridge.provisioner.getMxid(data.puppetId);
-				if (puppetMxid) {
-					await clientUnstable.inviteUserToGroup(mxid, puppetMxid);
-				}
+			for (const invite of invites) {
+				await clientUnstable.inviteUserToGroup(mxid, invite);
 			}
 
 			this.mxidLock.release(lockKey);

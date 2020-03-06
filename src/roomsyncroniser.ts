@@ -84,7 +84,6 @@ export class RoomSyncroniser {
 		client?: MatrixClient,
 		invites?: Set<string>,
 		doCreate: boolean = true,
-		isPublic: boolean = false,
 	): Promise<{ mxid: string; created: boolean; }> {
 		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
 		const lockKey = `${dbPuppetId};${data.roomId}`;
@@ -116,6 +115,27 @@ export class RoomSyncroniser {
 				if (newData) {
 					data = newData;
 				}
+				const createInfo = await this.bridge.namespaceHandler.getRoomCreateInfo(data);
+				if (!invites) {
+					invites = new Set<string>();
+				}
+				for (const user of createInfo.invites) {
+					invites.add(user);
+				}
+				const userId = await client.getUserId();
+				invites.delete(userId);
+				let haveNamespacedInvite = this.bridge.AS.isNamespacedUser(userId);
+				if (!haveNamespacedInvite) {
+					for (const user of invites) {
+						if (this.bridge.AS.isNamespacedUser(user)) {
+							haveNamespacedInvite = true;
+							break;
+						}
+					}
+				}
+				if (!haveNamespacedInvite) {
+					invites.add(await this.bridge.botIntent.underlyingClient.getUserId())
+				}
 				const updateProfile = await Util.ProcessProfileUpdate(
 					null, data, this.bridge.protocol.namePatterns.room,
 					async (buffer: Buffer, mimetype?: string, filename?: string) => {
@@ -126,8 +146,8 @@ export class RoomSyncroniser {
 				log.verbose("Initial invites:", invites);
 				// ooookay, we need to create this room
 				const createParams = {
-					visibility: isPublic ? "public" : "private",
-					preset: isPublic ? "public_chat" : "private_chat",
+					visibility: createInfo.public ? "public" : "private",
+					preset: createInfo.public ? "public_chat" : "private_chat",
 					power_level_content_override: {
 						notifications: {
 							room: 0,

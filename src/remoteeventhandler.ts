@@ -454,14 +454,7 @@ export class RemoteEventHandler {
 					}
 				}
 			}
-			if (userId !== puppetMxid && puppetData.autoinvite) {
-				invites.add(puppetMxid);
-			}
-			if (userId === puppetMxid && invites.size === 0) {
-				// if we are creating the room via double-puppeting, make sure that *someone* is in there at all times
-				invites.add(await this.bridge.botIntent.underlyingClient.getUserId());
-			}
-			const retCall = await this.bridge.roomSync.getMxid(params.room, client, invites, true, puppetData.isPublic);
+			const retCall = await this.bridge.roomSync.getMxid(params.room, client, invites);
 			mxid = retCall.mxid;
 			created = retCall.created;
 			// tslint:disable-next-line no-floating-promises

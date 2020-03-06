@@ -16,6 +16,11 @@ import { Util } from "./util";
 import { PuppetBridge } from "./puppetbridge";
 import { IRemoteUser, IRemoteRoom, IRemoteGroup, IReceiveParams } from "./interfaces";
 
+export interface IPuppetCreateInfo {
+	public: boolean;
+	invites: Set<string>;
+}
+
 const log = new Log("NamespaceHandler");
 
 export class NamespaceHandler {
@@ -101,6 +106,30 @@ export class NamespaceHandler {
 		return puppetId;
 	}
 
+	public async getRoomCreateInfo(room: IRemoteRoom): Promise<IPuppetCreateInfo> {
+		const ret = await this.maybeGetPuppetCreateInfo(room.puppetId);
+		if (ret) {
+			return ret;
+		}
+		if (!this.puppetsForRoom.has(room.roomId) || true) {
+			await this.populatePuppetsForRoom(room.roomId);
+		}
+		const puppetIds = this.puppetsForRoom.get(room.roomId);
+		return await this.getPuppetCreateInfo(puppetIds);
+	}
+
+	public async getGroupCreateInfo(group: IRemoteGroup): Promise<IPuppetCreateInfo> {
+		const ret = await this.maybeGetPuppetCreateInfo(group.puppetId);
+		if (ret) {
+			return ret;
+		}
+		if (!this.puppetsForGroup.has(group.groupId) || true) {
+			await this.populatePuppetsForGroup(group.groupId);
+		}
+		const puppetIds = this.puppetsForGroup.get(group.groupId);
+		return await this.getPuppetCreateInfo(puppetIds);
+	}
+
 	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
 		const validate = (origData: IRemoteUser, newData: IRemoteUser | null): IRemoteUser | null => {
 			if (newData && newData.userId === origData.userId && newData.puppetId === origData.puppetId) {
@@ -115,6 +144,9 @@ export class NamespaceHandler {
 		log.info("Fetching new user override data...");
 		if (user.puppetId !== -1) {
 			return validate(user, await this.bridge.hooks.createUser(user));
+		}
+		if (!this.enabled) {
+			throw new Error("Global namespace not enabled");
 		}
 		if (!this.puppetsForUser.has(user.userId) || true) {
 			await this.populatePuppetsForUser(user.userId);
@@ -150,6 +182,9 @@ export class NamespaceHandler {
 		if (room.puppetId !== -1) {
 			return validate(room, await this.bridge.hooks.createRoom(room));
 		}
+		if (!this.enabled) {
+			throw new Error("Global namespace not enabled");
+		}
 		if (!this.puppetsForRoom.has(room.roomId) || true) {
 			await this.populatePuppetsForRoom(room.roomId);
 		}
@@ -183,6 +218,9 @@ export class NamespaceHandler {
 		log.info("Fetching new group override data...");
 		if (group.puppetId !== -1) {
 			return validate(group, await this.bridge.hooks.createGroup(group));
+		}
+		if (!this.enabled) {
+			throw new Error("Global namespace not enabled");
 		}
 		if (!this.puppetsForGroup.has(group.groupId) || true) {
 			await this.populatePuppetsForUser(group.groupId);
@@ -300,6 +338,52 @@ export class NamespaceHandler {
 		}
 	}
 
+	private async maybeGetPuppetCreateInfo(puppetId: number): Promise<IPuppetCreateInfo | null> {
+		if (!this.enabled) {
+			if (puppetId === -1) {
+				throw new Error("Global namespace not enabled");
+			}
+			const puppetData = await this.bridge.provisioner.get(puppetId);
+			return {
+				public: Boolean(puppetData && puppetData.isPublic),
+				invites: new Set(puppetData && puppetData.autoinvite ? [puppetData.puppetMxid] : []),
+			};
+		}
+		if (puppetId !== -1) {
+			const puppetData = await this.bridge.provisioner.get(puppetId);
+			if (!puppetData) {
+				throw new Error("Puppet not found");
+			}
+			if (!puppetData.isGlobalNamespace) {
+				return {
+					public: puppetData.isPublic,
+					invites: new Set(puppetData.autoinvite ? [puppetData.puppetMxid] : []),
+				};
+			}
+		}
+		return null;
+	}
+
+	private async getPuppetCreateInfo(puppetIds?: Set<number>): Promise<IPuppetCreateInfo> {
+		const info: IPuppetCreateInfo = {
+			public: false,
+			invites: new Set<string>(),
+		};
+		if (!puppetIds) {
+			return info;
+		}
+		for (const puppetId of puppetIds) {
+			const puppetData = await this.bridge.provisioner.get(puppetId);
+			if (puppetData) {
+				if (puppetData.isPublic) {
+					info.public = true;
+				}
+				info.invites.add(puppetData.puppetMxid);
+			}
+		}
+		return info;
+	}
+
 	private async populateUsersInRoom(roomId: string) {
 		if (!this.bridge.hooks.getUserIdsInRoom) {
 			this.usersInRoom.delete(roomId);
@@ -401,7 +485,7 @@ export class NamespaceHandler {
 		const puppets = new Set<number>();
 		const allPuppets = await this.bridge.provisioner.getAll();
 		for (const puppet of allPuppets) {
-			if (await have(puppet.puppetId)) {
+			if (puppet.isGlobalNamespace && await have(puppet.puppetId)) {
 				puppets.add(puppet.puppetId);
 			}
 		}
@@ -411,7 +495,7 @@ export class NamespaceHandler {
 	private async getRelay(): Promise<number> {
 		const allPuppets = await this.bridge.provisioner.getAll();
 		for (const puppet of allPuppets) {
-			if (puppet.type === "relay") {
+			if (puppet.type === "relay" && puppet.isGlobalNamespace) {
 				return puppet.puppetId;
 			}
 		}
