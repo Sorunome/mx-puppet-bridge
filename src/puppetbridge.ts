@@ -348,21 +348,21 @@ export class PuppetBridge extends EventEmitter {
 	public setCreateUserHook(hook: CreateUserHook) {
 		this.hooks.createUser = hook;
 		if (!this.hooks.userExists) {
-			this.hooks.userExists = async (user: IRemoteUser) => await Boolean(hook(user));
+			this.hooks.userExists = async (user: IRemoteUser): Promise<boolean> => Boolean(await hook(user));
 		}
 	}
 
 	public setCreateRoomHook(hook: CreateRoomHook) {
 		this.hooks.createRoom = hook;
 		if (!this.hooks.roomExists) {
-			this.hooks.roomExists = async (room: IRemoteRoom) => await Boolean(hook(room));
+			this.hooks.roomExists = async (room: IRemoteRoom): Promise<boolean> => Boolean(await hook(room));
 		}
 	}
 
 	public setCreateGroupHook(hook: CreateGroupHook) {
 		this.hooks.createGroup = hook;
 		if (!this.hooks.groupExists) {
-			this.hooks.groupExists = async (group: IRemoteGroup) => await Boolean(hook(group));
+			this.hooks.groupExists = async (group: IRemoteGroup): Promise<boolean> => Boolean(await hook(group));
 		}
 	}
 

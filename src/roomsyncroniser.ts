@@ -124,6 +124,8 @@ export class RoomSyncroniser {
 				}
 				const userId = await client.getUserId();
 				invites.delete(userId);
+				// alright, we need to make sure that someone of our namespace is in the room
+				// else messages won't relay correclty. Let's do that here.
 				let haveNamespacedInvite = this.bridge.AS.isNamespacedUser(userId);
 				if (!haveNamespacedInvite) {
 					for (const user of invites) {
@@ -134,7 +136,7 @@ export class RoomSyncroniser {
 					}
 				}
 				if (!haveNamespacedInvite) {
-					invites.add(await this.bridge.botIntent.underlyingClient.getUserId())
+					invites.add(await this.bridge.botIntent.underlyingClient.getUserId());
 				}
 				const updateProfile = await Util.ProcessProfileUpdate(
 					null, data, this.bridge.protocol.namePatterns.room,
