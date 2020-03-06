@@ -436,8 +436,7 @@ export class RemoteEventHandler {
 		const puppetMxid = puppetData.puppetMxid;
 		const client = await this.bridge.userSync.getClient(params.user);
 		const userId = await client.getUserId();
-		let mxid = await this.bridge.roomSync.maybeGetMxid(params.room);
-		let created = false;
+		let { mxid, created } = await this.bridge.roomSync.getMxid(params.room, undefined, undefined, false);
 		if (!mxid) {
 			// alright, the room doesn't exist yet....time to create it!
 			// we could be the one creating the room, no need to invite ourself
