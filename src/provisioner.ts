@@ -199,8 +199,8 @@ export class Provisioner {
 		if (!data || data.puppetMxid !== puppetMxid) {
 			return;
 		}
-		await this.puppetStore.delete(puppetId);
 		await this.bridge.roomSync.deleteForPuppet(puppetId);
+		await this.puppetStore.delete(puppetId);
 		this.bridge.emit("puppetDelete", puppetId);
 	}
 
@@ -230,7 +230,7 @@ export class Provisioner {
 		if (!room) {
 			return false;
 		}
-		if (!(await this.bridge.namespaceHandler.isAdmin(room, userId))) {
+		if (!(await this.bridge.namespaceHandler.isSoleAdmin(room, userId))) {
 			return false;
 		}
 		// alright, unbridge the room

@@ -150,7 +150,19 @@ export class NamespaceHandler {
 		return false;
 	}
 
-	public async isAdmin(room: IRemoteRoom, sender: string): Promise<boolean> {
+	public async isSoleAdmin(room: IRemoteRoom, sender: string | number): Promise<boolean> {
+		// for now they are the same....
+		return await this.isAdmin(room, sender);
+	}
+
+	public async isAdmin(room: IRemoteRoom, sender: string | number): Promise<boolean> {
+		if (typeof sender === "number") {
+			const puppetData = await this.bridge.provisioner.get(sender);
+			if (!puppetData) {
+				throw new Error("Puppet data not found!");
+			}
+			sender = puppetData.puppetMxid;
+		}
 		if (room.puppetId !== -1) {
 			const puppetData = await this.bridge.provisioner.get(room.puppetId);
 			if (puppetData) {
@@ -171,6 +183,7 @@ export class NamespaceHandler {
 			await this.populatePuppetsForRoom(room.roomId);
 		}
 		const puppetIds = this.puppetsForRoom.get(room.roomId);
+		// CAREFUL! Once we figure out multi-room things we need to update isSoleAdmin
 		if (!puppetIds || puppetIds.size !== 1) {
 			return false;
 		}

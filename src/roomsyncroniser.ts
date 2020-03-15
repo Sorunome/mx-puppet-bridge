@@ -514,8 +514,22 @@ export class RoomSyncroniser {
 	}
 
 	public async deleteForPuppet(puppetId: number) {
-		const entries = await this.roomStore.getByPuppetId(puppetId);
-		await this.deleteEntries(entries);
+		if (puppetId === -1) {
+			return;
+		}
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
+		const entries = await this.roomStore.getByPuppetId(dbPuppetId);
+		// now we have all the entires.....filter them out for if we are the sole admin!
+		const deleteEntires: IRoomStoreEntry[] = [];
+		for (const entry of entries) {
+			if (await this.bridge.namespaceHandler.isSoleAdmin({
+				puppetId: entry.puppetId,
+				roomId: entry.roomId,
+			}, puppetId)) {
+				deleteEntires.push(entry);
+			}
+		}
+		await this.deleteEntries(deleteEntires);
 	}
 
 	public async resolve(str: RemoteRoomResolvable): Promise<IRemoteRoom | null> {
