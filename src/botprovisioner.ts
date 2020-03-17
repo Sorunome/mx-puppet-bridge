@@ -324,10 +324,9 @@ Usage: \`setmatrixtoken <token>\``,
 		this.registerCommand("adminme", {
 			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
 				// Set the user to admin
-				await this.provisioner.setAdmin(puppetId, param);
-
-				// Notify the user that the power level has been set.
-				await sendMessage("Admin level set.");
+				this.provisioner.setAdmin(puppetId, param)
+					.then(() => sendMessage("Admin level set."))
+					.catch((err: Error) => sendMessage(err.message));
 			},
 			help: `Sets you as admin for a certain room
 

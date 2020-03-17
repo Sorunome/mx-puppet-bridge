@@ -45,34 +45,40 @@ export class Provisioner {
 	 * Gives 100 power level to a user of a puppet-owned room
 	 * @param {number} puppetId
 	 * @param {string} roomId
-	 * @returns {Promise<boolean>} whether it was successful or not
+	 * @returns {Promise<void>}
 	 */
-	public async setAdmin(puppetId: number, roomId: string): Promise<boolean> {
-		const ADMIN_POWER_LEVEL = 100;
-		const puppet = await this.get(puppetId);
+	public setAdmin(puppetId: number, roomId: string): Promise<void> {
+		return new Promise(async (resolve, reject) => {
+			const ADMIN_POWER_LEVEL = 100;
+			const puppet = await this.get(puppetId);
 
-		// If the puppet exists ...
-		if (puppet) {
-			// Get the room administrator
-			const operator = await this.bridge.roomSync.getRoomOp(roomId);
-			if (!operator) {
-				return false;
+			// If the puppet exists ...
+			if (puppet) {
+				// Get the room administrator
+				const operator = await this.bridge.roomSync.getRoomOp(roomId);
+				if (operator) {
+					const owner = puppet.puppetMxid;
+					const members = await operator.getJoinedRoomMembers(roomId);
+
+					// Make sure the puppet owner is in the room
+					if (members && members.includes(owner)) {
+
+						// Finally if the the room is puppet owned and the puppet owner is in the room then
+						// set the puppet owner's power level to 100
+						await operator.setUserPowerLevel(owner, roomId, ADMIN_POWER_LEVEL);
+						resolve();
+					} else {
+						reject(
+								new Error(`The owner of the puppet (${puppetId}) isn't in room ${roomId}`),
+						);
+					}
+				} else {
+					reject(new Error("Failed to get operator of " + roomId));
+				}
+			} else {
+				reject(new Error("Failed to get puppet of puppet id: " + puppetId));
 			}
-
-			// Make sure the puppet owner is in the room
-			const owner = puppet.puppetMxid;
-			const members = await operator.getJoinedRoomMembers(roomId);
-			if (!members || !members.includes(owner)) {
-				return false;
-			}
-			// Finally if the the room is puppet owned and the puppet owner is in the room then
-			// set the puppet owner's power level to 100
-			await operator.setUserPowerLevel(owner, roomId, ADMIN_POWER_LEVEL);
-
-			return true;
-		} else {
-			return false;
-		}
+		});
 	}
 
 	public async getAll(): Promise<IPuppet[]> {
