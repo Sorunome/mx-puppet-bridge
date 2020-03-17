@@ -323,31 +323,9 @@ Usage: \`setmatrixtoken <token>\``,
 		});
 		this.registerCommand("adminme", {
 			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
-				// Puppet to refer to.
-				const puppet = await this.provisioner.get(puppetId);
-				if (!puppet) {
-					await sendMessage("Puppet not found.");
-					return;
-				}
-				// Owner of the puppet (The user to make admin).
-				const userId = puppet.puppetMxid;
-				// This Matrix client will allow us to make the user admin.
-				const client = await this.bridge.roomSync.getRoomOp(param);
-				// If the client wasn't gotten then the room ID isn't valid.
-				if (!client) {
-					await sendMessage("Room not found.");
-					return;
-				}
-				// Check to see if this user is in the room before providing a power level.
-				const members = await client.getJoinedRoomMembers(param);
-				if (!members.includes(userId)) {
-					await sendMessage("You're not in this room.");
-					return;
-				}
+				// Set the user to admin
+				await this.provisioner.setAdmin(puppetId, param);
 
-				// Then finally set power level 100 (admin)
-				// tslint:disable-next-line:no-magic-numbers
-				await client.setUserPowerLevel(userId, param, 100);
 				// Notify the user that the power level has been set.
 				await sendMessage("Admin level set.");
 			},
