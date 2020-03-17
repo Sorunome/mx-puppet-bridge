@@ -22,6 +22,7 @@ interface IHandlerOpts {
 	roomCreated?: boolean;
 	doublePuppeting?: boolean;
 	noautoinvite?: boolean;
+	blockMessage?: boolean;
 }
 
 let CLIENT_SEND_READ_RECEIPT = "";
@@ -105,6 +106,11 @@ function getHandler(opts?: IHandlerOpts) {
 			},
 		},
 		hooks: { },
+		namespaceHandler: {
+			isMessageBlocked: async (params) => {
+				return Boolean(opts!.blockMessage);
+			},
+		},
 		redactEvent: async (client, roomId, eventId) => {
 			BRIDGE_REDACT_EVENT = `${roomId};${eventId}`;
 		},
@@ -144,11 +150,23 @@ function getHandler(opts?: IHandlerOpts) {
 				}
 				return null;
 			},
-			getMxid: async (room, client, invites) => {
+			getMxid: async (room, client, invites, doCreate = true) => {
 				ROOM_SYNC_GET_MXID_INVITES = invites;
+				if (!doCreate) {
+					if (room.puppetId === 1 && room.roomId === "foxhole") {
+						return {
+							mxid: "!someroom:example.org",
+							created: false,
+						};
+					}
+					return {
+						mxid: "",
+						created: false,
+					};
+				}
 				return {
 					mxid: "!someroom:example.org",
-					created: opts!.roomCreated,
+					created: room.roomId === "newfoxhole" || opts!.roomCreated,
 				};
 			},
 			getRoomOp: async (roomId) => getClient("@_puppet_1_op:example.org"),
@@ -172,7 +190,7 @@ function getHandler(opts?: IHandlerOpts) {
 				TYPING_HANDLER_SET = `${userId};${mxid};${typing}`;
 			},
 		},
-		eventStore: {
+		eventSync: {
 			getMatrix: async (puppetId, eventId) => {
 				if (eventId === "foxparty") {
 					return ["$foxparty"];
@@ -1408,21 +1426,6 @@ describe("RemoteEventHandler", () => {
 			expect(ret.mxid).to.equal("!someroom:example.org");
 			expect(await ret.client.getUserId()).to.equal("@_puppet_1_fox:example.org");
 		});
-		it("should set the puppet to be invited to a newly created room, if set", async () => {
-			const handler = getHandler();
-			const params = {
-				user: {
-					userId: "fox",
-					puppetId: 1,
-				},
-				room: {
-					roomId: "newfoxhole",
-					puppetId: 1,
-				},
-			} as any;
-			await handler["prepareSend"](params);
-			expect(ROOM_SYNC_GET_MXID_INVITES.has("@user:example.org")).to.be.true;
-		});
 		it("should not set the puppet to be invited to a newly created room, if unset", async () => {
 			const handler = getHandler({
 				noautoinvite: true,
@@ -1440,7 +1443,7 @@ describe("RemoteEventHandler", () => {
 			await handler["prepareSend"](params);
 			expect(ROOM_SYNC_GET_MXID_INVITES.has("@user:example.org")).to.be.false;
 		});
-		it("should add the ghosts on newly cerated rooms", async () => {
+		it("should add the ghosts on newly created rooms", async () => {
 			const handler = getHandler();
 			const params = {
 				user: {
@@ -1457,23 +1460,6 @@ describe("RemoteEventHandler", () => {
 				roomId: "newfoxhole",
 				puppetId: 1,
 			});
-		});
-		it("should set the bridge bot to invite, should we be the puppet", async () => {
-			const handler = getHandler({
-				doublePuppeting: true,
-			});
-			const params = {
-				user: {
-					userId: "puppet",
-					puppetId: 1,
-				},
-				room: {
-					roomId: "newfoxhole",
-					puppetId: 1,
-				},
-			} as any;
-			await handler["prepareSend"](params);
-			expect(ROOM_SYNC_GET_MXID_INVITES.has("@_puppet_bot:example.org")).to.be.true;
 		});
 		it("should join the ghost to rooms", async () => {
 			const handler = getHandler();

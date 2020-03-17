@@ -107,7 +107,7 @@ function getHandler() {
 				return null;
 			},
 		},
-		eventStore: {
+		eventSync: {
 			getMatrix: async (puppetId, eventId) => {
 				if (eventId === "foxparty") {
 					return ["$foxparty"];

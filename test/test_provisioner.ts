@@ -142,6 +142,9 @@ function getProvisioner() {
 		},
 		protocol: {
 			displayname: "Remote",
+			features: {
+				globalNamespace: true,
+			},
 		},
 		emit: (type) => {
 			BRIDGE_EVENTS_EMITTED.push(type);
