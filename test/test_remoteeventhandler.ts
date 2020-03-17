@@ -53,13 +53,18 @@ function getClient(mxid) {
 }
 
 let INTENT_REGISTERED_AND_JOINED = "";
+let INTENT_LEAVE_ROOM = "";
 function getIntent(userId) {
 	INTENT_REGISTERED_AND_JOINED = "";
+	INTENT_LEAVE_ROOM = "";
 	return {
 		ensureRegisteredAndJoined: async (mxid) => {
 			INTENT_REGISTERED_AND_JOINED = mxid;
 		},
 		underlyingClient: getClient(userId),
+		leaveRoom: async (mxid) => {
+			INTENT_LEAVE_ROOM = mxid;
+		},
 	} as any;
 }
 
@@ -299,6 +304,29 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("SetUserTyping", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			handler["maybePrepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			await handler.setUserTyping(params, true);
+			expect(TYPING_HANDLER_SET).to.equal("");
+		});
 		it("should do nothing, if the user/room isn't found", async () => {
 			const handler = getHandler();
 			handler["maybePrepareSend"] = async (_) => null;
@@ -338,6 +366,30 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("sendReadReceipt", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["maybePrepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+				eventId: "foxparty",
+			} as any;
+			await handler.sendReadReceipt(params);
+			expect(CLIENT_SEND_READ_RECEIPT).to.equal("");
+		});
 		it("should do nothing, if the user/room isn't found", async () => {
 			const handler = getHandler();
 			handler["maybePrepareSend"] = async (_) => null;
@@ -421,7 +473,104 @@ describe("RemoteEventHandler", () => {
 			expect(CLIENT_SEND_READ_RECEIPT).to.equal("!someroom:example.org;$foxparty");
 		});
 	});
+	describe("addUser", () => {
+		it("should do nothing, if the room isn't found", async () => {
+			const handler = getHandler();
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "nofoxhole",
+					puppetId: 1,
+				},
+			} as any;
+			await handler.addUser(params);
+			expect(INTENT_REGISTERED_AND_JOINED).to.equal("");
+		});
+		it("should add the user, should all check out", async () => {
+			const handler = getHandler();
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			await handler.addUser(params);
+			expect(INTENT_REGISTERED_AND_JOINED).to.equal("!someroom:example.org");
+		});
+	});
+	describe("removeUser", () => {
+		it("should do nothing, if the stuff isn't found", async () => {
+			const handler = getHandler();
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			handler["maybePrepareSend"] = async (_) => null;
+			await handler.removeUser(params);
+			expect(INTENT_LEAVE_ROOM).to.equal("");
+		});
+		it("should remove the user, should all check out", async () => {
+			const handler = getHandler();
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			handler["maybePrepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			await handler.removeUser(params);
+			expect(INTENT_LEAVE_ROOM).to.equal("!someroom:example.org");
+		});
+	});
 	describe("sendMessage", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const msg = {
+				body: "Hey there!",
+			} as any;
+			await handler.sendMessage(params, msg);
+			expect(CLIENT_SEND_MESSAGE).eql({});
+		});
 		it("should send a plain message", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -593,6 +742,33 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("sendEdit", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const msg = {
+				body: "Hey there!",
+			} as any;
+			await handler.sendEdit(params, eventId, msg);
+			expect(CLIENT_SEND_MESSAGE).eql({});
+		});
 		it("should send a plain edit", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -838,6 +1014,30 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("sendRedact", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			await handler.sendRedact(params, eventId);
+			expect(BRIDGE_REDACT_EVENT).to.equal("");
+		});
 		it("should do nothing, if no remote events are found", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -884,6 +1084,33 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("sendReply", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const msg = {
+				body: "Hey there!",
+			} as any;
+			await handler.sendReply(params, eventId, msg);
+			expect(CLIENT_SEND_MESSAGE).eql({});
+		});
 		it("should send a plain reply", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -1110,6 +1337,31 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("sendReaction", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const key = "fox";
+			await handler.sendReaction(params, eventId, key);
+			expect(REACTION_HANDLER_ADD_REMOTE).to.be.false;
+		});
 		it("should pass the request on to the reaction handler", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -1135,6 +1387,31 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("removeReaction", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const key = "fox";
+			await handler.removeReaction(params, eventId, key);
+			expect(REACTION_HANDLER_REMOVE_REMOTE).to.be.false;
+		});
 		it("should pass the request on to the reaction handler", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -1160,6 +1437,30 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("removeAllReactions", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			await handler.removeAllReactions(params, eventId);
+			expect(REACTION_HANDLER_REMOVE_REMOTE_ALL).to.be.false;
+		});
 		it("should pass the request on to the reaction handler", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -1184,6 +1485,30 @@ describe("RemoteEventHandler", () => {
 		});
 	});
 	describe("sendFileByType", () => {
+		it("should do nothing, if the thing is blocked", async () => {
+			const handler = getHandler({
+				blockMessage: true,
+			});
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const thing = Buffer.from("myfile");
+			await handler.sendFileByType("m.file", params, thing);
+			expect(CLIENT_SEND_MESSAGE).eql({});
+		});
 		it("should send a file by msgtype", async () => {
 			for (const msgtype of ["m.file", "m.image", "m.audio", "m.video"]) {
 				const handler = getHandler();
