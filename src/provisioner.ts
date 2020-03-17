@@ -47,8 +47,7 @@ export class Provisioner {
 	 * @param {string} roomId
 	 * @returns {Promise<void>}
 	 */
-	public setAdmin(puppetId: number, roomId: string): Promise<void> {
-		return new Promise(async (resolve, reject) => {
+	public async setAdmin(puppetId: number, roomId: string): Promise<void> {
 			const ADMIN_POWER_LEVEL = 100;
 			const puppet = await this.get(puppetId);
 
@@ -65,20 +64,16 @@ export class Provisioner {
 
 						// Finally if the the room is puppet owned and the puppet owner is in the room then
 						// set the puppet owner's power level to 100
-						await operator.setUserPowerLevel(owner, roomId, ADMIN_POWER_LEVEL);
-						resolve();
+						return operator.setUserPowerLevel(owner, roomId, ADMIN_POWER_LEVEL);
 					} else {
-						reject(
-								new Error(`The owner of the puppet (${puppetId}) isn't in room ${roomId}`),
-						);
+						throw new Error(`The owner of the puppet (${puppetId}) isn't in room ${roomId}`);
 					}
 				} else {
-					reject(new Error("Failed to get operator of " + roomId));
+					throw new Error("Failed to get operator of " + roomId);
 				}
 			} else {
-				reject(new Error("Failed to get puppet of puppet id: " + puppetId));
+				throw new Error("Failed to get puppet of puppet id: " + puppetId);
 			}
-		});
 	}
 
 	public async getAll(): Promise<IPuppet[]> {
