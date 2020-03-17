@@ -476,25 +476,92 @@ export class RoomSyncroniser {
 				log.verbose("Noone to pass OP to!");
 				return; // we can't make a new OP, sorry
 			}
-			log.verbose(`Giving OP to ${newOp}...`);
-			try {
-				// give the user OP
-				const powerLevels = await client.getRoomStateEvent(
-					roomMxid, "m.room.power_levels", "",
-				);
-				powerLevels.users[newOp] = powerLevels.users[oldOp];
-				await client.sendStateEvent(
-					roomMxid, "m.room.power_levels", "", powerLevels,
-				);
-				await this.roomStore.setRoomOp(roomMxid, newOp);
-			} catch (err) {
-				log.error("Couldn't set new room OP", err.error || err.body || err);
-				return;
-			}
+			await this.giveOp(client, roomMxid, newOp);
 		}
 		// and finally we passed all checks and can leave
 		await intent.leaveRoom(roomMxid);
 		await this.bridge.puppetStore.leaveGhostFromRoom(userMxid, roomMxid);
+	}
+
+	public async puppetToGlobalNamespace(puppetId: number) {
+		if (puppetId === -1) {
+			return;
+		}
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
+		if (dbPuppetId !== -1) {
+			return;
+		}
+		log.info(`Migrating ${puppetId} to global namespace...`);
+		const entries = await this.roomStore.getByPuppetId(puppetId);
+		for (const entry of entries) {
+			const existingRoom = await this.maybeGet({
+				roomId: entry.roomId,
+				puppetId: -1,
+			});
+			const oldOpClient = await this.getRoomOp(entry.mxid);
+			const client = oldOpClient || this.bridge.botIntent.underlyingClient;
+			if (existingRoom) {
+				// alright, easy for us, let's just...set a room upgrade
+				log.verbose(`Room ${entry.roomId} already exists, tombstoneing...`);
+				await client.sendStateEvent(entry.mxid, "m.room.tombstone", "", {
+					body: "This room has been replaced",
+					replacement_room: existingRoom.mxid,
+				});
+				await this.deleteEntries([ entry ], true);
+				continue;
+			}
+			// okay, there is no existing room.....time to tediously update the database entry
+			log.verbose(`Room ${entry.roomId} doesn't exist yet, migrating...`);
+			// first do the alias
+			const oldAlias = this.bridge.AS.getAliasForSuffix(`${puppetId}_${Util.str2mxid(entry.roomId)}`);
+			const newAlias = this.bridge.AS.getAliasForSuffix(await this.bridge.namespaceHandler.getSuffix(-1, entry.roomId));
+			try {
+				const ret = await client.lookupRoomAlias(oldAlias);
+				if (ret) {
+					await client.deleteRoomAlias(oldAlias);
+					await client.createRoomAlias(newAlias, entry.mxid);
+				}
+			} catch (err) {
+				log.verbose("No alias found, ignoring");
+			}
+			// now update the DB to reflect the puppetId correctly
+			await this.roomStore.toGlobalNamespace(puppetId, entry.roomId);
+			// alright, let's....attempt to migrate a single user that'll become OP
+			if (oldOpClient) {
+				log.verbose("Giving OP to new client...");
+				let newGhost: string | null = null;
+				if (this.bridge.hooks.getUserIdsInRoom) {
+					const roomUserIds = await this.bridge.hooks.getUserIdsInRoom({
+						puppetId,
+						roomId: entry.roomId,
+					});
+					if (roomUserIds) {
+						for (const userId of roomUserIds) {
+							newGhost = userId;
+							break;
+						}
+					}
+				}
+				let newOpIntent = this.bridge.botIntent;
+				if (newGhost) {
+					const suffix = await this.bridge.namespaceHandler.getSuffix(-1, newGhost);
+					newOpIntent = this.bridge.AS.getIntentForSuffix(suffix);
+					// we also want to populate avatar and stuffs
+					await this.bridge.userSync.getClient({ puppetId: -1, userId: newGhost });
+				}
+				await newOpIntent.ensureRegisteredAndJoined(entry.mxid);
+				await this.giveOp(oldOpClient, entry.mxid, newOpIntent.userId);
+			}
+			// okay, time to cycle out all the old ghosts
+			log.verbose("Removing all old ghosts...");
+			await this.removeGhostsFromRoom(entry.mxid, true, puppetId);
+			// and finally fill in the new ghosts
+			log.verbose("Adding new ghosts...");
+			await this.addGhosts({
+				puppetId: -1,
+				roomId: entry.roomId,
+			});
+		}
 	}
 
 	public async delete(data: IRemoteRoom, keepUsers: boolean = false) {
@@ -598,12 +665,37 @@ export class RoomSyncroniser {
 		}
 	}
 
-	private async removeGhostsFromRoom(mxid: string, keepUsers: boolean) {
+	private async giveOp(client: MatrixClient, roomMxid: string, newOp: string) {
+		const oldOp = await client.getUserId();
+		log.verbose(`Giving OP to ${newOp}...`);
+		try {
+			// give the user OP
+			const powerLevels = await client.getRoomStateEvent(
+				roomMxid, "m.room.power_levels", "",
+			);
+			powerLevels.users[newOp] = powerLevels.users[oldOp];
+			await client.sendStateEvent(
+				roomMxid, "m.room.power_levels", "", powerLevels,
+			);
+			await this.roomStore.setRoomOp(roomMxid, newOp);
+		} catch (err) {
+			log.error("Couldn't set new room OP", err.error || err.body || err);
+			return;
+		}
+	}
+
+	private async removeGhostsFromRoom(mxid: string, keepUsers: boolean, removePuppetId: number | null = null) {
 		log.info("Removing ghosts from room....");
 		const ghosts = await this.bridge.puppetStore.getGhostsInRoom(mxid);
 		const promiseList: Promise<void>[] = [];
 		let delay = this.bridge.config.limits.roomUserAutojoinDelay;
 		for (const ghost of ghosts) {
+			if (removePuppetId !== null) {
+				const parts = this.bridge.userSync.getPartsFromMxid(ghost);
+				if (!parts || parts.puppetId !== removePuppetId) {
+					continue;
+				}
+			}
 			promiseList.push((async () => {
 				await Util.sleep(delay);
 				log.verbose(`Removing ghost ${ghost} from room ${mxid}`);

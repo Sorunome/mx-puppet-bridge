@@ -153,7 +153,15 @@ export class Provisioner {
 		if (!this.bridge.protocol.features.globalNamespace) {
 			return;
 		}
+		const puppetData = await this.get(puppetId);
+		if (!puppetData || puppetData.isGlobalNamespace === isGlobalNamespace) {
+			return;
+		}
 		await this.puppetStore.setIsGlobalNamespace(puppetId, isGlobalNamespace);
+		if (isGlobalNamespace) {
+			// tslint:disable-next-line no-floating-promises
+			this.bridge.roomSync.puppetToGlobalNamespace(puppetId);
+		}
 	}
 
 	public canCreate(mxid: string): boolean {

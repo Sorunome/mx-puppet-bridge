@@ -455,19 +455,12 @@ export class PuppetBridge extends EventEmitter {
 		}
 
 		// check if this is a valid room at all
-		const room = await this.hooks.createRoom(roomData);
-		if (!room || roomData.puppetId !== room.puppetId || roomData.roomId !== room.roomId || room.isDirect) {
+		const room = await this.namespaceHandler.createRoom(roomData);
+		if (!room || room.isDirect) {
 			return;
 		}
 		log.info(`Got request to bridge room puppetId=${room.puppetId} roomId=${room.roomId}`);
-		// check if the corresponding puppet exists
-		const puppet = await this.provisioner.get(room.puppetId);
-		if (!puppet) {
-			return;
-		}
-		const invites = new Set<string>();
-		invites.add(puppet.puppetMxid);
-		await this.roomSync.getMxid(room, undefined, invites);
+		await this.roomSync.getMxid(room);
 		// tslint:disable-next-line no-floating-promises
 		this.roomSync.addGhosts(room);
 	}

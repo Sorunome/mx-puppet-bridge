@@ -391,7 +391,6 @@ export class NamespaceHandler {
 
 	public async isMessageBlocked(params: IReceiveParams): Promise<boolean> {
 		if (!this.enabled) {
-			log.error("not blocked");
 			return false;
 		}
 		const puppetData = await this.bridge.provisioner.get(params.room.puppetId);
