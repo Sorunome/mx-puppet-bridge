@@ -528,6 +528,11 @@ export class RoomSyncroniser {
 				if (ret) {
 					await client.deleteRoomAlias(oldAlias);
 					await client.createRoomAlias(newAlias, entry.mxid);
+					const prevCanonicalAlias = await client.getRoomStateEvent(entry.mxid, "m.room.canonical_alias", "");
+					if (prevCanonicalAlias && prevCanonicalAlias.alias === oldAlias) {
+						prevCanonicalAlias.alias = newAlias;
+						await client.sendStateEvent(entry.mxid, "m.room.canonical_alias", "", prevCanonicalAlias);
+					}
 				}
 			} catch (err) {
 				log.verbose("No alias found, ignoring");
