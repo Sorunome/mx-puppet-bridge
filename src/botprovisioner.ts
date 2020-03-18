@@ -357,6 +357,22 @@ Usage: \`list\``,
 Usage: \`setmatrixtoken <token>\``,
 			withPid: false,
 		});
+		this.registerCommand("adminme", {
+			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
+				// Set the user to admin
+				try {
+					await this.provisioner.setAdmin(puppetId, param);
+					await sendMessage("Admin level set.");
+				} catch (err) {
+					await sendMessage(err.message);
+				}
+			},
+			help: `Sets you as admin for a certain room
+
+Usage: \`adminme <puppetID> <roomID>\``,
+			withPid: true,
+		});
+
 		this.registerCommand("listusers", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
 				if (!this.bridge.hooks.listUsers) {
