@@ -125,11 +125,16 @@ export class RoomSyncroniser {
 				let userId = await client.getUserId();
 				if (!this.bridge.AS.isNamespacedUser(userId)) {
 					// alright, let's only allow puppets to create rooms here
+					let found = false;
 					for (const invite of invites) {
 						if (this.bridge.AS.isNamespacedUser(invite)) {
 							client = this.bridge.AS.getIntentForUserId(invite).underlyingClient;
+							found = true;
 							break;
 						}
+					}
+					if (!found) {
+						client = this.bridge.botIntent.underlyingClient;
 					}
 					invites.add(userId);
 					userId = await client.getUserId();
