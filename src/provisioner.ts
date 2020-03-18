@@ -41,41 +41,6 @@ export class Provisioner {
 		this.puppetStore = this.bridge.puppetStore;
 	}
 
-	/**
-	 * Gives 100 power level to a user of a puppet-owned room
-	 * @param {number} puppetId
-	 * @param {string} roomId
-	 * @returns {Promise<void>}
-	 */
-	public async setAdmin(puppetId: number, roomId: string): Promise<void> {
-			const ADMIN_POWER_LEVEL = 100;
-			const puppet = await this.get(puppetId);
-
-			// If the puppet exists ...
-			if (puppet) {
-				// Get the room administrator
-				const operator = await this.bridge.roomSync.getRoomOp(roomId);
-				if (operator) {
-					const owner = puppet.puppetMxid;
-					const members = await operator.getJoinedRoomMembers(roomId);
-
-					// Make sure the puppet owner is in the room
-					if (members && members.includes(owner)) {
-
-						// Finally if the the room is puppet owned and the puppet owner is in the room then
-						// set the puppet owner's power level to 100
-						return operator.setUserPowerLevel(owner, roomId, ADMIN_POWER_LEVEL);
-					} else {
-						throw new Error(`The owner of the puppet (${puppetId}) isn't in room ${roomId}`);
-					}
-				} else {
-					throw new Error("Failed to get operator of " + roomId);
-				}
-			} else {
-				throw new Error("Failed to get puppet of puppet id: " + puppetId);
-			}
-	}
-
 	public async getAll(): Promise<IPuppet[]> {
 		return await this.puppetStore.getAll();
 	}
@@ -279,6 +244,36 @@ export class Provisioner {
 		// alright, unbridge the room
 		await this.bridge.roomSync.delete(roomParts, true);
 		return true;
+	}
+
+	/**
+	 * Gives 100 power level to a user of a puppet-owned room
+	 * @param {string} userId
+	 * @param {RemoteRoomResolvable} room resolvable
+	 * @returns {Promise<void>}
+	 */
+	public async setAdmin(userId: string, ident: RemoteRoomResolvable): Promise<void> {
+		const ADMIN_POWER_LEVEL = 100;
+		const roomParts = await this.bridge.roomSync.resolve(ident);
+		if (!roomParts) {
+			throw new Error("Room not resolvable");
+		}
+		const room = await this.bridge.roomSync.maybeGet(roomParts);
+		if (!room) {
+			throw new Error("Room not found");
+		}
+		if (!(await this.bridge.namespaceHandler.isAdmin(room, userId))) {
+			throw new Error("Not an admin");
+		}
+		const client = await this.bridge.roomSync.getRoomOp(room.mxid);
+		if (!client) {
+			throw new Error("Failed to get operator of " + room.mxid);
+		}
+		const members = await client.getJoinedRoomMembers(room.mxid);
+		if (!members || !members.includes(userId)) {
+			throw new Error(`The user (${userId}) isn't in room ${room.mxid}`);
+		}
+		await client.setUserPowerLevel(userId, room.mxid, ADMIN_POWER_LEVEL);
 	}
 
 	public async invite(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {

@@ -358,19 +358,20 @@ Usage: \`setmatrixtoken <token>\``,
 			withPid: false,
 		});
 		this.registerCommand("adminme", {
-			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
 				// Set the user to admin
 				try {
-					await this.provisioner.setAdmin(puppetId, param);
+					await this.provisioner.setAdmin(sender, param || roomId);
 					await sendMessage("Admin level set.");
 				} catch (err) {
 					await sendMessage(err.message);
 				}
 			},
-			help: `Sets you as admin for a certain room
+			help: `Sets you as admin for a certain room.
 
-Usage: \`adminme <puppetID> <roomID>\``,
-			withPid: true,
+Usage: \`adminme <room resolvable>\``,
+			withPid: false,
+			inRoom: true,
 		});
 
 		this.registerCommand("listusers", {
