@@ -544,6 +544,32 @@ Usage: \`unbridge <room resolvable>\``,
 			withPid: false,
 			inRoom: true,
 		});
+		this.registerCommand("fixghosts", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
+				const roomParts = await this.bridge.roomSync.resolve(roomId || param);
+				if (!roomParts) {
+					await sendMessage("Room not resolvable");
+					return;
+				}
+				const room = await this.bridge.roomSync.maybeGet(roomParts);
+				if (!room) {
+					await sendMessage("Room not found");
+					return;
+				}
+				if (!(await this.bridge.namespaceHandler.isAdmin(room, sender))) {
+					await sendMessage("Not an admin");
+					return;
+				}
+				await sendMessage("Fixing the ghosts...");
+				// tslint:disable-next-line no-floating-promises
+				this.bridge.roomSync.addGhosts(room);
+			},
+			help: `Fix the ghosts in a room.
+
+Usage: \`fixghosts <room resolvable>\``,
+			withPid: false,
+			inRoom: true,
+		});
 	}
 
 	private async sendMessage(roomId: string, message: string, client?: MatrixClient | null) {

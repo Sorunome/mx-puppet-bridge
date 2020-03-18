@@ -218,6 +218,46 @@ export class NamespaceHandler {
 		return puppetId;
 	}
 
+	public async getRoomPuppetUserIds(room: IRemoteRoom): Promise<Set<string>> {
+		const userIds = new Set<string>();
+		if (!this.enabled) {
+			if (room.puppetId === -1) {
+				throw new Error("Global namespace not enabled");
+			}
+			const puppetData = await this.bridge.provisioner.get(room.puppetId);
+			if (puppetData && puppetData.userId) {
+				userIds.add(puppetData.userId);
+			}
+			return userIds;
+		}
+		if (room.puppetId !== -1) {
+			const puppetData = await this.bridge.provisioner.get(room.puppetId);
+			if (!puppetData) {
+				throw new Error("Puppet not found");
+			}
+			if (!puppetData.isGlobalNamespace) {
+				if (puppetData.userId) {
+					userIds.add(puppetData.userId);
+				}
+				return userIds;
+			}
+		}
+		// alright, we are in global namespace, let's do our magic
+		if (!this.puppetsForRoom.has(room.roomId) || true) {
+			await this.populatePuppetsForRoom(room.roomId);
+		}
+		const puppetIds = this.puppetsForRoom.get(room.roomId);
+		if (puppetIds) {
+			for (const puppetId of puppetIds) {
+				const puppetData = await this.bridge.provisioner.get(puppetId);
+				if (puppetData && puppetData.userId) {
+					userIds.add(puppetData.userId);
+				}
+			}
+		}
+		return userIds;
+	}
+
 	public async getRoomCreateInfo(room: IRemoteRoom): Promise<IPuppetCreateInfo> {
 		const ret = await this.maybeGetPuppetCreateInfo(room.puppetId);
 		if (ret) {
@@ -351,6 +391,34 @@ export class NamespaceHandler {
 			groupId: group.groupId,
 		};
 		return validate(oldData, await this.bridge.hooks.createGroup(oldData));
+	}
+
+	public async getUserIdsInRoom(room: IRemoteRoom): Promise<Set<string> | null> {
+		if (!this.bridge.hooks.getUserIdsInRoom) {
+			return null;
+		}
+		if (room.puppetId !== -1) {
+			return await this.bridge.hooks.getUserIdsInRoom(room);
+		}
+		if (!this.enabled) {
+			throw new Error("Global namespace not enabled");
+		}
+		if (!this.puppetsForRoom.has(room.roomId) || true) {
+			await this.populatePuppetsForRoom(room.roomId);
+		}
+		const puppetIds = this.puppetsForRoom.get(room.roomId);
+		if (!puppetIds) {
+			return null;
+		}
+		let somePuppet = -1;
+		for (const puppetId of puppetIds) {
+			somePuppet = puppetId;
+			break;
+		}
+		return await this.bridge.hooks.getUserIdsInRoom({
+			puppetId: somePuppet,
+			roomId: room.roomId,
+		});
 	}
 
 	public async getRemoteUser(user: IRemoteUser | null, sender: string): Promise<IRemoteUser | null> {

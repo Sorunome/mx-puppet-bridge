@@ -156,7 +156,7 @@ export class DbRoomStore {
 		if (!room) {
 			return;
 		}
-		await this.db.Run("UPDATE chan_store SET puppet_id = -1 WHERE puppet_id = $pid AND room_id = $rid", {
+		await this.db.Run("UPDATE chan_store SET puppet_id = -1, group_id = '' WHERE puppet_id = $pid AND room_id = $rid", {
 			pid: puppetId,
 			rid: roomId,
 		});

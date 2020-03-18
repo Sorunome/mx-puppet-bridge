@@ -413,26 +413,18 @@ export class RoomSyncroniser {
 	}
 
 	public async addGhosts(room: IRemoteRoom) {
-		if (!this.bridge.hooks.getUserIdsInRoom) {
-			// alright, we don't have this feature
-			return;
-		}
 		log.info(`Got request to add ghosts to room puppetId=${room.puppetId} roomId=${room.roomId}`);
 		const mxid = await this.maybeGetMxid(room);
 		if (!mxid) {
 			log.info("Room not found, returning...");
 			return;
 		}
-		const roomUserIds = await this.bridge.hooks.getUserIdsInRoom(room);
+		const roomUserIds = await this.bridge.namespaceHandler.getUserIdsInRoom(room);
 		if (!roomUserIds) {
 			log.info("No ghosts to add, returning...");
 			return;
 		}
-		const puppetData = await this.bridge.provisioner.get(room.puppetId);
-		if (!puppetData) {
-			log.error("puppetData wasn't found, THIS SHOULD NEVER HAPPEN!");
-			return;
-		}
+		const puppetUserIds = await this.bridge.namespaceHandler.getRoomPuppetUserIds(room);
 		const maxAutojoinUsers = this.bridge.config.limits.maxAutojoinUsers;
 		if (maxAutojoinUsers !== -1) {
 			// alright, let's make sure that we do not have too many ghosts to autojoin
@@ -446,8 +438,8 @@ export class RoomSyncroniser {
 			});
 		}
 		// cleanup
-		if (puppetData.userId) {
-			roomUserIds.delete(puppetData.userId);
+		for (const userId of puppetUserIds) {
+			roomUserIds.delete(userId);
 		}
 
 		// and now iterate over and do all the joins!
