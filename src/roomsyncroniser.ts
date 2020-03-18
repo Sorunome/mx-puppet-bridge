@@ -122,7 +122,18 @@ export class RoomSyncroniser {
 				for (const user of createInfo.invites) {
 					invites.add(user);
 				}
-				const userId = await client.getUserId();
+				let userId = await client.getUserId();
+				if (!this.bridge.AS.isNamespacedUser(userId)) {
+					// alright, let's only allow puppets to create rooms here
+					for (const invite of invites) {
+						if (this.bridge.AS.isNamespacedUser(invite)) {
+							client = this.bridge.AS.getIntentForUserId(invite).underlyingClient;
+							break;
+						}
+					}
+					invites.add(userId);
+					userId = await client.getUserId();
+				}
 				invites.delete(userId);
 				// alright, we need to make sure that someone of our namespace is in the room
 				// else messages won't relay correclty. Let's do that here.
