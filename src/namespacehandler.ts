@@ -375,9 +375,9 @@ export class NamespaceHandler {
 			throw new Error("Global namespace not enabled");
 		}
 		if (!this.puppetsForGroup.has(group.groupId) || true) {
-			await this.populatePuppetsForUser(group.groupId);
+			await this.populatePuppetsForGroup(group.groupId);
 		}
-		const puppetIds = this.puppetsForUser.get(group.groupId);
+		const puppetIds = this.puppetsForGroup.get(group.groupId);
 		if (!puppetIds) {
 			return null;
 		}
