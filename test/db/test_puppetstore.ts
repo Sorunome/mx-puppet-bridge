@@ -61,6 +61,7 @@ describe("DbPuppetStore", () => {
 				type: "puppet",
 				isPublic: false,
 				autoinvite: true,
+				isGlobalNamespace: false,
 			});
 			expect(await store.getMxid(puppetId)).to.equal("@user");
 			await store.setUserId(puppetId, "newremoteuser");
@@ -73,6 +74,8 @@ describe("DbPuppetStore", () => {
 			expect((await store.get(puppetId))!.isPublic).to.be.true;
 			await store.setAutoinvite(puppetId, false);
 			expect((await store.get(puppetId))!.autoinvite).to.be.false;
+			await store.setIsGlobalNamespace(puppetId, true);
+			expect((await store.get(puppetId))!.isGlobalNamespace).to.be.true;
 			expect(await store.getForMxid("@invalid")).to.eql([]);
 			expect(await store.getForMxid("@user")).to.eql([{
 				puppetId,
@@ -82,6 +85,7 @@ describe("DbPuppetStore", () => {
 				type: "relay",
 				isPublic: true,
 				autoinvite: false,
+				isGlobalNamespace: true,
 			}]);
 			expect(await store.getAll()).to.eql([{
 				puppetId,
@@ -91,6 +95,7 @@ describe("DbPuppetStore", () => {
 				type: "relay",
 				isPublic: true,
 				autoinvite: false,
+				isGlobalNamespace: true,
 			}]);
 			await store.delete(puppetId);
 			expect(await store.get(puppetId)).to.be.null;

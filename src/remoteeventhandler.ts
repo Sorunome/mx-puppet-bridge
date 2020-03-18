@@ -68,6 +68,9 @@ export class RemoteEventHandler {
 	}
 
 	public async setUserTyping(params: IReceiveParams, typing: boolean) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.verbose(`Setting user typing for userId=${params.user.userId} in roomId=${params.room.roomId} to ${typing}`);
 		const ret = await this.maybePrepareSend(params);
 		if (!ret) {
@@ -78,13 +81,16 @@ export class RemoteEventHandler {
 	}
 
 	public async sendReadReceipt(params: IReceiveParams) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.verbose(`Got request to send read indicators for userId=${params.user.userId} in roomId=${params.room.roomId}`);
 		const ret = await this.maybePrepareSend(params);
 		if (!ret || !params.eventId) {
 			log.verbose("User/Room doesn't exist, ignoring...");
 			return;
 		}
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, params.eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, params.eventId);
 		for (const origEvent of origEvents) {
 			await ret.client.sendReadReceipt(ret.mxid, origEvent);
 		}
@@ -124,6 +130,9 @@ export class RemoteEventHandler {
 	}
 
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received message from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
@@ -146,13 +155,16 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
 	}
 
 	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received edit from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
@@ -161,7 +173,7 @@ export class RemoteEventHandler {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
 		if (ix < 0) {
 			// negative indexes are from the back
 			ix = origEvents.length + ix;
@@ -201,22 +213,28 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
 	}
 
 	public async sendRedact(params: IReceiveParams, eventId: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received redact from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
 		for (const origEvent of origEvents) {
 			await this.bridge.redactEvent(client, mxid, origEvent);
 		}
 	}
 
 	public async sendReply(params: IReceiveParams, eventId: string, opts: IMessageEvent) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received reply from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
@@ -225,7 +243,7 @@ export class RemoteEventHandler {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.bridge.eventStore.getMatrix(params.room.puppetId, eventId);
+		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
 		const origEvent = origEvents[0];
 		// this send object needs to be any-type, as the interfaces don't do replies yet
 		const send = {
@@ -251,28 +269,40 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
 	}
 
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		await this.bridge.reactionHandler.addRemote(params, eventId, reaction, client, mxid);
 	}
 
 	public async removeReaction(params: IReceiveParams, eventId: string, reaction: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		await this.bridge.reactionHandler.removeRemote(params, eventId, reaction, client, mxid);
 	}
 
 	public async removeAllReactions(params: IReceiveParams, eventId: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		await this.bridge.reactionHandler.removeRemoteAllOnMessage(params, eventId, client, mxid);
 	}
 
 	public async sendFileByType(msgtype: string, params: IReceiveParams, thing: string | Buffer, name?: string) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
 		log.info(`Received file to send from ${params.user.userId} in ${params.room.roomId}.`);
 		log.verbose(`thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
 		if (!name) {
@@ -378,7 +408,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, sendData);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventStore.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
@@ -406,8 +436,7 @@ export class RemoteEventHandler {
 		const puppetMxid = puppetData.puppetMxid;
 		const client = await this.bridge.userSync.getClient(params.user);
 		const userId = await client.getUserId();
-		let mxid = await this.bridge.roomSync.maybeGetMxid(params.room);
-		let created = false;
+		let { mxid, created } = await this.bridge.roomSync.getMxid(params.room, undefined, undefined, false);
 		if (!mxid) {
 			// alright, the room doesn't exist yet....time to create it!
 			// we could be the one creating the room, no need to invite ourself
@@ -417,20 +446,14 @@ export class RemoteEventHandler {
 				if (roomUserIds) {
 					for (const thisUserId of roomUserIds) {
 						if (thisUserId !== userId && thisUserId !== puppetData.userId) {
-							invites.add(this.bridge.AS.getUserIdForSuffix(`${params.user.puppetId}_${Util.str2mxid(thisUserId)}`));
+							const suffix = await this.bridge.namespaceHandler.getSuffix(params.user.puppetId, thisUserId);
+							invites.add(this.bridge.AS.getUserIdForSuffix(suffix));
 							break;
 						}
 					}
 				}
 			}
-			if (userId !== puppetMxid && puppetData.autoinvite) {
-				invites.add(puppetMxid);
-			}
-			if (userId === puppetMxid && invites.size === 0) {
-				// if we are creating the room via double-puppeting, make sure that *someone* is in there at all times
-				invites.add(await this.bridge.botIntent.underlyingClient.getUserId());
-			}
-			const retCall = await this.bridge.roomSync.getMxid(params.room, client, invites, true, puppetData.isPublic);
+			const retCall = await this.bridge.roomSync.getMxid(params.room, client, invites);
 			mxid = retCall.mxid;
 			created = retCall.created;
 			// tslint:disable-next-line no-floating-promises

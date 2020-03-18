@@ -147,6 +147,24 @@ export class DbRoomStore {
 		this.opCache.delete(data.mxid);
 	}
 
+	public async toGlobalNamespace(puppetId: number, roomId: string) {
+		const exists = await this.getByRemote(-1, roomId);
+		if (exists) {
+			return;
+		}
+		const room = await this.getByRemote(puppetId, roomId);
+		if (!room) {
+			return;
+		}
+		await this.db.Run("UPDATE chan_store SET puppet_id = -1 WHERE puppet_id = $pid AND room_id = $rid", {
+			pid: puppetId,
+			rid: roomId,
+		});
+		this.remoteCache.delete(`${puppetId};${roomId}`);
+		this.mxidCache.delete(room.mxid);
+		this.opCache.delete(room.mxid);
+	}
+
 	public async setRoomOp(roomMxid: string, userMxid: string) {
 		const row = await this.db.Get("SELECT * FROM chan_op WHERE chan_mxid=$chan LIMIT 1", {
 			chan: roomMxid,

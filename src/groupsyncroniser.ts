@@ -38,9 +38,10 @@ export class GroupSyncroniser {
 	}
 
 	public async maybeGet(data: IRemoteGroup): Promise<IGroupStoreEntry | null> {
-		const lockKey = `${data.puppetId};${data.groupId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const lockKey = `${dbPuppetId};${data.groupId}`;
 		await this.mxidLock.wait(lockKey);
-		return await this.groupStore.getByRemote(data.puppetId, data.groupId);
+		return await this.groupStore.getByRemote(dbPuppetId, data.groupId);
 	}
 
 	public async maybeGetMxid(data: IRemoteGroup): Promise<string | null> {
@@ -52,15 +53,17 @@ export class GroupSyncroniser {
 	}
 
 	public async getMxid(data: IRemoteGroup, doCreate: boolean = true): Promise<string> {
-		const lockKey = `${data.puppetId};${data.groupId}`;
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
+		const lockKey = `${dbPuppetId};${data.groupId}`;
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
-		log.info(`Fetching mxid for groupId ${data.groupId} and puppetId ${data.puppetId}`);
+		log.info(`Fetching mxid for groupId ${data.groupId} and puppetId ${dbPuppetId}`);
+		let invites = new Set<string>();
 		try {
 			// groups are always handled by the AS bot
 			const client = this.bridge.botIntent.underlyingClient;
 			const clientUnstable = client.unstableApis;
-			let group = await this.groupStore.getByRemote(data.puppetId, data.groupId);
+			let group = await this.groupStore.getByRemote(dbPuppetId, data.groupId);
 			const update = {
 				name: false,
 				avatar: false,
@@ -72,25 +75,19 @@ export class GroupSyncroniser {
 			let oldProfile: IProfileDbEntry | null = null;
 			let newRooms: string[] = [];
 			const removedRooms: string[] = [];
-			let invitePuppet = false;
 			if (!group) {
 				if (!doCreate) {
 					this.mxidLock.release(lockKey);
 					return "";
 				}
 				log.info("Group doesn't exist yet, creating entry...");
-				const puppetData = await this.bridge.provisioner.get(data.puppetId);
+				const createInfo = await this.bridge.namespaceHandler.getGroupCreateInfo(data);
+				invites = createInfo.invites;
 				doUpdate = true;
-				invitePuppet = Boolean(puppetData && puppetData.autoinvite);
 				// let's fetch the create data via hook
-				if (this.bridge.hooks.createGroup) {
-					log.verbose("Fetching new override data...");
-					const newData = await this.bridge.hooks.createGroup(data);
-					if (newData && newData.puppetId === data.puppetId && newData.groupId === data.groupId) {
-						data = newData;
-					} else {
-						log.warn("Override data is malformed! Old data:", data, "New data:", newData);
-					}
+				const newData = await this.bridge.namespaceHandler.createGroup(data);
+				if (newData) {
+					data = newData;
 				}
 				log.verbose("Creation data:", data);
 				update.shortDescription = data.shortDescription ? true : false;
@@ -112,7 +109,7 @@ export class GroupSyncroniser {
 						}
 					}
 				}
-				if (puppetData && puppetData.isPublic) {
+				if (createInfo.public) {
 					// set it to public
 					await clientUnstable.setGroupJoinPolicy(mxid, "open");
 				} else {
@@ -120,7 +117,7 @@ export class GroupSyncroniser {
 					await clientUnstable.setGroupJoinPolicy(mxid, "invite");
 				}
 
-				group = this.groupStore.newData(mxid, data.groupId, data.puppetId);
+				group = this.groupStore.newData(mxid, data.groupId, dbPuppetId);
 			} else {
 				oldProfile = group;
 				update.shortDescription = data.shortDescription !== undefined && data.shortDescription !== null
@@ -194,12 +191,8 @@ export class GroupSyncroniser {
 				await this.groupStore.set(group);
 			}
 
-			if (invitePuppet) {
-				// finally invite the puppet
-				const puppetMxid = await this.bridge.provisioner.getMxid(data.puppetId);
-				if (puppetMxid) {
-					await clientUnstable.inviteUserToGroup(mxid, puppetMxid);
-				}
+			for (const invite of invites) {
+				await clientUnstable.inviteUserToGroup(mxid, invite);
 			}
 
 			this.mxidLock.release(lockKey);

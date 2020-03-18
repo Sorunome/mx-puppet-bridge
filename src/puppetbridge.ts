@@ -23,6 +23,7 @@ import {
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
+import { EventSyncroniser } from "./eventsyncroniser";
 import { RoomSyncroniser } from "./roomsyncroniser";
 import { UserSyncroniser } from "./usersyncroniser";
 import { GroupSyncroniser } from "./groupsyncroniser";
@@ -46,12 +47,13 @@ import { TypingHandler } from "./typinghandler";
 import { ReactionHandler } from "./reactionhandler";
 import { MatrixEventHandler } from "./matrixeventhandler";
 import { RemoteEventHandler } from "./remoteeventhandler";
+import { NamespaceHandler } from "./namespacehandler";
 import { DelayedFunction } from "./structures/delayedfunction";
 import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
 	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
 	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
-	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook,
+	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook, UserExistsHook, RoomExistsHook, GroupExistsHook,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -66,6 +68,9 @@ export interface IPuppetBridgeHooks {
 	createUser?: CreateUserHook;
 	createRoom?: CreateRoomHook;
 	createGroup?: CreateGroupHook;
+	userExists?: UserExistsHook;
+	roomExists?: RoomExistsHook;
+	groupExists?: GroupExistsHook;
 	getDesc?: GetDescHook;
 	botHeaderMsg?: BotHeaderMsgHook;
 	getDataFromStr?: GetDataFromStrHook;
@@ -88,6 +93,7 @@ interface ISetProtocolInformation extends IProtocolInformation {
 }
 
 export class PuppetBridge extends EventEmitter {
+	public eventSync: EventSyncroniser;
 	public roomSync: RoomSyncroniser;
 	public userSync: UserSyncroniser;
 	public groupSync: GroupSyncroniser;
@@ -102,6 +108,7 @@ export class PuppetBridge extends EventEmitter {
 	public typingHandler: TypingHandler;
 	public presenceHandler: PresenceHandler;
 	public reactionHandler: ReactionHandler;
+	public namespaceHandler: NamespaceHandler;
 	private appservice: Appservice;
 	private mxcLookupLock: Lock<string>;
 	private matrixEventHandler: MatrixEventHandler;
@@ -160,6 +167,7 @@ export class PuppetBridge extends EventEmitter {
 		this.store = new Store(this.config.database);
 		await this.store.init();
 
+		this.eventSync = new EventSyncroniser(this);
 		this.roomSync = new RoomSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);
 		this.groupSync = new GroupSyncroniser(this);
@@ -169,6 +177,7 @@ export class PuppetBridge extends EventEmitter {
 		this.reactionHandler = new ReactionHandler(this);
 		this.matrixEventHandler = new MatrixEventHandler(this);
 		this.remoteEventHandler = new RemoteEventHandler(this);
+		this.namespaceHandler = new NamespaceHandler(this);
 
 		this.botProvisioner = new BotProvisioner(this);
 		this.provisioningAPI = new ProvisioningAPI(this);
@@ -338,14 +347,35 @@ export class PuppetBridge extends EventEmitter {
 
 	public setCreateUserHook(hook: CreateUserHook) {
 		this.hooks.createUser = hook;
+		if (!this.hooks.userExists) {
+			this.hooks.userExists = async (user: IRemoteUser): Promise<boolean> => Boolean(await hook(user));
+		}
 	}
 
 	public setCreateRoomHook(hook: CreateRoomHook) {
 		this.hooks.createRoom = hook;
+		if (!this.hooks.roomExists) {
+			this.hooks.roomExists = async (room: IRemoteRoom): Promise<boolean> => Boolean(await hook(room));
+		}
 	}
 
 	public setCreateGroupHook(hook: CreateGroupHook) {
 		this.hooks.createGroup = hook;
+		if (!this.hooks.groupExists) {
+			this.hooks.groupExists = async (group: IRemoteGroup): Promise<boolean> => Boolean(await hook(group));
+		}
+	}
+
+	public setUserExistsHook(hook: UserExistsHook) {
+		this.hooks.userExists = hook;
+	}
+
+	public setRoomExistsHook(hook: RoomExistsHook) {
+		this.hooks.roomExists = hook;
+	}
+
+	public setGroupExistsHook(hook: GroupExistsHook) {
+		this.hooks.groupExists = hook;
 	}
 
 	public setGetDescHook(hook: GetDescHook) {
@@ -425,19 +455,12 @@ export class PuppetBridge extends EventEmitter {
 		}
 
 		// check if this is a valid room at all
-		const room = await this.hooks.createRoom(roomData);
-		if (!room || roomData.puppetId !== room.puppetId || roomData.roomId !== room.roomId || room.isDirect) {
+		const room = await this.namespaceHandler.createRoom(roomData);
+		if (!room || room.isDirect) {
 			return;
 		}
 		log.info(`Got request to bridge room puppetId=${room.puppetId} roomId=${room.roomId}`);
-		// check if the corresponding puppet exists
-		const puppet = await this.provisioner.get(room.puppetId);
-		if (!puppet) {
-			return;
-		}
-		const invites = new Set<string>();
-		invites.add(puppet.puppetMxid);
-		await this.roomSync.getMxid(room, undefined, invites);
+		await this.roomSync.getMxid(room);
 		// tslint:disable-next-line no-floating-promises
 		this.roomSync.addGhosts(room);
 	}
@@ -513,7 +536,8 @@ export class PuppetBridge extends EventEmitter {
 				return puppetData.puppetMxid;
 			}
 		}
-		return this.appservice.getUserIdForSuffix(`${user.puppetId}_${Util.str2mxid(user.userId)}`);
+		const suffix = await this.namespaceHandler.getSuffix(user.puppetId, user.userId);
+		return this.appservice.getUserIdForSuffix(suffix);
 	}
 
 	/**
@@ -534,7 +558,8 @@ export class PuppetBridge extends EventEmitter {
 				} catch (err) { } // do nothing
 			}
 		}
-		return this.appservice.getAliasForSuffix(`${room.puppetId}_${Util.str2mxid(room.roomId)}`);
+		const suffix = await this.namespaceHandler.getSuffix(room.puppetId, room.roomId);
+		return this.appservice.getAliasForSuffix(suffix);
 	}
 
 	/**

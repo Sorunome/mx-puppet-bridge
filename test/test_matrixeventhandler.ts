@@ -112,6 +112,14 @@ function getHandler(opts?: IHandlerOpts) {
 		bridgeRoom: async (room) => {
 			BRIDGE_ROOM_ID_BRIDGED = room.roomId;
 		},
+		namespaceHandler: {
+			getRemoteUser: async (user, sender) => {
+				return user;
+			},
+			getRemoteRoom: async (room, sender) => {
+				return room;
+			},
+		},
 		getMxidForUser: async (user, override) => `@_puppet_${user.puppetId}_${user.userId}:example.org`,
 		AS: {
 			isNamespacedUser: (userId) => userId.startsWith("@_puppet"),
@@ -274,7 +282,7 @@ function getHandler(opts?: IHandlerOpts) {
 			},
 			canRelay: (mxid) => !mxid.startsWith("@bad"),
 		},
-		eventStore: {
+		eventSync: {
 			getRemote: (puppetId, mxid) => {
 				if (mxid === "!bad:example.org") {
 					return ["bad"];

@@ -184,6 +184,21 @@ export class Provisioner {
 		await this.puppetStore.setAutoinvite(puppetId, autoinvite);
 	}
 
+	public async setIsGlobalNamespace(puppetId: number, isGlobalNamespace: boolean) {
+		if (!this.bridge.protocol.features.globalNamespace) {
+			return;
+		}
+		const puppetData = await this.get(puppetId);
+		if (!puppetData || puppetData.isGlobalNamespace === isGlobalNamespace) {
+			return;
+		}
+		await this.puppetStore.setIsGlobalNamespace(puppetId, isGlobalNamespace);
+		if (isGlobalNamespace) {
+			// tslint:disable-next-line no-floating-promises
+			this.bridge.roomSync.puppetToGlobalNamespace(puppetId);
+		}
+	}
+
 	public canCreate(mxid: string): boolean {
 		return this.isWhitelisted(mxid, this.bridge.config.provisioning.whitelist,
 			this.bridge.config.provisioning.blacklist);
@@ -198,7 +213,8 @@ export class Provisioner {
 		if (!this.canCreate(puppetMxid)) {
 			return -1;
 		}
-		const puppetId = await this.puppetStore.new(puppetMxid, data, userId);
+		const isGlobal = Boolean(this.bridge.protocol.features.globalNamespace);
+		const puppetId = await this.puppetStore.new(puppetMxid, data, userId, isGlobal);
 		log.info(`Created new puppet with id ${puppetId}`);
 		this.bridge.emit("puppetNew", puppetId, data);
 		return puppetId;
@@ -226,8 +242,8 @@ export class Provisioner {
 		if (!data || data.puppetMxid !== puppetMxid) {
 			return;
 		}
-		await this.puppetStore.delete(puppetId);
 		await this.bridge.roomSync.deleteForPuppet(puppetId);
+		await this.puppetStore.delete(puppetId);
 		this.bridge.emit("puppetDelete", puppetId);
 	}
 
@@ -257,8 +273,7 @@ export class Provisioner {
 		if (!room) {
 			return false;
 		}
-		const puppet = await this.get(room.puppetId);
-		if (!puppet || puppet.puppetMxid !== userId) {
+		if (!(await this.bridge.namespaceHandler.isSoleAdmin(room, userId))) {
 			return false;
 		}
 		// alright, unbridge the room
@@ -275,13 +290,7 @@ export class Provisioner {
 		if (!room) {
 			return false;
 		}
-		// alright, it exists.....time to check if we can join it
-		const puppet = await this.get(room.puppetId);
-		if (!puppet) {
-			return false;
-		}
-		if ((puppet.type === "puppet" && puppet.puppetMxid === userId) ||
-			(puppet.type === "relay" && this.bridge.provisioner.canRelay(userId))) {
+		if (await this.bridge.namespaceHandler.canSeeRoom(room, userId)) {
 			const client = (await this.bridge.roomSync.getRoomOp(room.mxid)) || this.bridge.botIntent.underlyingClient;
 			try {
 				await client.inviteUser(userId, room.mxid);
@@ -306,13 +315,7 @@ export class Provisioner {
 		if (!group) {
 			return false;
 		}
-		// it exists, let's check if we can join it etc.
-		const puppet = await this.get(group.puppetId);
-		if (!puppet) {
-			return false;
-		}
-		if ((puppet.type === "puppet" && puppet.puppetMxid === userId) ||
-			(puppet.type === "relay" && this.bridge.provisioner.canRelay(userId))) {
+		if (await this.bridge.namespaceHandler.canSeeGroup(group, userId)) {
 			const client = this.bridge.botIntent.underlyingClient;
 			const clientUnstable = client.unstableApis;
 			try {

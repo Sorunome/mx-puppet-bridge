@@ -35,6 +35,7 @@ export interface IPuppet {
 	type: PuppetType;
 	isPublic: boolean;
 	autoinvite: boolean;
+	isGlobalNamespace: boolean;
 }
 
 export interface IMxidInfo {
@@ -245,7 +246,20 @@ export class DbPuppetStore {
 		this.puppetCache.delete(puppetId);
 	}
 
-	public async new(puppetMxid: string, data: IPuppetData, userId?: string): Promise<number> {
+	public async setIsGlobalNamespace(puppetId: number, isGlobalNamespace: boolean) {
+		await this.db.Run("UPDATE puppet_store SET is_global_namespace=$is WHERE puppet_id=$id", {
+			id: puppetId,
+			is: Number(isGlobalNamespace), // booleans are stored as numbers
+		});
+		this.puppetCache.delete(puppetId);
+	}
+
+	public async new(
+		puppetMxid: string,
+		data: IPuppetData,
+		userId?: string,
+		isGlobalNamespace: boolean = false,
+	): Promise<number> {
 		let dataStr = "";
 		try {
 			dataStr = JSON.stringify(data);
@@ -254,8 +268,8 @@ export class DbPuppetStore {
 			return -1;
 		}
 		const puppetId = await this.db.Run(
-			`INSERT INTO puppet_store (puppet_mxid, data, user_id, type, is_public, autoinvite)
-			VALUES ($mxid, $data, $uid, $type, $isPublic, $autoinvite)`
+			`INSERT INTO puppet_store (puppet_mxid, data, user_id, type, is_public, autoinvite, is_global_namespace)
+			VALUES ($mxid, $data, $uid, $type, $isPublic, $autoinvite, $isGlobalNamespace)`
 		, {
 			mxid: puppetMxid,
 			data: dataStr,
@@ -263,6 +277,7 @@ export class DbPuppetStore {
 			type: PUPPET_TYPES.indexOf("puppet"),
 			isPublic: Number(false),
 			autoinvite: Number(true),
+			isGlobalNamespace: Number(isGlobalNamespace),
 		}, "puppet_id");
 		this.allPuppetIds = null;
 		return puppetId;
@@ -335,6 +350,7 @@ export class DbPuppetStore {
 				type: PUPPET_TYPES[row.type as number] || "invalid",
 				isPublic: Boolean(Number(row.is_public)),
 				autoinvite: Boolean(Number(row.autoinvite)),
+				isGlobalNamespace: Boolean(Number(row.is_global_namespace)),
 			};
 			this.puppetCache.set(ret.puppetId, ret);
 			return ret;
