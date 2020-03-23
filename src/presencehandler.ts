@@ -13,6 +13,7 @@ limitations under the License.
 
 import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
+import { PresenceConfig } from "./config";
 
 const log = new Log("PresenceHandler");
 
@@ -34,6 +35,7 @@ export class PresenceHandler {
 	private interval: NodeJS.Timeout | null;
 	constructor(
 		private bridge: PuppetBridge,
+		private config: PresenceConfig,
 	) {
 		this.presenceQueue = [];
 	}
@@ -42,14 +44,18 @@ export class PresenceHandler {
 		return this.presenceQueue.length;
 	}
 
-	public async start(intervalTime: number) {
+	public async start() {
+		if (!this.config.enabled) {
+			// nothing to do...
+			return;
+		}
 		if (this.interval) {
 			log.info("Restarting presence handler...");
 			this.stop();
 		}
-		log.info(`Starting presence handler with new interval ${intervalTime}ms`);
+		log.info(`Starting presence handler with new interval ${this.config.interval}ms`);
 		this.interval = setInterval(await this.processIntervalThread.bind(this),
-			intervalTime);
+			this.config.interval);
 	}
 
 	public stop() {
@@ -176,7 +182,11 @@ export class PresenceHandler {
 	}
 
 	private async setMatrixStatusInRoom(info: IMatrixPresenceInfo, roomId: string) {
-		if (info.presence === "offline" && !info.status) {
+		if (this.config.disableStatusState || (info.presence === "offline" && !info.status)) {
+			return;
+		}
+		const userParts = this.bridge.userSync.getPartsFromMxid(info.mxid);
+		if (!userParts || this.config.statusStateBlacklist.includes(userParts.userId)) {
 			return;
 		}
 		const intent = this.bridge.AS.getIntentForUserId(info.mxid);

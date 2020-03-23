@@ -86,9 +86,11 @@ class ProvisioningConfig {
 	public apiPrefix: string = "/_matrix/provision";
 }
 
-class PresenceConfig {
+export class PresenceConfig {
 	public enabled: boolean = true;
 	public interval: number = 500;
+	public disableStatusState: boolean = false;
+	public statusStateBlacklist: string[] = [];
 }
 
 class RelayConfig {

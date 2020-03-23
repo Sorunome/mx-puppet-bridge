@@ -194,7 +194,7 @@ export class PuppetBridge extends EventEmitter {
 		this.userSync = new UserSyncroniser(this);
 		this.groupSync = new GroupSyncroniser(this);
 		this.provisioner = new Provisioner(this);
-		this.presenceHandler = new PresenceHandler(this);
+		this.presenceHandler = new PresenceHandler(this, this.config.presence);
 		this.typingHandler = new TypingHandler(this, this.protocol.features.typingTimeout || DEFAULT_TYPING_TIMEOUT);
 		this.reactionHandler = new ReactionHandler(this);
 		this.matrixEventHandler = new MatrixEventHandler(this);
@@ -345,7 +345,7 @@ export class PuppetBridge extends EventEmitter {
 			this.emit("puppetNew", p.puppetId, p.data);
 		}
 		if (this.protocol.features.presence && this.config.presence.enabled) {
-			await this.presenceHandler.start(this.config.presence.interval);
+			await this.presenceHandler.start();
 		}
 	}
 
