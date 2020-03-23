@@ -321,7 +321,7 @@ export class PuppetBridge extends EventEmitter {
 	/**
 	 * Start the puppeting bridge
 	 */
-	public async start() {
+	public async start(callback?: () => Promise<void>) {
 		log.info("Starting application service....");
 
 		this.matrixEventHandler.registerAppserviceEvents();
@@ -338,6 +338,9 @@ export class PuppetBridge extends EventEmitter {
 		}
 		if (this.config.bridge.avatarUrl) {
 			await this.appservice.botIntent.underlyingClient.setAvatarUrl(this.config.bridge.avatarUrl);
+		}
+		if (callback) {
+			await callback();
 		}
 		log.info("Activating users...");
 		const puppets = await this.provisioner.getAll();
