@@ -22,4 +22,3 @@ export { IDbSchema } from "./db/schema/dbschema";
 export { ICommand, SendMessageFn } from "./botprovisioner";
 export { IAuthedRequest } from "./provisioningapi";
 export { IStringFormatterVars } from "./structures/stringformatter";
-export { ExpireSet } from "./structures/expireset";

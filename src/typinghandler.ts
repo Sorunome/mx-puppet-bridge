@@ -13,7 +13,7 @@ limitations under the License.
 
 import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
-import { ExpireSet } from "./structures/expireset";
+import ExpireSet from "expire-set";
 
 const log = new Log("TypingHandler");
 

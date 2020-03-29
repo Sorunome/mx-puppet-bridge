@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { Lock } from "./lock";
-import { ExpireSet } from "./expireset";
+import ExpireSet from "expire-set";
 
 const DEFAULT_LOCK_TIMEOUT = 30000;
 const DEFAULT_LOCK_DATA_TIMEOUT = 300000;
