@@ -598,7 +598,7 @@ export class PuppetBridge extends EventEmitter {
 			return null;
 		}
 		const info = await this.store.puppetStore.getMxidInfo(puppetMxid);
-		if (info) {
+		if (info && (info.name || info.avatarMxc)) {
 			if (info.avatarMxc) {
 				info.avatarUrl = this.getUrlFromMxc(info.avatarMxc, AVATAR_SIZE, AVATAR_SIZE, "scale");
 			}
