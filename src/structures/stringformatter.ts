@@ -42,7 +42,7 @@ export class StringFormatter {
 				case "[": {
 					const res = StringFormatter.getIfParts(pattern, i);
 					i += res.length;
-					const ifComputed = StringFormatter.format(res.if, vars);
+					const ifComputed = StringFormatter.condition(res.if, vars);
 					if (ifComputed) {
 						result += StringFormatter.format(res.then, vars);
 					} else {
@@ -67,7 +67,7 @@ export class StringFormatter {
 		let length = 0;
 		for (; i < pattern.length; i++) {
 			const char = pattern[i];
-			if (char.match(/[a-z]/)) {
+			if (char.match(/[a-z0-9]/)) {
 				length++;
 				varName += char;
 			} else {
@@ -93,7 +93,7 @@ export class StringFormatter {
 			const char = pattern[i];
 			length++;
 			if (char === "[") {
-				const res = StringFormatter.scanBlock(pattern, i);
+				const res = StringFormatter.scanBlock(pattern, i, "[]");
 				i += res.length - 1;
 				length += res.length - 1;
 				resStrs[searching] += res;
@@ -118,7 +118,7 @@ export class StringFormatter {
 		};
 	}
 
-	public static scanBlock(pattern: string, i: number): string {
+	public static scanBlock(pattern: string, i: number, chars: string): string {
 		let result = "";
 		let depth = 0;
 		for (; i < pattern.length; i++) {
@@ -127,13 +127,69 @@ export class StringFormatter {
 			if (char === "\\") {
 				i++;
 				result += pattern[i];
-			} else if (char === "[") {
+			} else if (char === chars[0]) {
 				depth++;
-			} else if (char === "]") {
+			} else if (char === chars[1]) {
 				depth--;
 				if (depth === 0) {
 					break;
 				}
+			}
+		}
+		return result;
+	}
+
+	public static condition(pattern: string, vars: IStringFormatterVars): string {
+		let result = "";
+		for (let i = 0; i < pattern.length; i++) {
+			const char = pattern[i];
+			switch (char) {
+				case ":": {
+					const res = StringFormatter.insertVar(pattern, vars, i);
+					result += res.result;
+					i += res.length;
+					break;
+				}
+				case "=": {
+					const res = StringFormatter.condition(pattern.substr(i+1), vars);
+					if (res === result) {
+						return res;
+					}
+					return "";
+				}
+				case "|": {
+					if (result) {
+						return result;
+					}
+					return StringFormatter.condition(pattern.substr(i+1), vars);
+				}
+				case "&": {
+					if (!result) {
+						return "";
+					}
+					return StringFormatter.condition(pattern.substr(i+1), vars);
+				}
+				case "^": {
+					const res = StringFormatter.condition(pattern.substr(i+1), vars);
+					const res1 = result ? 1 : 0;
+					const res2 = res ? 1 : 0;
+					if (res1 ^ res2) {
+						return result || res;
+					}
+					return "";
+				}
+				case "(": {
+					const res = StringFormatter.scanBlock(pattern, i, "()");
+					i += res.length - 1;
+					result += StringFormatter.condition(res.substring(1, res.length - 1), vars);
+					break;
+				}
+				case "\\":
+					i++;
+					result += pattern[i];
+					break;
+				default:
+					result += char;
 			}
 		}
 		return result;

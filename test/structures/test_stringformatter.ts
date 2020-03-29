@@ -73,5 +73,104 @@ describe("StringFormatter", () => {
 			ret = StringFormatter.format(pattern, vars);
 			expect(ret).to.equal("fox :cond [beep]");
 		});
+		it("should do equality conditions", () => {
+			const pattern = "[:var=fox?fox,bunny]";
+			const vars = {
+				var: "fox",
+			};
+			let ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars.var = "nofox";
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+		});
+		it("should do or conditions", () => {
+			const pattern = "[:var1|:var2?fox,bunny]";
+			let vars: any = {
+				var1: "fox",
+			};
+			let ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars = {
+				var2: "fox",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars = {
+				var1: "fox",
+				var2: "fox",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars = {};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+		});
+		it("should do and conditions", () => {
+			const pattern = "[:var1&:var2?fox,bunny]";
+			let vars: any = {
+				var1: "fox",
+			};
+			let ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+			vars = {
+				var2: "fox",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+			vars = {
+				var1: "fox",
+				var2: "fox",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars = {};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+		});
+		it("should do xor conditions", () => {
+			const pattern = "[:var1^:var2?fox,bunny]";
+			let vars: any = {
+				var1: "fox",
+			};
+			let ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars = {
+				var2: "fox",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars = {
+				var1: "fox",
+				var2: "fox",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+			vars = {};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+		});
+		it("should do paranthesis", () => {
+			const pattern = "[(:var1=fox)&(:var2=bunny)?fox,bunny]";
+			let vars: any = {
+				var1: "fox",
+			};
+			let ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+			vars = {
+				var2: "bunny",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+			vars = {
+				var1: "fox",
+				var2: "bunny",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("fox");
+			vars = {};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("bunny");
+		});
 	});
 });
