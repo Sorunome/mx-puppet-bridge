@@ -19,6 +19,8 @@ protocol is used as relay bot between the remote protocol and matrix.
  - [Discord](https://github.com/matrix-discord/mx-puppet-discord)
  - [Instagram](https://github.com/Sorunome/mx-puppet-instagram)
  - [Twitter](https://github.com/Sorunome/mx-puppet-twitter)
+ - [voip.ms](https://github.com/zoenb/mx-puppet-voipms)
+ - [Skype](https://github.com/Sorunome/mx-puppet-skype)
 
 ## Docs
  - [bridge.md](https://github.com/Sorunome/mx-puppet-bridge/blob/master/bridge.md)
