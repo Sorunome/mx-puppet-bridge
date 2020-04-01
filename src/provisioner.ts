@@ -230,7 +230,7 @@ export class Provisioner {
 	}
 
 	public async unbridge(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {
-		const roomParts = await this.bridge.roomSync.resolve(ident);
+		const roomParts = await this.bridge.roomSync.resolve(ident, userId);
 		if (!roomParts) {
 			return false;
 		}
@@ -254,7 +254,7 @@ export class Provisioner {
 	 */
 	public async setAdmin(userId: string, ident: RemoteRoomResolvable): Promise<void> {
 		const ADMIN_POWER_LEVEL = 100;
-		const roomParts = await this.bridge.roomSync.resolve(ident);
+		const roomParts = await this.bridge.roomSync.resolve(ident, userId);
 		if (!roomParts) {
 			throw new Error("Room not resolvable");
 		}
@@ -277,7 +277,7 @@ export class Provisioner {
 	}
 
 	public async invite(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {
-		const roomParts = await this.bridge.roomSync.resolve(ident);
+		const roomParts = await this.bridge.roomSync.resolve(ident, userId);
 		if (!roomParts) {
 			return false;
 		}

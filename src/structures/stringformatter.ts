@@ -151,7 +151,7 @@ export class StringFormatter {
 					break;
 				}
 				case "=": {
-					const res = StringFormatter.condition(pattern.substr(i+1), vars);
+					const res = StringFormatter.condition(pattern.substr(i + 1), vars);
 					if (res === result) {
 						return res;
 					}
@@ -161,19 +161,19 @@ export class StringFormatter {
 					if (result) {
 						return result;
 					}
-					return StringFormatter.condition(pattern.substr(i+1), vars);
+					return StringFormatter.condition(pattern.substr(i + 1), vars);
 				}
 				case "&": {
 					if (!result) {
 						return "";
 					}
-					return StringFormatter.condition(pattern.substr(i+1), vars);
+					return StringFormatter.condition(pattern.substr(i + 1), vars);
 				}
 				case "^": {
-					const res = StringFormatter.condition(pattern.substr(i+1), vars);
+					const res = StringFormatter.condition(pattern.substr(i + 1), vars);
 					const res1 = result ? 1 : 0;
 					const res2 = res ? 1 : 0;
-					if (res1 ^ res2) {
+					if (res1 ^ res2) { // tslint:disable-line no-bitwise
 						return result || res;
 					}
 					return "";

@@ -612,14 +612,20 @@ export class RoomSyncroniser {
 		await this.deleteEntries(deleteEntires);
 	}
 
-	public async resolve(str: RemoteRoomResolvable): Promise<IRemoteRoom | null> {
+	public async resolve(str: RemoteRoomResolvable, sender?: string): Promise<IRemoteRoom | null> {
 		const remoteUserToGroup = async (ident: RemoteUserResolvable): Promise<IRemoteRoom | null> => {
 			if (!this.bridge.hooks.getDmRoomId) {
 				return null;
 			}
-			const parts = await this.bridge.userSync.resolve(ident);
+			let parts = await this.bridge.userSync.resolve(ident);
 			if (!parts) {
 				return null;
+			}
+			if (sender) {
+				parts = await this.bridge.namespaceHandler.getRemoteUser(parts, sender);
+				if (!parts) {
+					return null;
+				}
 			}
 			const maybeRoomId = await this.bridge.hooks.getDmRoomId(parts);
 			if (!maybeRoomId) {
