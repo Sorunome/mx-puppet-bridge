@@ -36,7 +36,10 @@ export interface IRoomStoreEntry extends IProfileDbEntry {
 	puppetId: number;
 	topic?: string | null;
 	groupId?: string | null;
+	isDirect: boolean;
+	e2be: boolean;
 	externalUrl?: string | null;
+	isUsed: boolean;
 }
 
 export interface IGroupStoreEntry extends IProfileDbEntry {

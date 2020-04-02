@@ -114,18 +114,21 @@ export class MatrixEventHandler {
 		// as we use these parts only for setting the room overrides, which translate back to -1 anyways
 		// we do not need to go via the namespace handler
 		const ghostParts = this.bridge.userSync.getPartsFromMxid(ghostId);
+		const roomParts = await this.bridge.roomSync.getPartsFromMxid(roomId);
 		log.verbose("Ghost parts:", ghostParts);
-		if (ghostParts) {
-			const roomParts = await this.bridge.roomSync.getPartsFromMxid(roomId);
-			log.verbose("Room parts:", roomParts);
-			if (roomParts && roomParts.puppetId === ghostParts.puppetId) {
-				log.verbose("Maybe applying room overrides");
-				await this.bridge.userSync.setRoomOverride(ghostParts, roomParts.roomId);
-			}
+		log.verbose("Room parts:", roomParts);
+		if (ghostParts && roomParts && roomParts.puppetId === ghostParts.puppetId) {
+			log.verbose("Maybe applying room overrides");
+			await this.bridge.userSync.setRoomOverride(ghostParts, roomParts.roomId);
 		}
 
-		// maybe remove the bot user, if it is present
-		await this.bridge.roomSync.maybeLeaveGhost(roomId, this.bridge.AS.botIntent.userId);
+		// maybe remove the bot user, if it is present and we are in a direct message room
+		if (roomParts) {
+			const room = await this.bridge.roomSync.maybeGet(roomParts);
+			if (room && room.isDirect) {
+				await this.bridge.roomSync.maybeLeaveGhost(roomId, this.bridge.AS.botIntent.userId);
+			}
+		}
 	}
 
 	private async handleUserJoinEvent(roomId: string, event: MembershipEvent) {

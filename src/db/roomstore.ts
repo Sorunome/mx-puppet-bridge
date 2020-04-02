@@ -39,6 +39,9 @@ export class DbRoomStore {
 			mxid,
 			roomId,
 			puppetId,
+			isDirect: false,
+			e2be: false,
+			isUsed: false,
 		};
 	}
 
@@ -48,7 +51,7 @@ export class DbRoomStore {
 			return cached;
 		}
 		const row = await this.db.Get(
-			"SELECT * FROM chan_store WHERE room_id = $room_id AND puppet_id = $puppet_id", {
+			"SELECT * FROM room_store WHERE room_id = $room_id AND puppet_id = $puppet_id", {
 			room_id: roomId,
 			puppet_id: puppetId,
 		});
@@ -57,7 +60,7 @@ export class DbRoomStore {
 
 	public async getByPuppetId(puppetId: number): Promise<IRoomStoreEntry[]> {
 		const rows = await this.db.All(
-			"SELECT * FROM chan_store WHERE puppet_id = $puppet_id", {
+			"SELECT * FROM room_store WHERE puppet_id = $puppet_id", {
 			puppet_id: puppetId,
 		});
 		const results: IRoomStoreEntry[] = [];
@@ -76,18 +79,18 @@ export class DbRoomStore {
 			return cached;
 		}
 		const row = await this.db.Get(
-			"SELECT * FROM chan_store WHERE mxid = $mxid", { mxid },
+			"SELECT * FROM room_store WHERE mxid = $mxid", { mxid },
 		);
 		return this.getFromRow(row);
 	}
 
 	public async set(data: IRoomStoreEntry) {
 		const exists = await this.db.Get(
-			"SELECT * FROM chan_store WHERE mxid = $mxid", {mxid: data.mxid},
+			"SELECT * FROM room_store WHERE mxid = $mxid", {mxid: data.mxid},
 		);
 		let query = "";
 		if (!exists) {
-			query = `INSERT INTO chan_store (
+			query = `INSERT INTO room_store (
 				mxid,
 				room_id,
 				puppet_id,
@@ -96,7 +99,11 @@ export class DbRoomStore {
 				avatar_mxc,
 				avatar_hash,
 				topic,
-				group_id
+				group_id,
+				is_direct,
+				e2be,
+				external_url,
+				is_used
 			) VALUES (
 				$mxid,
 				$room_id,
@@ -106,10 +113,14 @@ export class DbRoomStore {
 				$avatar_mxc,
 				$avatar_hash,
 				$topic,
-				$group_id
+				$group_id,
+				$is_direct,
+				$e2be,
+				$external_url,
+				$is_used
 			)`;
 		} else {
-			query = `UPDATE chan_store SET
+			query = `UPDATE room_store SET
 				room_id = $room_id,
 				puppet_id = $puppet_id,
 				name = $name,
@@ -117,7 +128,11 @@ export class DbRoomStore {
 				avatar_mxc = $avatar_mxc,
 				avatar_hash = $avatar_hash,
 				topic = $topic,
-				group_id = $group_id
+				group_id = $group_id,
+				is_direct = $is_direct,
+				e2be = $e2be,
+				external_url = $external_url,
+				is_used = $is_used
 				WHERE mxid = $mxid`;
 		}
 		await this.db.Run(query, {
@@ -130,6 +145,10 @@ export class DbRoomStore {
 			avatar_hash: data.avatarHash || null,
 			topic: data.topic || null,
 			group_id: data.groupId || null,
+			is_direct: Number(data.isDirect),
+			e2be: Number(data.e2be),
+			external_url: data.externalUrl || null,
+			is_used: Number(data.isUsed),
 		});
 		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);
 		this.mxidCache.set(data.mxid, data);
@@ -137,7 +156,7 @@ export class DbRoomStore {
 
 	public async delete(data: IRoomStoreEntry) {
 		await this.db.Run(
-			"DELETE FROM chan_store WHERE mxid = $mxid", { mxid: data.mxid },
+			"DELETE FROM room_store WHERE mxid = $mxid", { mxid: data.mxid },
 		);
 		await this.db.Run(
 			"DELETE FROM chan_op WHERE chan_mxid=$mxid", { mxid: data.mxid },
@@ -156,7 +175,7 @@ export class DbRoomStore {
 		if (!room) {
 			return;
 		}
-		await this.db.Run("UPDATE chan_store SET puppet_id = -1, group_id = '' WHERE puppet_id = $pid AND room_id = $rid", {
+		await this.db.Run("UPDATE room_store SET puppet_id = -1, group_id = '' WHERE puppet_id = $pid AND room_id = $rid", {
 			pid: puppetId,
 			rid: roomId,
 		});
@@ -216,6 +235,10 @@ export class DbRoomStore {
 		data.avatarHash = row.avatar_hash as string | null;
 		data.topic = row.topic as string | null;
 		data.groupId = row.group_id as string | null;
+		data.isDirect = Boolean(Number(row.is_direct));
+		data.e2be = Boolean(Number(row.e2be));
+		data.externalUrl = row.external_url as string | null;
+		data.isUsed = Boolean(Number(row.is_used));
 
 		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);
 		this.mxidCache.set(data.mxid, data);

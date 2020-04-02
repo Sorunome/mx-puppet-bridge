@@ -228,6 +228,13 @@ function getHandler(opts?: IHandlerOpts) {
 				if (room.roomId === "fox" && room.puppetId === 1) {
 					return room;
 				}
+				if (room.roomId === "foxdm" && room.puppetId === 1) {
+					return {
+						roomdId: "foxdm",
+						puppetId: 1,
+						isDirect: true,
+					};
+				}
 				return null;
 			},
 			insert: async (roomId, roomData) => {
@@ -458,7 +465,7 @@ describe("MatrixEventHandler", () => {
 			await handler["handleGhostJoinEvent"](roomId, event);
 			expect(USERSYNC_SET_ROOM_OVERRIDE).to.be.true;
 		});
-		it("should attempt to leave the appservice bot, if possible", async () => {
+		it("should not attempt leave the appservice bot, if not a dm", async () => {
 			const handler = getHandler();
 			const ghostId = "@_puppet_1_blah:example.org";
 			const event = new MembershipEvent({
@@ -469,6 +476,20 @@ describe("MatrixEventHandler", () => {
 				},
 			});
 			const roomId = "!blah:example.org";
+			await handler["handleGhostJoinEvent"](roomId, event);
+			expect(ROOMSYNC_MAYBE_LEAVE_GHOST).to.equal("");
+		});
+		it("should attempt to leave the appservice bot, if a dm", async () => {
+			const handler = getHandler();
+			const ghostId = "@_puppet_1_blah:example.org";
+			const event = new MembershipEvent({
+				type: "m.room.member",
+				state_key: ghostId,
+				content: {
+					membership: "join",
+				},
+			});
+			const roomId = "!foxdm:example.org";
 			await handler["handleGhostJoinEvent"](roomId, event);
 			expect(ROOMSYNC_MAYBE_LEAVE_GHOST).to.equal(`@_puppetbot:example.org;${roomId}`);
 		});

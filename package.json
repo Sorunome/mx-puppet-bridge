@@ -31,7 +31,6 @@
     "pg-promise": "^8.7.5",
     "request": "^2.88.2",
     "request-promise": "^4.2.5",
-    "typescript": "^3.8.3",
     "uuid": "^3.4.0",
     "winston": "^3.2.1",
     "winston-daily-rotate-file": "^3.10.0"
@@ -51,6 +50,7 @@
     "ts-node": "^8.6.2",
     "tslint": "^5.20.1",
     "typedoc": "^0.16.11",
+    "typescript": "^3.8.3",
     "why-is-node-running": "^2.1.2"
   },
   "files": [

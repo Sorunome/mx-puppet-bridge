@@ -21,7 +21,7 @@ import { Store } from "../../src/store";
 async function getStore(): Promise<DbEventStore> {
 	const store = new Store({
 		filename: ":memory:",
-	} as any);
+	} as any, {} as any);
 	await store.init();
 	return new DbEventStore(store.db);
 }

@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { IJoinRoomStrategy } from "matrix-bot-sdk";
+import { IJoinRoomStrategy, MatrixClient } from "matrix-bot-sdk";
 import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
 
@@ -33,7 +33,18 @@ export class PuppetBridgeJoinRoomStrategy implements IJoinRoomStrategy {
 		} catch (err) {
 			log.info("Attempting join strategy...");
 			let haveBotClient = false;
-			let client = await this.bridge.roomSync.getRoomOp(roomIdOrAlias);
+			let client: MatrixClient | null = null;
+			try {
+				client = await this.bridge.roomSync.getRoomOp(roomIdOrAlias);
+			} catch (err) {
+				// as we might use this in migrations, we can't rely on roomSync already existing
+				// what we can rely on, however, is the store itself already existing.
+				// so we'll use that
+				const clientMxid = await this.bridge.store.roomStore.getRoomOp(roomIdOrAlias);
+				if (clientMxid && this.bridge.AS.isNamespacedUser(clientMxid)) {
+					client = this.bridge.AS.getIntentForUserId(clientMxid).underlyingClient;
+				}
+			}
 			if (!client) {
 				haveBotClient = true;
 				client = this.bridge.botIntent.underlyingClient;

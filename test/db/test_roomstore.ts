@@ -21,7 +21,7 @@ import { Store } from "../../src/store";
 async function getStore(cache = true): Promise<DbRoomStore> {
 	const store = new Store({
 		filename: ":memory:",
-	} as any);
+	} as any, {} as any);
 	await store.init();
 	return new DbRoomStore(store.db, cache);
 }
@@ -42,6 +42,10 @@ describe("DbRoomStore", () => {
 				avatarHash: "foxies",
 				topic: "Topic",
 				groupId: "group",
+				isDirect: false,
+				e2be: false,
+				externalUrl: "https://somebridge",
+				isUsed: false,
 			};
 			await store.set(room);
 			expect(await store.getByRemote(1, "room")).to.eql(room);

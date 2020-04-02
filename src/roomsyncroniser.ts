@@ -152,7 +152,14 @@ export class RoomSyncroniser {
 					}
 				}
 				if (!haveNamespacedInvite) {
-					invites.add(await this.bridge.botIntent.underlyingClient.getUserId());
+					invites.add(this.bridge.botIntent.userId);
+				}
+				// now, we want the bridge bot to create stuff, if this isn't a direct room
+				if (!data.isDirect) {
+					invites.add(userId);
+					invites.delete(this.bridge.botIntent.userId);
+					client = this.bridge.botIntent.underlyingClient;
+					userId = this.bridge.botIntent.userId;
 				}
 				const updateProfile = await Util.ProcessProfileUpdate(
 					null, data, this.bridge.protocol.namePatterns.room,
@@ -206,10 +213,11 @@ export class RoomSyncroniser {
 				if (data.topic) {
 					room.topic = data.topic;
 				}
-				if (data.groupId) {
+				if (data.groupId && this.bridge.groupSyncEnabled) {
 					room.groupId = data.groupId;
 					addGroup = room.groupId;
 				}
+				room.isDirect = Boolean(data.isDirect);
 				created = true;
 			} else {
 				mxid = room.mxid;
@@ -257,7 +265,12 @@ export class RoomSyncroniser {
 					);
 					room.topic = data.topic;
 				}
-				if (data.groupId !== undefined && data.groupId !== null && data.groupId !== room.groupId) {
+				if (typeof data.isDirect === "boolean" && data.isDirect !== room.isDirect) {
+					doUpdate = true;
+					room.isDirect = data.isDirect;
+				}
+				if (data.groupId !== undefined && data.groupId !== null && data.groupId !== room.groupId
+					&& this.bridge.groupSyncEnabled) {
 					doUpdate = true;
 					removeGroup = room.groupId;
 					addGroup = data.groupId;
@@ -304,11 +317,7 @@ export class RoomSyncroniser {
 		const lockKey = `${dbPuppetId};${roomData.roomId}`;
 		await this.mxidLock.wait(lockKey);
 		this.mxidLock.set(lockKey);
-		const entry: IRoomStoreEntry = {
-			mxid,
-			roomId: roomData.roomId,
-			puppetId: dbPuppetId,
-		};
+		const entry = this.roomStore.newData(mxid, roomData.roomId, dbPuppetId);
 		await this.roomStore.set(entry);
 		this.mxidLock.release(lockKey);
 	}

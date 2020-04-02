@@ -186,7 +186,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async init() {
 		this.readConfig();
-		this.store = new Store(this.config.database);
+		this.store = new Store(this.config.database, this);
 		await this.store.init();
 
 		this.eventSync = new EventSyncroniser(this);

@@ -24,9 +24,10 @@ import { DbEventStore } from "./db/eventstore";
 import { DbReactionStore } from "./db/reactionstore";
 import { IDatabaseConnector } from "./db/connector";
 import { Util } from "./util";
+import { PuppetBridge } from "./puppetbridge";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 12;
+export const CURRENT_SCHEMA = 13;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 
@@ -39,7 +40,10 @@ export class Store {
 	private pEventStore: DbEventStore;
 	private pReactionStore: DbReactionStore;
 
-	constructor(private config: DatabaseConfig) { }
+	constructor(
+		private config: DatabaseConfig,
+		public bridge: PuppetBridge,
+	) { }
 
 	get roomStore() {
 		return this.pRoomStore;
