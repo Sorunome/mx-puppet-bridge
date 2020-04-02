@@ -28,6 +28,13 @@ export class EventSyncroniser {
 	public async insert(puppetId: number, matrixId: string, remoteId: string) {
 		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
 		await this.eventStore.insert(dbPuppetId, matrixId, remoteId);
+		// we have registered this event, so we might as well mark it as read
+		try {
+			const [eventId, roomId] = matrixId.split(";");
+			await this.bridge.botIntent.underlyingClient.sendReadReceipt(roomId, eventId);
+		} catch (err) {
+			log.silly("Failed to send read reciept", err);
+		}
 	}
 
 	public async remove(puppetId: number, remoteId: string) {

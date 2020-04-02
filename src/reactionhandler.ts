@@ -52,7 +52,7 @@ export class ReactionHandler {
 			"source": this.bridge.protocol.id,
 			"m.relates_to": {
 				rel_type: "m.annotation",
-				event_id: origEvent,
+				event_id: origEvent.split(";")[0],
 				key,
 			},
 		} as any; // tslint:disable-line no-any

@@ -222,7 +222,7 @@ export class MatrixEventHandler {
 			await this.bridge.reactionHandler.handleRedactEvent(room, event, asUser);
 		}
 		for (const redacts of event.redactsEventIds) {
-			const eventIds = await this.bridge.eventSync.getRemote(room.puppetId, redacts);
+			const eventIds = await this.bridge.eventSync.getRemote(room.puppetId, `${redacts};${roomId}`);
 			for (const eventId of eventIds) {
 				log.verbose("Emitting redact event...");
 				this.bridge.emit("redact", room, eventId, asUser, event);
@@ -305,7 +305,7 @@ export class MatrixEventHandler {
 			filename: content.body,
 			mxc: content.url,
 			url,
-			eventId: event.eventId,
+			eventId: `${event.eventId};${roomId}`,
 		};
 		if (content.info) {
 			data.info = content.info;
@@ -343,7 +343,7 @@ export class MatrixEventHandler {
 		const textData: IMessageEvent = {
 			body: `New ${emitEvent}: ${data.url}`,
 			emote: false,
-			eventId: event.eventId,
+			eventId: `${event.eventId};${roomId}`,
 		};
 		this.bridge.emit("message", room, textData, asUser, event);
 	}
@@ -361,7 +361,7 @@ export class MatrixEventHandler {
 			body: content.body,
 			emote: msgtype === "m.emote",
 			notice: msgtype === "m.notice",
-			eventId: event.eventId,
+			eventId: `${event.eventId};${roomId}`,
 		};
 		if (content.format) {
 			msgData.formattedBody = content.formatted_body;
@@ -370,8 +370,9 @@ export class MatrixEventHandler {
 		const asUser = await this.getSendingUser(puppetData, roomId, event.sender);
 		if (relate) {
 			// it only makes sense to process with relation if it is associated with a remote id
+			const eventId = relate.event_id || relate["m.in_reply_to"].event_id;
 			const relEvent = (await this.bridge.eventSync.getRemote(room.puppetId,
-				relate.event_id || relate["m.in_reply_to"].event_id))[0];
+				`${eventId};${roomId}`))[0];
 			if (relEvent) {
 				if (this.bridge.protocol.features.edit && relate.rel_type === "m.replace") {
 					const newContent: TextualMessageEventContent = event.content["m.new_content"];
@@ -379,7 +380,7 @@ export class MatrixEventHandler {
 						body: newContent.body,
 						emote: newContent.msgtype === "m.emote",
 						notice: newContent.msgtype === "m.notice",
-						eventId: event.eventId,
+						eventId: `${event.eventId};${roomId}`,
 					};
 					if (newContent.format) {
 						relData.formattedBody = newContent.formatted_body;

@@ -92,7 +92,7 @@ export class RemoteEventHandler {
 		}
 		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, params.eventId);
 		for (const origEvent of origEvents) {
-			await ret.client.sendReadReceipt(ret.mxid, origEvent);
+			await ret.client.sendReadReceipt(ret.mxid, origEvent.split(";")[0]);
 		}
 	}
 
@@ -195,7 +195,7 @@ export class RemoteEventHandler {
 		} as any; // tslint:disable-line no-any
 		if (origEvent) {
 			send["m.relates_to"] = {
-				event_id: origEvent,
+				event_id: origEvent.split(";")[0],
 				rel_type: "m.replace",
 			};
 		} else {
@@ -227,7 +227,7 @@ export class RemoteEventHandler {
 		const { client, mxid } = await this.prepareSend(params);
 		const origEvents = await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId);
 		for (const origEvent of origEvents) {
-			await this.bridge.redactEvent(client, mxid, origEvent);
+			await this.bridge.redactEvent(client, mxid, origEvent.split(";")[0]);
 		}
 	}
 
@@ -254,7 +254,7 @@ export class RemoteEventHandler {
 		if (origEvent) {
 			send["m.relates_to"] = {
 				"m.in_reply_to": {
-					event_id: origEvent,
+					event_id: origEvent.split(";")[0],
 				},
 			};
 		} else {

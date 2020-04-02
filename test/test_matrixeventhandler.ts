@@ -291,10 +291,10 @@ function getHandler(opts?: IHandlerOpts) {
 		},
 		eventSync: {
 			getRemote: (puppetId, mxid) => {
-				if (mxid === "!bad:example.org") {
+				if (mxid.split(";")[0] === "$bad:example.org") {
 					return ["bad"];
 				}
-				if (mxid === "!event:example.org") {
+				if (mxid.split(";")[0] === "$event:example.org") {
 					return ["event"];
 				}
 				return [];
@@ -591,7 +591,7 @@ describe("MatrixEventHandler", () => {
 			const event = new RedactionEvent({
 				type: "m.room.redaction",
 				sender: "@_puppet_1_fox:example.org",
-				redacts: "!bad:example.org",
+				redacts: "$bad:example.org",
 			});
 			const roomId = "!foxdm:example.org";
 			await handler["handleRedactEvent"](roomId, event);
@@ -602,7 +602,7 @@ describe("MatrixEventHandler", () => {
 			const event = new RedactionEvent({
 				type: "m.room.redaction",
 				sender: "@user:example.org",
-				redacts: "!bad:example.org",
+				redacts: "$bad:example.org",
 			});
 			const roomId = "!invalid:example.org";
 			await handler["handleRedactEvent"](roomId, event);
@@ -613,7 +613,7 @@ describe("MatrixEventHandler", () => {
 			const event = new RedactionEvent({
 				type: "m.room.redaction",
 				sender: "@wronguser:example.org",
-				redacts: "!bad:example.org",
+				redacts: "$bad:example.org",
 			});
 			const roomId = "!foxdm:example.org";
 			await handler["handleRedactEvent"](roomId, event);
@@ -624,7 +624,7 @@ describe("MatrixEventHandler", () => {
 			const event = new RedactionEvent({
 				type: "m.room.redaction",
 				sender: "@user:example.org",
-				redacts: "!bad:example.org",
+				redacts: "$bad:example.org",
 				content: { source: "remote" },
 			});
 			const roomId = "!foxdm:example.org";
@@ -636,7 +636,7 @@ describe("MatrixEventHandler", () => {
 			const event = new RedactionEvent({
 				type: "m.room.redaction",
 				sender: "@user:example.org",
-				redacts: "!bad:example.org",
+				redacts: "$bad:example.org",
 			});
 			const roomId = "!foxdm:example.org";
 			await handler["handleRedactEvent"](roomId, event);
@@ -896,7 +896,7 @@ describe("MatrixEventHandler", () => {
 					"msgtype": "m.text",
 					"body": "* blah",
 					"m.relates_to": {
-						event_id: "!event:example.org",
+						event_id: "$event:example.org",
 						rel_type: "m.replace",
 					},
 					"m.new_content": {
@@ -920,7 +920,7 @@ describe("MatrixEventHandler", () => {
 					"msgtype": "m.text",
 					"body": "* blah",
 					"m.relates_to": {
-						event_id: "!notfound:example.org",
+						event_id: "$notfound:example.org",
 						rel_type: "m.replace",
 					},
 					"m.new_content": {
@@ -942,7 +942,7 @@ describe("MatrixEventHandler", () => {
 					"msgtype": "m.text",
 					"body": "* blah",
 					"m.relates_to": {
-						event_id: "!event:example.org",
+						event_id: "$event:example.org",
 						rel_type: "m.replace",
 					},
 					"m.new_content": {
@@ -967,7 +967,7 @@ describe("MatrixEventHandler", () => {
 					"body": "blah",
 					"m.relates_to": {
 						"m.in_reply_to": {
-							event_id: "!event:example.org",
+							event_id: "$event:example.org",
 						},
 					},
 				},
@@ -988,7 +988,7 @@ describe("MatrixEventHandler", () => {
 					"body": "blah",
 					"m.relates_to": {
 						"m.in_reply_to": {
-							event_id: "!notfound:example.org",
+							event_id: "$notfound:example.org",
 						},
 					},
 				},
@@ -1007,7 +1007,7 @@ describe("MatrixEventHandler", () => {
 					"body": "blah",
 					"m.relates_to": {
 						"m.in_reply_to": {
-							event_id: "!event:example.org",
+							event_id: "$event:example.org",
 						},
 					},
 				},
@@ -1023,7 +1023,7 @@ describe("MatrixEventHandler", () => {
 			const event = new MessageEvent<TextualMessageEventContent>({
 				content: {
 					"m.relates_to": {
-						event_id: "!event:example.org",
+						event_id: "$event:example.org",
 						rel_type: "m.annotation",
 						key: "fox",
 					},
