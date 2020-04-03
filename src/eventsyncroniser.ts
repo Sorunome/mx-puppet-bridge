@@ -25,9 +25,11 @@ export class EventSyncroniser {
 		this.eventStore = this.bridge.eventStore;
 	}
 
-	public async insert(puppetId: number, matrixId: string, remoteId: string) {
-		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
-		await this.eventStore.insert(dbPuppetId, matrixId, remoteId);
+	public async insert(puppetId: number, matrixId: string, remoteId?: string) {
+		if (remoteId) {
+			const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
+			await this.eventStore.insert(dbPuppetId, matrixId, remoteId);
+		}
 		// we have registered this event, so we might as well mark it as read
 		try {
 			const [eventId, roomId] = matrixId.split(";");
