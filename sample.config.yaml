@@ -104,8 +104,6 @@ presence:
   # - baduser
 
 relay:
-  # Enable/Disable relay bridging mode
-  enabled: false
   # Regex of Matrix IDs to allow to use the relay mode
   # Same format as in provisioning
   whitelist:
