@@ -614,14 +614,21 @@ export class NamespaceHandler {
 			return await this.getRelay();
 		}
 		let relayPuppetId = -1;
+		let ownRelayPuppet = -1;
 		for (const thisPuppetId of puppetIds) {
 			const puppetData = await this.bridge.provisioner.get(thisPuppetId);
 			if (puppetData && puppetData.puppetMxid === sender) {
-				return thisPuppetId;
+				ownRelayPuppet = thisPuppetId;
+				if (puppetData.type === "puppet") {
+					return thisPuppetId;
+				}
 			}
 			if (puppetData && puppetData.type === "relay") {
 				relayPuppetId = thisPuppetId;
 			}
+		}
+		if (ownRelayPuppet !== -1) {
+			return ownRelayPuppet;
 		}
 		if (relayPuppetId === -1) {
 			return await this.getRelay();
