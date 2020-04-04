@@ -27,6 +27,9 @@ export class Config {
 
 	// tslint:disable-next-line no-any
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
+		if (!newConfig) {
+			return;
+		}
 		Object.keys(newConfig).forEach((key) => {
 			if (configLayer[key] instanceof Object && !(configLayer[key] instanceof Array)) {
 				this.applyConfig(newConfig[key], configLayer[key]);

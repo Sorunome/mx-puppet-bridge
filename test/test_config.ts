@@ -35,4 +35,14 @@ describe("Config", () => {
 		expect(config.bridge.homeserverUrl).to.equal("https://matrix.example.org");
 		expect((config as any).logging.console.level).to.equal("info");
 	});
+	it("should not error out on empty objects", () => {
+		const config = new Config();
+		config.applyConfig({
+			bridge: {
+				domain: "example.org",
+				homeserverUrl: "https://matrix.example.org",
+			},
+			logging: null,
+		});
+	});
 });
