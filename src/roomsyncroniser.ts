@@ -772,18 +772,54 @@ export class RoomSyncroniser {
 				// we try...catch this as we *really* want to get to the DB deleting
 				try {
 					log.info("Removing old aliases from room...");
-					// first remove the canonical alias
-					await opClient.sendStateEvent(entry.mxid, "m.room.canonical_alias", "", {});
-					// next fetch all aliases and remove the ones we can
+					const possibleAliases = new Set<string>();
+					// let's first probe the canonical alias room state
 					try {
-						const aliases = await opClient.getRoomStateEvent(entry.mxid, "m.room.aliases", this.bridge.config.bridge.domain);
-						for (const alias of aliases.aliases) {
-							if (this.bridge.AS.isNamespacedAlias(alias)) {
-								await opClient.deleteRoomAlias(alias);
+						const canonicalAlias = await await opClient.getRoomStateEvent(entry.mxid, "m.room.canonical_alias", "");
+						if (canonicalAlias.alias) {
+							possibleAliases.add(canonicalAlias.alias);
+						}
+						if (canonicalAlias.alt_aliases) {
+							for (const a of canonicalAlias.alt_aliases) {
+								possibleAliases.add(a);
 							}
 						}
 					} catch (err) {
-						log.info("No aliases set");
+						log.info("No m.room.canonical_alias set");
+					}
+					// now fetch all the aliases in the room
+					try {
+						const versions = await opClient.doRequest("GET", "/_matrix/client/versions");
+						let path = "/_matrix/client/r0/rooms/";
+						if (versions && versions.unstable_features && versions.unstable_features["org.matrix.msc2432"]) {
+							path = "/_matrix/client/unstable/org.matrix.msc2432/rooms/";
+						}
+						path += encodeURIComponent(entry.mxid) + "/aliases";
+						const aliases = await opClient.doRequest("GET", path);
+						for (const a of aliases.aliases) {
+							possibleAliases.add(a);
+						}
+					} catch (err) {
+						log.info("New aliases enpoint doesn't exist yet");
+					}
+					// and now probe the old m.room.aliases state
+					try {
+						const aliases = await opClient.getRoomStateEvent(entry.mxid, "m.room.aliases", this.bridge.config.bridge.domain);
+						for (const a of aliases.aliases) {
+							possibleAliases.add(a);
+						}
+					} catch (err) {
+						log.info("No m.room.aliases set");
+					}
+					// and now iterate over all the possible aliases and remove the ones that are ours
+					for (const a of possibleAliases) {
+						if (this.bridge.AS.isNamespacedAlias(a)) {
+							try {
+								await opClient.deleteRoomAlias(a);
+							} catch (err) {
+								log.warn(`Failed to remove alias ${a}`, err.error || err.body || err);
+							}
+						}
 					}
 				} catch (err) {
 					log.error("Error removing old aliases", err.error || err.body || err);
