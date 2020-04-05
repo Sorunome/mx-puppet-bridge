@@ -53,7 +53,7 @@ import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
 	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
 	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
-	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook, UserExistsHook, RoomExistsHook, GroupExistsHook,
+	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook, UserExistsHook, RoomExistsHook, GroupExistsHook, ResolveRoomIdHook,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -78,6 +78,7 @@ export interface IPuppetBridgeHooks {
 	listUsers?: ListUsersHook;
 	listRooms?: ListRoomsHook;
 	getUserIdsInRoom?: GetUserIdsInRoomHook;
+	resolveRoomId?: ResolveRoomIdHook;
 }
 
 interface ISetProtocolInformation extends IProtocolInformation {
@@ -411,6 +412,10 @@ export class PuppetBridge extends EventEmitter {
 
 	public setGetUserIdsInRoomHook(hook: GetUserIdsInRoomHook) {
 		this.hooks.getUserIdsInRoom = hook;
+	}
+
+	public setResolveRoomIdHook(hook: ResolveRoomIdHook) {
+		this.hooks.resolveRoomId = hook;
 	}
 
 	/**

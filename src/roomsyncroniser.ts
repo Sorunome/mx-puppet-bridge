@@ -234,47 +234,52 @@ export class RoomSyncroniser {
 					},
 				);
 				room = Object.assign(room, updateProfile);
-				if (updateProfile.hasOwnProperty("name")) {
-					doUpdate = true;
-					log.verbose("Updating name");
-					await client!.sendStateEvent(
-						mxid,
-						"m.room.name",
-						"",
-						{ name: room.name },
-					);
-				}
-				if (updateProfile.hasOwnProperty("avatarMxc")) {
-					doUpdate = true;
-					log.verbose("Updating avatar");
-					await client!.sendStateEvent(
-						mxid,
-						"m.room.avatar",
-						"",
-						{ url: room.avatarMxc },
-					);
-				}
-				if (data.topic !== undefined && data.topic !== null && data.topic !== room.topic) {
-					doUpdate = true;
-					log.verbose("updating topic");
-					await client!.sendStateEvent(
-						mxid,
-						"m.room.topic",
-						"",
-						{ topic: data.topic },
-					);
-					room.topic = data.topic;
-				}
-				if (typeof data.isDirect === "boolean" && data.isDirect !== room.isDirect) {
-					doUpdate = true;
-					room.isDirect = data.isDirect;
-				}
-				if (data.groupId !== undefined && data.groupId !== null && data.groupId !== room.groupId
-					&& this.bridge.groupSyncEnabled) {
-					doUpdate = true;
-					removeGroup = room.groupId;
-					addGroup = data.groupId;
-					room.groupId = data.groupId;
+				try {
+					if (updateProfile.hasOwnProperty("name")) {
+						doUpdate = true;
+						log.verbose("Updating name");
+						await client!.sendStateEvent(
+							mxid,
+							"m.room.name",
+							"",
+							{ name: room.name },
+						);
+					}
+					if (updateProfile.hasOwnProperty("avatarMxc")) {
+						doUpdate = true;
+						log.verbose("Updating avatar");
+						await client!.sendStateEvent(
+							mxid,
+							"m.room.avatar",
+							"",
+							{ url: room.avatarMxc },
+						);
+					}
+					if (data.topic !== undefined && data.topic !== null && data.topic !== room.topic) {
+						doUpdate = true;
+						log.verbose("updating topic");
+						await client!.sendStateEvent(
+							mxid,
+							"m.room.topic",
+							"",
+							{ topic: data.topic },
+						);
+						room.topic = data.topic;
+					}
+					if (typeof data.isDirect === "boolean" && data.isDirect !== room.isDirect) {
+						doUpdate = true;
+						room.isDirect = data.isDirect;
+					}
+					if (data.groupId !== undefined && data.groupId !== null && data.groupId !== room.groupId
+						&& this.bridge.groupSyncEnabled) {
+						doUpdate = true;
+						removeGroup = room.groupId;
+						addGroup = data.groupId;
+						room.groupId = data.groupId;
+					}
+				} catch (updateErr) {
+					doUpdate = false;
+					log.warn("Failed to update the room", updateErr.error || updateErr.body || updateErr);
 				}
 			}
 
@@ -604,6 +609,26 @@ export class RoomSyncroniser {
 		}
 	}
 
+	public async rebridge(mxid: string, data: IRemoteRoom) {
+		log.info(`Rebridging ${data.roomId} to ${mxid}...`);
+		const oldMxid = await this.maybeGetMxid(data);
+		if (oldMxid) {
+			const oldOpClient = await this.getRoomOp(oldMxid);
+			if (oldOpClient) {
+				log.verbose("Tombstoning old room...");
+				await oldOpClient.sendStateEvent(oldMxid, "m.room.tombstone", "", {
+					body: "This room has been replaced",
+					replacement_room: mxid,
+				});
+			}
+			log.verbose("Deleting old room...");
+			await this.delete(data, true);
+		}
+		await this.insert(mxid, data);
+		// tslint:disable-next-line no-floating-promises
+		this.addGhosts(data);
+	}
+
 	public async delete(data: IRemoteRoom, keepUsers: boolean = false) {
 		const room = await this.maybeGet(data);
 		if (!room) {
@@ -685,15 +710,15 @@ export class RoomSyncroniser {
 				if (room) {
 					return room;
 				}
-				// no break, as we roll over to the `!` case and re-try as that
-			}
-			case "!": {
 				try {
-					const roomMxid = await this.bridge.botIntent.underlyingClient.resolveRoom(str);
-					return await this.getPartsFromMxid(roomMxid);
+					str = await this.bridge.botIntent.underlyingClient.resolveRoom(str);
 				} catch (err) {
 					return null;
 				}
+				// no break, as we roll over to the `!` case and re-try as that
+			}
+			case "!": {
+				return await this.getPartsFromMxid(str);
 			}
 			case "@":
 				return await remoteUserToGroup(str);

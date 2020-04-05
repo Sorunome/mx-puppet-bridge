@@ -543,9 +543,30 @@ Usage: \`groupinvite <group resolvable>\``,
 			withPid: false,
 			inRoom: true,
 		});
+		if (this.bridge.protocol.features.globalNamespace) {
+			this.registerCommand("bridge", {
+				fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
+					if (!roomId) {
+						await sendMessage("Must send this command in a room!");
+						return;
+					}
+					try {
+						await this.provisioner.bridgeRoom(sender, roomId, param);
+						await sendMessage("Bridged the room!");
+					} catch (err) {
+						await sendMessage(err.message);
+					}
+				},
+				help: `Bridge a room.
+
+Usage: \`!${this.bridge.protocol.id} bridge <remote room ID>\``,
+				withPid: false,
+				inRoom: true,
+			});
+		}
 		this.registerCommand("unbridge", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
-				const success = await this.provisioner.unbridge(sender, param || roomId);
+				const success = await this.provisioner.unbridgeRoom(sender, param || roomId);
 				if (success) {
 					await sendMessage("Unbridged the room!");
 				} else {

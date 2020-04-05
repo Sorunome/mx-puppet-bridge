@@ -62,6 +62,10 @@ export class DbPuppetStore {
 		this.allPuppetIds = null;
 	}
 
+	public async deleteStatusRoom(mxid: string) {
+		await this.db.Run("UPDATE puppet_mxid_store SET status_room = '' WHERE status_room = $mxid", { mxid });
+	}
+
 	public async getMxidInfo(puppetMxid: string): Promise<IMxidInfo | null> {
 		const row = await this.db.Get("SELECT * FROM puppet_mxid_store WHERE puppet_mxid=$id", { id: puppetMxid });
 		if (!row) {

@@ -55,6 +55,27 @@ message.
 To activate relay mode for a puppet type `settype <puppetId> relay`. If you want the rooms of said
 relay to be publicly usable, type `setispublic <puppetId> 1`.
 
+Be sure to whitelist the users you want to relay, a possible config for to relay everyone could look
+as follows:
+```yaml
+relay:
+  whitelist:
+    - ".*"
+```
+
+### Plumbed rooms
+In order for plumbed rooms to work the protocol implementation must support global namespace and at
+least one puppet of relay type has to have been added. In your config you can specify who is able to
+create plumbed rooms. If everyone should be able to, your config could look as follows:
+```yaml
+selfService:
+  whitelist:
+    - ".*"
+```
+After that, invite the bridge bot into the matrix room you want to bridge. Then type
+`!<network identifier> bridge <remote room ID>`, for example for discord `!discord bridge 123456`. A
+protocol implementation may add additional parsing to the remote room ID to allow multiple formats.
+
 ### Automatic double-puppeting
 It can be a hassle to have to tell the bridge what your access token is to enable double-puppeting.
 To circumvent that automatic double-puppeting is available. Configure your homeserver with

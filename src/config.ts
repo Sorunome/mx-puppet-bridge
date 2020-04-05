@@ -21,6 +21,7 @@ export class Config {
 	public provisioning: ProvisioningConfig = new ProvisioningConfig();
 	public presence: PresenceConfig = new PresenceConfig();
 	public relay: RelayConfig = new RelayConfig();
+	public selfService: SelfServiceConfig = new SelfServiceConfig();
 	public homeserverUrlMap: {[key: string]: string} = {};
 	public namePatterns: NamePatternsConfig = new NamePatternsConfig();
 	public limits: LimitsConfig = new LimitsConfig();
@@ -97,6 +98,11 @@ export class PresenceConfig {
 }
 
 class RelayConfig {
+	public whitelist: string[] = [];
+	public blacklist: string[] = [];
+}
+
+class SelfServiceConfig {
 	public whitelist: string[] = [];
 	public blacklist: string[] = [];
 }

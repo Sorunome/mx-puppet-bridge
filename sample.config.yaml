@@ -111,6 +111,14 @@ relay:
   #blacklist:
     #- "@user:yourserver\\.com"
 
+selfService:
+  # Regex of Matrix IDs who are allowed to use bridge self-servicing (plumbed rooms)
+  # Same format as in provisioning
+  whitelist:
+    - "@.*:yourserver\\.com"
+  #blacklist:
+    #- "@user:yourserver\\.com"
+
 # Map certain homeserver URLs to the C-S API endpoint
 # Useful for double-puppeting if .well-known is unavailable for some reason
 #homeserverUrlMap:

@@ -174,6 +174,11 @@ export class Provisioner {
 			this.bridge.config.relay.blacklist);
 	}
 
+	public canSelfService(mxid: string): boolean {
+		return this.isWhitelisted(mxid, this.bridge.config.selfService.whitelist,
+			this.bridge.config.selfService.blacklist);
+	}
+
 	public async new(puppetMxid: string, data: IPuppetData, userId?: string): Promise<number> {
 		if (!this.canCreate(puppetMxid)) {
 			return -1;
@@ -229,7 +234,81 @@ export class Provisioner {
 		return descs;
 	}
 
-	public async unbridge(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {
+	public async bridgeRoom(userId: string, mxid: string, remoteIdent: string) {
+		if (!this.bridge.hooks.createRoom || !this.bridge.hooks.roomExists) {
+			throw new Error("Feature disabled");
+		}
+		if (!this.canSelfService(userId)) {
+			throw new Error("Permission denied");
+		}
+		const roomParts = await this.bridge.roomSync.getPartsFromMxid(mxid);
+		if (roomParts) {
+			throw new Error("Room already bridged");
+		}
+		// check if they have PL to do stuffs
+		const havePerm = await this.bridge.botIntent.underlyingClient.userHasPowerLevelFor(userId, mxid, "m.room.canonical_alias", true);
+		if (!havePerm) {
+			throw new Error("Insufficient permissions");
+		}
+		// now check if we have a relay present
+		const allPuppets = await this.getAll();
+		const allRelays = allPuppets.filter((p) => p.type === "relay" && p.isGlobalNamespace);
+		if (allRelays.length < 1) {
+			throw new Error("No relay puppets configured");
+		}
+		// now resolve the room id....
+		let roomId = remoteIdent;
+		if (this.bridge.hooks.resolveRoomId) {
+			const res = await this.bridge.hooks.resolveRoomId(remoteIdent);
+			if (!res) {
+				throw new Error("Room not found");
+			}
+			roomId = res;
+		}
+		// time to check if the room ID exists at all
+		let puppetId = -1;
+		let fallbackPuppetId = -1;
+		for (const puppet of allRelays) {
+			const exists = await this.bridge.hooks.roomExists({
+				puppetId: puppet.puppetId,
+				roomId,
+			});
+			if (exists) {
+				if (puppet.isPublic) {
+					puppetId = puppet.puppetId;
+					break;
+				} else {
+					fallbackPuppetId = puppet.puppetId;
+				}
+			}
+		}
+		if (puppetId === -1) {
+			puppetId = fallbackPuppetId;
+		}
+		if (puppetId === -1) {
+			throw new Error("No such remote room found");
+		}
+		const newRoomParts = await this.bridge.hooks.createRoom({
+			puppetId,
+			roomId,
+		});
+		if (!newRoomParts) {
+			throw new Error("No such remote room found");
+		}
+		if (newRoomParts.isDirect) {
+			throw new Error("Can't bridge direct rooms");
+		}
+		const oldRoom = await this.bridge.roomSync.maybeGet(newRoomParts);
+		if (oldRoom && oldRoom.isUsed) {
+			throw new Error("Room is already bridged");
+		}
+		// check if anyone has this room as status room, and if so, remove it
+		await this.puppetStore.deleteStatusRoom(mxid);
+		// alright, we did all the verifying, time to actually bridge this room!
+		await this.bridge.roomSync.rebridge(mxid, newRoomParts);
+	}
+
+	public async unbridgeRoom(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {
 		const roomParts = await this.bridge.roomSync.resolve(ident, userId);
 		if (!roomParts) {
 			return false;
