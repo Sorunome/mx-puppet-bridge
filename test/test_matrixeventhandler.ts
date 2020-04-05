@@ -42,6 +42,7 @@ let PUPPETSTORE_LEAVE_GHOST_FROM_ROOM = "";
 let PUPPETSTORE_SET_MXID_INFO = false;
 let USERSYNC_SET_ROOM_OVERRIDE = false;
 let ROOMSYNC_MAYBE_LEAVE_GHOST = "";
+let ROOMSYNC_MARK_AS_DIRECT = "";
 let BRIDGE_EVENTS_EMITTED: any[] = [];
 let BRIDGE_ROOM_MXID_UNBRIDGED = "";
 let BRIDGE_ROOM_ID_UNBRIDGED = "";
@@ -66,6 +67,7 @@ function getHandler(opts?: IHandlerOpts) {
 	PUPPETSTORE_SET_MXID_INFO = false;
 	USERSYNC_SET_ROOM_OVERRIDE = false;
 	ROOMSYNC_MAYBE_LEAVE_GHOST = "";
+	ROOMSYNC_MARK_AS_DIRECT = "";
 	BRIDGE_EVENTS_EMITTED = [];
 	BRIDGE_ROOM_MXID_UNBRIDGED = "";
 	BRIDGE_ROOM_ID_UNBRIDGED = "";
@@ -253,6 +255,10 @@ function getHandler(opts?: IHandlerOpts) {
 					},
 				};
 			},
+			markAsDirect: (room) => {
+				ROOMSYNC_MARK_AS_DIRECT = `${room.puppetId};${room.roomId}`;
+			},
+			markAsUsed: (room) => { },
 		},
 		provisioner: {
 			get: async (puppetId) => {
@@ -1201,6 +1207,7 @@ describe("MatrixEventHandler", () => {
 			expect(GHOST_INTENT_LEAVE_ROOM).to.equal("");
 			expect(GHOST_INTENT_JOIN_ROOM).to.equal(roomId);
 			expect(ROOM_SYNC_INSERTED_ENTRY).to.be.true;
+			expect(ROOMSYNC_MARK_AS_DIRECT).to.equal("1;newfox");
 		});
 	});
 	describe("handleRoomQuery", () => {
