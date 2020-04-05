@@ -19,7 +19,7 @@ import {
 	MatrixClient,
 	SimpleRetryJoinStrategy,
 	LogService,
-} from "matrix-bot-sdk";
+} from "@sorunome/matrix-bot-sdk";
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";

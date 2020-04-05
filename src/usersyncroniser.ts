@@ -13,7 +13,7 @@ limitations under the License.
 
 import { PuppetBridge } from "./puppetbridge";
 import { IRemoteUser, IRemoteUserRoomOverride, RemoteUserResolvable } from "./interfaces";
-import { MatrixClient, Intent } from "matrix-bot-sdk";
+import { MatrixClient, Intent } from "@sorunome/matrix-bot-sdk";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbUserStore } from "./db/userstore";

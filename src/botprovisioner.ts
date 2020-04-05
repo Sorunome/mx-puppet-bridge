@@ -18,7 +18,7 @@ import { PuppetType, PUPPET_TYPES } from "./db/puppetstore";
 import { Log } from "./log";
 import { TimedCache } from "./structures/timedcache";
 import * as MarkdownIt from "markdown-it";
-import { MatrixClient, MessageEvent, TextualMessageEventContent } from "matrix-bot-sdk";
+import { MatrixClient, MessageEvent, TextualMessageEventContent } from "@sorunome/matrix-bot-sdk";
 
 const md = new MarkdownIt();
 

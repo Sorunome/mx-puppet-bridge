@@ -16,7 +16,7 @@ import * as https from "https";
 import * as fileType from "file-type";
 import { Buffer } from "buffer";
 import * as hasha from "hasha";
-import { MatrixClient } from "matrix-bot-sdk";
+import { MatrixClient } from "@sorunome/matrix-bot-sdk";
 import { Log } from "./log";
 import * as request from "request-promise";
 import { IProfileDbEntry } from "./db/interfaces";

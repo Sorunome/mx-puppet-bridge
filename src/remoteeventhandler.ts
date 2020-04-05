@@ -20,7 +20,7 @@ import { MatrixPresence } from "./presencehandler";
 import {
 	TextualMessageEventContent, FileMessageEventContent, FileWithThumbnailInfo, MatrixClient, DimensionalFileInfo,
 	VideoFileInfo, TimedFileInfo,
-} from "matrix-bot-sdk";
+} from "@sorunome/matrix-bot-sdk";
 
 const log = new Log("RemoteEventHandler");
 

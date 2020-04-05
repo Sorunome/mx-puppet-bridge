@@ -13,7 +13,7 @@ limitations under the License.
 
 import { expect } from "chai";
 import { ReactionHandler } from "../src/reactionhandler";
-import { RedactionEvent } from "matrix-bot-sdk";
+import { RedactionEvent } from "@sorunome/matrix-bot-sdk";
 
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal

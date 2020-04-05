@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { createHmac } from "crypto";
-import { MatrixAuth } from "matrix-bot-sdk";
+import { MatrixAuth } from "@sorunome/matrix-bot-sdk";
 import { PuppetBridge } from "./puppetbridge";
 import { DbPuppetStore, IPuppet, PuppetType } from "./db/puppetstore";
 import { Log } from "./log";

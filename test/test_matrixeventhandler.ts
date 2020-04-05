@@ -16,7 +16,7 @@ import { MatrixEventHandler } from "../src/matrixeventhandler";
 import {
 	RoomEvent, RoomEventContent, MembershipEvent, RedactionEvent, MessageEventContent, MessageEvent,
 	FileMessageEventContent, TextualMessageEventContent,
-} from "matrix-bot-sdk";
+} from "@sorunome/matrix-bot-sdk";
 
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal

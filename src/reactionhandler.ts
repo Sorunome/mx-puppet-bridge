@@ -13,7 +13,7 @@ limitations under the License.
 
 import { PuppetBridge } from "./puppetbridge";
 import { IRemoteRoom, IRemoteUser, IReceiveParams, ISendingUser } from "./interfaces";
-import { MatrixClient, RedactionEvent } from "matrix-bot-sdk";
+import { MatrixClient, RedactionEvent } from "@sorunome/matrix-bot-sdk";
 import { DbReactionStore, IReactionStoreEntry } from "./db/reactionstore";
 import { Log } from "./log";
 
