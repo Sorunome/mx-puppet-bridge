@@ -322,6 +322,24 @@ export class RoomSyncroniser {
 		this.mxidLock.release(lockKey);
 	}
 
+	public async markAsDirect(room: IRemoteRoom, direct: boolean = false) {
+		const data = await this.maybeGet(room);
+		if (!data || data.isDirect === direct) {
+			return; // nothing to mark as used
+		}
+		data.isDirect = direct;
+		await this.roomStore.set(data);
+	}
+
+	public async markAsUsed(room: IRemoteRoom, used: boolean = true) {
+		const data = await this.maybeGet(room);
+		if (!data || data.isUsed === used) {
+			return; // nothing to mark as used
+		}
+		data.isUsed = used;
+		await this.roomStore.set(data);
+	}
+
 	public async updateBridgeInformation(data: IRemoteRoom) {
 		log.info("Updating bridge infromation state event");
 		const room = await this.maybeGet(data);

@@ -284,6 +284,14 @@ export class MatrixEventHandler {
 			await this.bridge.botProvisioner.processRoomEvent(roomId, event);
 			return;
 		}
+
+		// alright, let's register, that this channel is used!
+		// while, in theory, we would also need to do this for redactions or thelike
+		// it seems to be sufficient to do it here.
+		// we an do this in the background, so no need to await here
+		// tslint:disable-next-line no-floating-promises
+		this.bridge.roomSync.markAsUsed(room);
+
 		if (["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(msgtype)) {
 			await this.handleFileEvent(roomId, room, puppetData, new MessageEvent<FileMessageEventContent>(event.raw));
 		} else {
@@ -484,6 +492,7 @@ export class MatrixEventHandler {
 		// FINALLY join back and accept the invite
 		log.verbose("All seems fine, creating DM and joining invite!");
 		await this.bridge.roomSync.insert(roomId, roomData);
+		await this.bridge.roomSync.markAsDirect(roomData);
 		await intent.joinRoom(roomId);
 		await this.bridge.userSync.getClient(parts); // create user, if it doesn't exist
 	}

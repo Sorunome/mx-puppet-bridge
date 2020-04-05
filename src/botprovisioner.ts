@@ -62,10 +62,24 @@ export class BotProvisioner {
 		if (event.type !== "m.room.message") {
 			return; // not ours to handle
 		}
+		const msg = event.textBody;
+		if (msg.startsWith("!")) {
+			// check if we actually have a normal room event
+			if (msg.startsWith(`!${this.bridge.protocol.id}`)) {
+				await this.processRoomEvent(roomId, event);
+			}
+			return;
+		}
 		const sender = event.sender;
 		// update the status room entry, if needed
 		const senderInfo = await this.bridge.puppetStore.getOrCreateMxidInfo(sender);
 		if (senderInfo.statusRoom !== roomId) {
+			// let's verify that the new status room is emtpy
+			const members = await this.bridge.botIntent.underlyingClient.getRoomMembers(roomId);
+			const DM_MEMBERS_LENGTH = 2;
+			if (members.length !== DM_MEMBERS_LENGTH) {
+				return; // not our stuff to bother with
+			}
 			senderInfo.statusRoom = roomId;
 			await this.bridge.puppetStore.setMxidInfo(senderInfo);
 		}
