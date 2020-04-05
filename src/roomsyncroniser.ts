@@ -189,6 +189,13 @@ export class RoomSyncroniser {
 					// we also want to set an alias for later reference
 					const suffix = await this.bridge.namespaceHandler.getSuffix(dbPuppetId, data.roomId);
 					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(suffix);
+					createParams.initial_state.push({
+						type: "m.room.canonical_alias",
+						content: {
+							alias: null,
+							alt_aliases: [this.bridge.AS.getAliasForSuffix(suffix)],
+						},
+					});
 				}
 				if (updateProfile.hasOwnProperty("name")) {
 					createParams.name = updateProfile.name;
