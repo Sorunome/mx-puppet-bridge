@@ -28,7 +28,7 @@
     "hasha": "^5.2.0",
     "js-yaml": "^3.13.1",
     "markdown-it": "^9.1.0",
-    "pg-promise": "^8.7.5",
+    "pg-promise": "^10.5.0",
     "request": "^2.88.2",
     "request-promise": "^4.2.5",
     "uuid": "^3.4.0",
