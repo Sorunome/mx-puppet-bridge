@@ -14,17 +14,17 @@ limitations under the License.
 import * as http from "http";
 import * as https from "https";
 import * as fileType from "file-type";
-import {Buffer} from "buffer";
+import { Buffer } from "buffer";
 import * as hasha from "hasha";
-import {MatrixClient} from "@sorunome/matrix-bot-sdk";
-import {Log} from "./log";
-import {IProfileDbEntry} from "./db/interfaces";
-import {IRemoteProfile} from "./interfaces";
-import {StringFormatter} from "./structures/stringformatter";
-import {spawn} from "child_process";
-import got, {Response} from "got";
+import { MatrixClient}  from "@sorunome/matrix-bot-sdk";
+import { Log } from "./log";
+import { IProfileDbEntry } from "./db/interfaces";
+import { IRemoteProfile } from "./interfaces";
+import { StringFormatter } from "./structures/stringformatter";
+import { spawn } from "child_process";
+import got, { Response } from "got";
 // This import is weird and needs to stay weird as it isn't exported in the index file of got
-import {OptionsOfDefaultResponseBody} from "got/dist/source/create";
+import { OptionsOfDefaultResponseBody } from "got/dist/source/create";
 
 const log = new Log("Util");
 
@@ -36,14 +36,13 @@ export interface IMakeUploadFileData {
 }
 
 export class Util {
-	// tslint:disable-next-line:max-line-length
-	public static async DownloadFile<T extends Response | Response["body"]>(url: string, options: OptionsOfDefaultResponseBody = {}): Promise<Buffer> {
+	public static async DownloadFile(url: string, options: OptionsOfDefaultResponseBody = {}): Promise<Buffer> {
 		if (!options.method) {
 			options.method = "GET";
 		}
 		options.url = url;
 		options.encoding = undefined;
-		return got(options).buffer();
+		return await got(options).buffer();
 	}
 
 	public static GetMimeType(buffer: Buffer): string | undefined {
@@ -139,7 +138,7 @@ export class Util {
 			log.silly(data.avatarUrl);
 			if (!buffer) {
 				log.silly("fetching avatar...");
-				buffer = await Util.DownloadFile<Buffer>(data.avatarUrl!);
+				buffer = await Util.DownloadFile(data.avatarUrl!);
 				log.silly("avatar fetched!");
 			}
 			const hash = Util.HashBuffer(buffer!);
@@ -204,7 +203,7 @@ export class Util {
 			}
 			if (newProfile.avatarUrl || newProfile.avatarBuffer) {
 				log.verbose("Uploading avatar...");
-				const {doUpdate: doUpdateAvatar, mxcUrl, hash} = await Util.MaybeUploadFile(uploadFn, newProfile);
+				const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(uploadFn, newProfile);
 				if (doUpdateAvatar) {
 					result.avatarHash = hash;
 					result.avatarMxc = mxcUrl as string;
@@ -220,7 +219,7 @@ export class Util {
 		if ((newProfile.avatarUrl !== undefined && newProfile.avatarUrl !== null
 			&& newProfile.avatarUrl !== oldProfile.avatarUrl) || newProfile.avatarBuffer) {
 			log.verbose("Uploading avatar...");
-			const {doUpdate: doUpdateAvatar, mxcUrl, hash} = await Util.MaybeUploadFile(uploadFn, newProfile,
+			const { doUpdate: doUpdateAvatar, mxcUrl, hash } = await Util.MaybeUploadFile(uploadFn, newProfile,
 				oldProfile.avatarHash);
 			if (doUpdateAvatar) {
 				result.avatarHash = hash;
@@ -244,8 +243,7 @@ export class Util {
 			cmd.stdout.on("data", (data: string) => {
 				databuf += data;
 			});
-			cmd.stdout.on("error", (error) => {
-			}); // disregard
+			cmd.stdout.on("error", (error) => {}); // disregard
 			cmd.on("error", (error) => {
 				cmd.kill();
 				clearTimeout(timeout);
@@ -259,8 +257,7 @@ export class Util {
 					reject(err);
 				}
 			});
-			cmd.stdin.on("error", (error) => {
-			}); // disregard
+			cmd.stdin.on("error", (error) => {}); // disregard
 			cmd.stdin.end(buffer);
 		});
 	}
