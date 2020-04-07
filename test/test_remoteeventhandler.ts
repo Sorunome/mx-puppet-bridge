@@ -541,7 +541,7 @@ describe("RemoteEventHandler", () => {
 				};
 			};
 			await handler.removeUser(params);
-			expect(INTENT_LEAVE_ROOM).to.equal("!someroom:example.org");
+			expect(ROOMSYNC_MAYBE_LEAVE_GHOST).to.equal("@_puppet_1_fox:example.org;!someroom:example.org");
 		});
 	});
 	describe("sendMessage", () => {

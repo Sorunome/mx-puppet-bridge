@@ -123,10 +123,7 @@ export class RemoteEventHandler {
 		if (!this.bridge.AS.isNamespacedUser(userId)) {
 			return;
 		}
-		const intent = this.bridge.AS.getIntentForUserId(userId);
-		try {
-			await intent.leaveRoom(ret.mxid);
-		} catch (err) { } // not in room
+		await this.bridge.roomSync.maybeLeaveGhost(ret.mxid, userId);
 	}
 
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
