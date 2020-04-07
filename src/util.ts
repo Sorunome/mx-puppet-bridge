@@ -36,7 +36,7 @@ export interface IMakeUploadFileData {
 }
 
 export class Util {
-	// tslint:disable:max-line-length
+	// tslint:disable-next-line:max-line-length
 	public static async DownloadFile<T extends Response | Response["body"]>(url: string, options: OptionsOfDefaultResponseBody = {}): Promise<Buffer> {
 		if (!options.method) {
 			options.method = "GET";
