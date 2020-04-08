@@ -76,6 +76,11 @@ export class ProvisioningAPI {
 				error: "Missing user_id query parameter",
 				errcode: "M_BAD_REQUEST",
 			});
+		} else if (typeof req.query.user_id !== "string") {
+			res.status(BAD_REQUEST).json({
+				error: "user_id query parameter isn't a string?",
+				errcode: "M_BAD_REQUEST",
+			});
 		} else {
 			req.userId = req.query.user_id;
 			next();
