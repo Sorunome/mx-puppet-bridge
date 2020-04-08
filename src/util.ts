@@ -18,11 +18,13 @@ import { Buffer } from "buffer";
 import * as hasha from "hasha";
 import { MatrixClient } from "@sorunome/matrix-bot-sdk";
 import { Log } from "./log";
-import * as request from "request-promise";
 import { IProfileDbEntry } from "./db/interfaces";
 import { IRemoteProfile } from "./interfaces";
 import { StringFormatter } from "./structures/stringformatter";
 import { spawn } from "child_process";
+import got, { Response } from "got";
+// This import is weird and needs to stay weird as it isn't exported in the index file of got
+import { OptionsOfDefaultResponseBody } from "got/dist/source/create";
 
 const log = new Log("Util");
 
@@ -34,14 +36,13 @@ export interface IMakeUploadFileData {
 }
 
 export class Util {
-	// tslint:disable-next-line no-any
-	public static async DownloadFile(url: string, options: any = {}): Promise<Buffer> {
+	public static async DownloadFile(url: string, options: OptionsOfDefaultResponseBody = {}): Promise<Buffer> {
 		if (!options.method) {
 			options.method = "GET";
 		}
 		options.url = url;
-		options.encoding = null;
-		return await request(options);
+		options.encoding = undefined;
+		return await got(options).buffer();
 	}
 
 	public static GetMimeType(buffer: Buffer): string | undefined {
@@ -123,7 +124,7 @@ export class Util {
 		uploadFn: (b: Buffer, m?: string, f?: string) => Promise<string>,
 		data: IMakeUploadFileData,
 		oldHash?: string | null,
-	): Promise<{ doUpdate: boolean; mxcUrl: string|undefined; hash: string; }> {
+	): Promise<{ doUpdate: boolean; mxcUrl: string | undefined; hash: string; }> {
 		let buffer = data.avatarBuffer;
 		if ((!buffer && !data.avatarUrl) || (buffer && buffer.byteLength === 0)) {
 			// we need to remove the avatar, short-circuit out of here
@@ -242,7 +243,7 @@ export class Util {
 			cmd.stdout.on("data", (data: string) => {
 				databuf += data;
 			});
-			cmd.stdout.on("error", (error) => { }); // disregard
+			cmd.stdout.on("error", (error) => {}); // disregard
 			cmd.on("error", (error) => {
 				cmd.kill();
 				clearTimeout(timeout);
@@ -256,7 +257,7 @@ export class Util {
 					reject(err);
 				}
 			});
-			cmd.stdin.on("error", (error) => { }); // disregard
+			cmd.stdin.on("error", (error) => {}); // disregard
 			cmd.stdin.end(buffer);
 		});
 	}
