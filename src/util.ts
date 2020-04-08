@@ -41,7 +41,6 @@ export class Util {
 			options.method = "GET";
 		}
 		options.url = url;
-		options.encoding = undefined;
 		return await got(options).buffer();
 	}
 
