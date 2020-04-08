@@ -152,7 +152,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, `${matrixEventId};${mxid}`, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
@@ -210,7 +210,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, `${matrixEventId};${mxid}`, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
@@ -266,7 +266,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, `${matrixEventId};${mxid}`, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
@@ -405,7 +405,7 @@ export class RemoteEventHandler {
 		}
 		const matrixEventId = await client.sendMessage(mxid, sendData);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room.puppetId, `${matrixEventId};${mxid}`, params.eventId);
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);

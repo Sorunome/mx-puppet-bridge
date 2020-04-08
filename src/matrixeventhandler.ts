@@ -366,7 +366,7 @@ export class MatrixEventHandler {
 		log.info(`Handling text event with msgtype ${msgtype}...`);
 		const content = event.content;
 		const msgData: IMessageEvent = {
-			body: content.body,
+			body: content.body || "",
 			emote: msgtype === "m.emote",
 			notice: msgtype === "m.notice",
 			eventId: `${event.eventId};${roomId}`,
@@ -412,6 +412,9 @@ export class MatrixEventHandler {
 					return;
 				}
 			}
+		}
+		if (msgtype === "m.reaction") {
+			return; // short-circuit these out, even if they were invalid
 		}
 		log.debug("Emitting message event...");
 		this.bridge.emit("message", room, msgData, asUser, event);
