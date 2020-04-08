@@ -203,7 +203,7 @@ function getHandler(opts?: IHandlerOpts) {
 				return [];
 			},
 			insert: async (puppetId, matrixId, remoteId) => {
-				EVENT_STORE_INSERT = `${puppetId};${matrixId};${remoteId}`;
+				EVENT_STORE_INSERT = `${puppetId}|${matrixId}|${remoteId}`;
 			},
 		},
 		reactionHandler: {
@@ -714,7 +714,7 @@ describe("RemoteEventHandler", () => {
 				body: "Hey there!",
 			} as any;
 			await handler.sendMessage(params, msg);
-			expect(EVENT_STORE_INSERT).to.equal("1;$newevent;newevent");
+			expect(EVENT_STORE_INSERT).to.equal("1|$newevent;!someroom:example.org|newevent");
 		});
 		it("should stop the typing indicator", async () => {
 			const handler = getHandler();
@@ -952,7 +952,7 @@ describe("RemoteEventHandler", () => {
 				body: "Hey there!",
 			} as any;
 			await handler.sendEdit(params, eventId, msg);
-			expect(EVENT_STORE_INSERT).to.equal("1;$newevent;newevent");
+			expect(EVENT_STORE_INSERT).to.equal("1|$newevent;!someroom:example.org|newevent");
 		});
 		it("should fall back to normal messages, if the remote event isn't found", async () => {
 			const handler = getHandler();
@@ -1279,7 +1279,7 @@ describe("RemoteEventHandler", () => {
 				body: "Hey there!",
 			} as any;
 			await handler.sendReply(params, eventId, msg);
-			expect(EVENT_STORE_INSERT).to.equal("1;$newevent;newevent");
+			expect(EVENT_STORE_INSERT).to.equal("1|$newevent;!someroom:example.org|newevent");
 		});
 		it("should fall back to normal messages, if the remote event isn't found", async () => {
 			const handler = getHandler();
@@ -1661,7 +1661,7 @@ describe("RemoteEventHandler", () => {
 			} as any;
 			const thing = "image/jpeg";
 			await handler.sendFileByType("detect", params, thing);
-			expect(EVENT_STORE_INSERT).to.equal("1;$newevent;newevent");
+			expect(EVENT_STORE_INSERT).to.equal("1|$newevent;!someroom:example.org|newevent");
 		});
 		it("should stop the typing indicator", async () => {
 			const handler = getHandler();
