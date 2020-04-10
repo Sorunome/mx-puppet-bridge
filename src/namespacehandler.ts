@@ -557,7 +557,9 @@ export class NamespaceHandler {
 				if (puppetData.isPublic) {
 					info.public = true;
 				}
-				info.invites.add(puppetData.puppetMxid);
+				if (puppetData.autoinvite) {
+					info.invites.add(puppetData.puppetMxid);
+				}
 			}
 		}
 		return info;
