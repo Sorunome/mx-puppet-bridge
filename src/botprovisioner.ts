@@ -358,6 +358,7 @@ Usage: \`list\``,
 				const client = await this.bridge.userSync.getClientFromTokenCallback({
 					token,
 					hsUrl,
+					mxid: sender,
 				});
 				if (!client) {
 					await sendMessage("ERROR: Invalid matrix token");

@@ -31,6 +31,7 @@ export interface IProvisionerDesc {
 export interface ITokenResponse {
 	token: string;
 	hsUrl: string;
+	mxid: string;
 }
 
 export class Provisioner {
@@ -120,6 +121,7 @@ export class Provisioner {
 		return {
 			hsUrl,
 			token: info.token,
+			mxid,
 		};
 	}
 

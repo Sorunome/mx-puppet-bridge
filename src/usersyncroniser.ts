@@ -47,8 +47,27 @@ export class UserSyncroniser {
 			await client.getUserId();
 			return client;
 		} catch (err) {
-			log.verbose("Invalid client config");
+			if (err.body.errcode === "M_UNKNOWN_TOKEN") {
+				log.verbose("Client got revoked, retrying to connect...");
+				const newToken = await this.bridge.provisioner.loginWithSharedSecret(token.mxid);
+				if (newToken) {
+					const newClient = new MatrixClient(token.hsUrl, newToken);
+					try {
+						await newClient.getUserId();
+						await this.bridge.provisioner.setToken(token.mxid, newToken);
+						return newClient;
+					} catch {
+						log.verbose("Invalid newly configured client");
+					}
+				} else {
+					log.verbose("Invalid client config and no shared secret configured");
+				}
+			} else {
+				log.verbose("Invalid client config");
+			}
 		}
+		// might as well dispose of the token to not re-try too often
+		await this.bridge.provisioner.setToken(token.mxid, null);
 		return null;
 	}
 
