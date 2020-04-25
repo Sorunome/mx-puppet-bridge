@@ -29,7 +29,7 @@ export class ReactionHandler {
 
 	public async addRemote(params: IReceiveParams, eventId: string, key: string, client: MatrixClient, mxid: string) {
 		log.info(`Received reaction from ${params.user.userId} to send to ${params.room.roomId}, message ${eventId}`);
-		const origEvent = (await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId))[0];
+		const origEvent = (await this.bridge.eventSync.getMatrix(params.room, eventId))[0];
 		if (!origEvent) {
 			log.warn("No original event found, ignoring...");
 			return; // nothing to do
@@ -61,7 +61,7 @@ export class ReactionHandler {
 		}
 		const matrixEventId = await client.sendEvent(mxid, "m.reaction", send);
 		if (matrixEventId && params.eventId) {
-			await this.bridge.eventSync.insert(params.room.puppetId, matrixEventId, params.eventId);
+			await this.bridge.eventSync.insert(params.room, matrixEventId, params.eventId);
 		}
 		// and finally save the reaction to our reaction store
 		entry.reactionMxid = matrixEventId;
@@ -70,7 +70,7 @@ export class ReactionHandler {
 
 	public async removeRemote(params: IReceiveParams, eventId: string, key: string, client: MatrixClient, mxid: string) {
 		log.info(`Removing reaction from ${params.user.userId} in ${params.room.roomId}, message ${eventId}`);
-		const origEvent = (await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId))[0];
+		const origEvent = (await this.bridge.eventSync.getMatrix(params.room, eventId))[0];
 		if (!origEvent) {
 			log.warn("No original event found, ignoring...");
 			return; // nothing to do
@@ -97,7 +97,7 @@ export class ReactionHandler {
 
 	public async removeRemoteAllOnMessage(params: IReceiveParams, eventId: string, client: MatrixClient, mxid: string) {
 		log.info(`Removing all reactions from message ${eventId} in ${params.room.roomId}`);
-		const origEvent = (await this.bridge.eventSync.getMatrix(params.room.puppetId, eventId))[0];
+		const origEvent = (await this.bridge.eventSync.getMatrix(params.room, eventId))[0];
 		if (!origEvent) {
 			log.warn("No original event found, ignoring...");
 			return; // nothing to do

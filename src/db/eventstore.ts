@@ -21,25 +21,28 @@ export class DbEventStore {
 		private db: IDatabaseConnector,
 	) { }
 
-	public async insert(puppetId: number, matrixId: string, remoteId: string) {
-		await this.db.Run("INSERT INTO event_store (puppet_id, matrix_id, remote_id) VALUES ($p, $m, $r)", {
+	public async insert(puppetId: number, roomId: string, matrixId: string, remoteId: string) {
+		await this.db.Run("INSERT INTO event_store (puppet_id, room_id, matrix_id, remote_id) VALUES ($p, $room, $m, $r)", {
 			p: puppetId,
+			room: roomId,
 			m: matrixId,
 			r: remoteId,
 		});
 	}
 
-	public async remove(puppetId: number, remoteId: string) {
-		await this.db.Run("DELETE FROM event_store WHERE puppet_id = $p AND remote_id = $r", {
+	public async remove(puppetId: number, roomId: string, remoteId: string) {
+		await this.db.Run("DELETE FROM event_store WHERE puppet_id = $p AND room_id = $room AND remote_id = $r", {
 			p: puppetId,
+			room: roomId,
 			r: remoteId,
 		});
 	}
 
-	public async getMatrix(puppetId: number, remoteId: string): Promise<string[]> {
+	public async getMatrix(puppetId: number, roomId: string, remoteId: string): Promise<string[]> {
 		const result: string[] = [];
-		const rows = await this.db.All("SELECT * FROM event_store WHERE puppet_id=$p AND remote_id=$r", {
+		const rows = await this.db.All("SELECT * FROM event_store WHERE puppet_id=$p AND room_id = $room AND remote_id=$r", {
 			p: puppetId,
+			room: roomId,
 			r: remoteId,
 		});
 		for (const row of rows) {
@@ -48,10 +51,11 @@ export class DbEventStore {
 		return result;
 	}
 
-	public async getRemote(puppetId: number, matrixId: string): Promise<string[]> {
+	public async getRemote(puppetId: number, roomId: string, matrixId: string): Promise<string[]> {
 		const result: string[] = [];
-		const rows = await this.db.All("SELECT * FROM event_store WHERE puppet_id=$p AND matrix_id=$m", {
+		const rows = await this.db.All("SELECT * FROM event_store WHERE puppet_id = $p AND room_id = $room AND matrix_id = $m", {
 			p: puppetId,
+			room: roomId,
 			m: matrixId,
 		});
 		for (const row of rows) {

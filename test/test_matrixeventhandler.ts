@@ -296,7 +296,7 @@ function getHandler(opts?: IHandlerOpts) {
 			canRelay: (mxid) => !mxid.startsWith("@bad"),
 		},
 		eventSync: {
-			getRemote: (puppetId, mxid) => {
+			getRemote: (room, mxid) => {
 				if (mxid.split(";")[0] === "$bad:example.org") {
 					return ["bad"];
 				}

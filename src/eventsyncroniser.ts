@@ -14,6 +14,7 @@ limitations under the License.
 import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
 import { DbEventStore } from "./db/eventstore";
+import { IRemoteRoom } from "./interfaces";
 
 const log = new Log("EventSyncroniser");
 
@@ -25,32 +26,34 @@ export class EventSyncroniser {
 		this.eventStore = this.bridge.eventStore;
 	}
 
-	public async insert(puppetId: number, matrixId: string, remoteId?: string) {
+	public async insert(room: IRemoteRoom, matrixId: string, remoteId?: string) {
 		if (remoteId) {
-			const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
-			await this.eventStore.insert(dbPuppetId, matrixId, remoteId);
+			const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(room.puppetId);
+			await this.eventStore.insert(dbPuppetId, room.roomId, matrixId, remoteId);
 		}
 		// we have registered this event, so we might as well mark it as read
 		try {
-			const [eventId, roomId] = matrixId.split(";");
-			await this.bridge.botIntent.underlyingClient.sendReadReceipt(roomId, eventId);
+			const roomId = await this.bridge.roomSync.maybeGetMxid(room);
+			if (roomId) {
+				await this.bridge.botIntent.underlyingClient.sendReadReceipt(roomId, matrixId);
+			}
 		} catch (err) {
 			log.silly("Failed to send read reciept", err);
 		}
 	}
 
-	public async remove(puppetId: number, remoteId: string) {
-		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
-		await this.eventStore.remove(dbPuppetId, remoteId);
+	public async remove(room: IRemoteRoom, remoteId: string) {
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(room.puppetId);
+		await this.eventStore.remove(dbPuppetId, room.roomId, remoteId);
 	}
 
-	public async getMatrix(puppetId: number, remoteId: string): Promise<string[]> {
-		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
-		return await this.eventStore.getMatrix(dbPuppetId, remoteId);
+	public async getMatrix(room: IRemoteRoom, remoteId: string): Promise<string[]> {
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(room.puppetId);
+		return await this.eventStore.getMatrix(dbPuppetId, room.roomId, remoteId);
 	}
 
-	public async getRemote(puppetId: number, matrixId: string): Promise<string[]> {
-		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(puppetId);
-		return await this.eventStore.getRemote(dbPuppetId, matrixId);
+	public async getRemote(room: IRemoteRoom, matrixId: string): Promise<string[]> {
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(room.puppetId);
+		return await this.eventStore.getRemote(dbPuppetId, room.roomId, matrixId);
 	}
 }

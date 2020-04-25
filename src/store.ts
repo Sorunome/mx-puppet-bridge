@@ -27,7 +27,7 @@ import { Util } from "./util";
 import { PuppetBridge } from "./puppetbridge";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 13;
+export const CURRENT_SCHEMA = 14;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 

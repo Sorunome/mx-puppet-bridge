@@ -108,14 +108,14 @@ function getHandler() {
 			},
 		},
 		eventSync: {
-			getMatrix: async (puppetId, eventId) => {
+			getMatrix: async (room, eventId) => {
 				if (eventId === "foxparty") {
 					return ["$foxparty"];
 				}
 				return [];
 			},
-			insert: async (puppetId, matrixId, remoteId) => {
-				EVENT_STORE_INSERT = `${puppetId};${matrixId};${remoteId}`;
+			insert: async (room, matrixId, remoteId) => {
+				EVENT_STORE_INSERT = `${room.puppetId};${room.roomId};${matrixId};${remoteId}`;
 			},
 		},
 		provisioner: {
@@ -225,7 +225,7 @@ describe("ReactionHandler", () => {
 			const client = getClient();
 			const mxid = "!someroom:example.org";
 			await handler.addRemote(params, eventId, key, client, mxid);
-			expect(EVENT_STORE_INSERT).to.equal("1;$newevent;reactevent");
+			expect(EVENT_STORE_INSERT).to.equal("1;foxhole;$newevent;reactevent");
 		});
 		it("should set an external url, if present", async () => {
 			const handler = getHandler();

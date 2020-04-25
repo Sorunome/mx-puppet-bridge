@@ -29,33 +29,33 @@ async function getStore(): Promise<DbEventStore> {
 describe("DbEventStore", () => {
 	it("should insert things", async () => {
 		const store = await getStore();
-		await store.insert(1, "ma", "ra");
-		await store.insert(1, "mb", "rb");
-		expect(await store.getRemote(1, "ma")).to.eql(["ra"]);
-		expect(await store.getMatrix(1, "rb")).to.eql(["mb"]);
+		await store.insert(1, "room", "ma", "ra");
+		await store.insert(1, "room", "mb", "rb");
+		expect(await store.getRemote(1, "room", "ma")).to.eql(["ra"]);
+		expect(await store.getMatrix(1, "room", "rb")).to.eql(["mb"]);
 	});
 	it("should fetch multi-results matrix->remote", async () => {
 		const store = await getStore();
-		await store.insert(1, "ma", "ra");
-		await store.insert(1, "ma", "rb");
-		expect(await store.getRemote(1, "ma")).to.eql(["ra", "rb"]);
+		await store.insert(1, "room", "ma", "ra");
+		await store.insert(1, "room", "ma", "rb");
+		expect(await store.getRemote(1, "room", "ma")).to.eql(["ra", "rb"]);
 	});
 	it("should fetch multi-results remote->matrix", async () => {
 		const store = await getStore();
-		await store.insert(1, "ma", "ra");
-		await store.insert(1, "mb", "ra");
-		expect(await store.getMatrix(1, "ra")).to.eql(["ma", "mb"]);
+		await store.insert(1, "room", "ma", "ra");
+		await store.insert(1, "room", "mb", "ra");
+		expect(await store.getMatrix(1, "room", "ra")).to.eql(["ma", "mb"]);
 	});
 	it("should return blanks on not found", async () => {
 		const store = await getStore();
-		await store.insert(1, "ma", "ra");
-		expect(await store.getMatrix(1, "rb")).to.eql([]);
-		expect(await store.getRemote(1, "mb")).to.eql([]);
+		await store.insert(1, "room", "ma", "ra");
+		expect(await store.getMatrix(1, "room", "rb")).to.eql([]);
+		expect(await store.getRemote(1, "room", "mb")).to.eql([]);
 	});
 	it("should remove entires", async () => {
 		const store = await getStore();
-		await store.insert(1, "ma", "ra");
-		await store.remove(1, "ra");
-		expect(await store.getMatrix(1, "ra")).to.eql([]);
+		await store.insert(1, "room", "ma", "ra");
+		await store.remove(1, "room", "ra");
+		expect(await store.getMatrix(1, "room", "ra")).to.eql([]);
 	});
 });
