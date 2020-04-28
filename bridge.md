@@ -327,13 +327,14 @@ html: boolean; // if the reply should be HTML or not
 ```
 
 ### getDataFromStr
-This is curcial for provisioning: Given a data, it should return a data object that the protocol implementation will continue to use. e.g. a token  
+This is crucial for provisioning: It will be called when a user tries to link to the remote server using the `link` command, and should return a data object that the protocol implementation will continue to use. e.g. a token  
 Returns:  
 ```ts
 success: boolean; // if this was successful
-error: string (optional); // string to show if this wasn't successful
+error: string (optional); // string to show if this wasn't successful, this can also be used to provide further login steps to the user
 data: any (only when successful); // the resulting data needed to start puppets
 userId: string (optional); // the user id of that puppet
+fn: (str: string) => IRetData (optional, only_when_not_successful); // if set, this function will be called by the next message send by the user, this can be used for example for the user providing auth tokens acquired from following the steps previously described in the `error` message.  
 ```
 Takes:  
 ```ts
