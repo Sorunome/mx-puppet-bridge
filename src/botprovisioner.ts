@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { PuppetBridge } from "./puppetbridge";
-import { RetDataFn, IRetData, IRemoteRoom } from "./interfaces";
+import { RetDataFn, IRetData, IRemoteRoom, IPuppetData } from "./interfaces";
 import { Provisioner } from "./provisioner";
 import { PuppetType, PUPPET_TYPES } from "./db/puppetstore";
 import { Log } from "./log";
@@ -126,16 +126,17 @@ export class BotProvisioner {
 					retData = await this.bridge.hooks.getDataFromStr(parseParam);
 				}
 				if (!retData.success) {
+					const print = retData.fn || retData.data ? retData.error : `ERROR: ${retData.error}`;
+					await this.sendMessage(roomId, print || "");
 					if (retData.fn) {
-						await this.sendMessage(roomId, `${retData.error}`);
 						this.fnCollectListeners.set(sender, {
 							fn: retData.fn,
 							puppetId: -1,
 						});
+					}
+					if (!retData.data) {
 						break;
 					}
-					await this.sendMessage(roomId, `ERROR: ${retData.error}`);
-					break;
 				}
 				if (!senderInfo.token) {
 					const token = await this.provisioner.loginWithSharedSecret(sender);
@@ -144,13 +145,21 @@ export class BotProvisioner {
 						log.info("Enabled double puppeting for", sender, "with shared secret login");
 					}
 				}
+				let data: IPuppetData;
+				try {
+					data = (await Promise.resolve(retData.data)) || {};
+				} catch (err) {
+					log.warn("Failed to create/update link", err);
+					await this.sendMessage(roomId, `ERROR: ${err}`);
+					break;
+				}
 				if (puppetId === -1) {
 					// we need to create a new link
-					puppetId = await this.provisioner.new(sender, retData.data || {}, retData.userId);
+					puppetId = await this.provisioner.new(sender, data, retData.userId);
 					await this.sendMessage(roomId, `Created new link with ID ${puppetId}`);
 				} else {
 					// we need to update an existing link
-					await this.provisioner.update(sender, puppetId, retData.data || {}, retData.userId);
+					await this.provisioner.update(sender, puppetId, data, retData.userId);
 					await this.sendMessage(roomId, `Updated link with ID ${puppetId}`);
 				}
 				break;

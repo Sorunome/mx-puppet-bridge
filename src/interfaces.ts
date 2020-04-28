@@ -126,7 +126,7 @@ export type RetDataFn = (line: string) => Promise<IRetData>;
 export interface IRetData {
 	success: boolean;
 	error?: string;
-	data?: IPuppetData;
+	data?: IPuppetData | Promise<IPuppetData>;
 	userId?: string;
 	fn?: RetDataFn;
 }
