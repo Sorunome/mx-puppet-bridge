@@ -53,7 +53,8 @@ export class DbEventStore {
 
 	public async getRemote(puppetId: number, roomId: string, matrixId: string): Promise<string[]> {
 		const result: string[] = [];
-		const rows = await this.db.All("SELECT * FROM event_store WHERE puppet_id = $p AND room_id = $room AND matrix_id = $m", {
+		const rows = await this.db.All(
+			"SELECT * FROM event_store WHERE puppet_id = $p AND room_id = $room AND matrix_id = $m", {
 			p: puppetId,
 			room: roomId,
 			m: matrixId,

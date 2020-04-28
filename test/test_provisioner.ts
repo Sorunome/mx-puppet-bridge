@@ -286,6 +286,7 @@ describe("Provisioner", () => {
 			const ret = await provisioner.getToken("@bunny:example.org");
 			expect(ret).eql({
 				hsUrl: "https://matrix.example.org",
+				mxid: "@bunny:example.org",
 				token: "bunnytoken",
 			});
 		});
@@ -294,6 +295,7 @@ describe("Provisioner", () => {
 			const ret = await provisioner.getToken(2);
 			expect(ret).eql({
 				hsUrl: "https://matrix.example.org",
+				mxid: "@bunny:example.org",
 				token: "bunnytoken",
 			});
 		});
