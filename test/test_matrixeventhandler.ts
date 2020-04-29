@@ -253,6 +253,18 @@ function getHandler(opts?: IHandlerOpts) {
 							};
 						}
 					},
+					getEvent: async (roomId, eventId) => {
+						if (eventId === "$event:example.org") {
+							return {
+								type: "m.room.message",
+								content: {
+									msgtype: "m.text",
+									body: "original message",
+								},
+								sender: "user",
+							};
+						}
+					},
 				};
 			},
 			markAsDirect: (room) => {

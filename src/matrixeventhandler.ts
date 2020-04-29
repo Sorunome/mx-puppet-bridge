@@ -17,7 +17,7 @@ import {
 	MembershipEvent, RedactionEvent, RoomEvent, MessageEvent, FileMessageEventContent, TextualMessageEventContent,
 	MembershipEventContent, RoomEventContent, MessageEventContent,
 } from "@sorunome/matrix-bot-sdk";
-import { IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser } from "./interfaces";
+import { IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser, IReplyEvent } from "./interfaces";
 import * as escapeHtml from "escape-html";
 import { IPuppet } from "./db/puppetstore";
 
@@ -299,6 +299,32 @@ export class MatrixEventHandler {
 		}
 	}
 
+	private getFileEventData(event: MessageEvent<FileMessageEventContent>): IFileEvent {
+		const msgtype = this.getMessageType(event);
+		const content = event.content;
+		const url = this.bridge.getUrlFromMxc(content.url);
+		const data: IFileEvent = {
+			filename: content.body || "",
+			mxc: content.url,
+			url,
+			eventId: event.eventId,
+			type: "file",
+		};
+		if (content.info) {
+			data.info = content.info;
+		}
+		data.type = {
+			"m.image": "image",
+			"m.audio": "audio",
+			"m.video": "video",
+			"m.sticker": "sticker",
+		}[msgtype];
+		if (!data.type) {
+			data.type = "file";
+		}
+		return data;
+	}
+
 	private async handleFileEvent(
 		roomId: string,
 		room: IRemoteRoom,
@@ -307,26 +333,8 @@ export class MatrixEventHandler {
 	) {
 		const msgtype = this.getMessageType(event);
 		log.info(`Handling file event with msgtype ${msgtype}...`);
-		const content = event.content;
-		const url = this.bridge.getUrlFromMxc(content.url);
-		const data: IFileEvent = {
-			filename: content.body,
-			mxc: content.url,
-			url,
-			eventId: event.eventId,
-		};
-		if (content.info) {
-			data.info = content.info;
-		}
-		let emitEvent = {
-			"m.image": "image",
-			"m.audio": "audio",
-			"m.video": "video",
-			"m.sticker": "sticker",
-		}[msgtype];
-		if (!emitEvent) {
-			emitEvent = "file";
-		}
+		const data = this.getFileEventData(event);
+		const emitEvent = data.type;
 		const asUser = await this.getSendingUser(puppetData, roomId, event.sender);
 		// alright, now determine fallbacks etc.
 		if (this.bridge.protocol.features[emitEvent]) {
@@ -356,14 +364,8 @@ export class MatrixEventHandler {
 		this.bridge.emit("message", room, textData, asUser, event);
 	}
 
-	private async handleTextEvent(
-		roomId: string,
-		room: IRemoteRoom,
-		puppetData: IPuppet,
-		event: MessageEvent<TextualMessageEventContent>,
-	) {
+	private getMessageEventData(event: MessageEvent<TextualMessageEventContent>): IMessageEvent {
 		const msgtype = this.getMessageType(event);
-		log.info(`Handling text event with msgtype ${msgtype}...`);
 		const content = event.content;
 		const msgData: IMessageEvent = {
 			body: content.body || "",
@@ -374,6 +376,18 @@ export class MatrixEventHandler {
 		if (content.format) {
 			msgData.formattedBody = content.formatted_body;
 		}
+		return msgData;
+	}
+
+	private async handleTextEvent(
+		roomId: string,
+		room: IRemoteRoom,
+		puppetData: IPuppet,
+		event: MessageEvent<TextualMessageEventContent>,
+	) {
+		const msgtype = this.getMessageType(event);
+		log.info(`Handling text event with msgtype ${msgtype}...`);
+		const msgData = this.getMessageEventData(event);
 		const relate = event.content["m.relates_to"]; // there is no relates_to interface yet :[
 		const asUser = await this.getSendingUser(puppetData, roomId, event.sender);
 		if (relate) {
@@ -398,9 +412,38 @@ export class MatrixEventHandler {
 					return;
 				}
 				if (this.bridge.protocol.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
-					log.debug("Emitting reply event...");
-					this.bridge.emit("reply", room, relEvent, msgData, asUser, event);
-					return;
+					// okay, let's try to fetch the original event
+					try {
+						const opClient = await this.bridge.roomSync.getRoomOp(roomId);
+						if (opClient) {
+							const origEvent = await opClient.getEvent(roomId, eventId);
+							if (origEvent && ["m.room.message", "m.sticker"].includes(origEvent.type)) {
+								const evt = new MessageEvent<MessageEventContent>(origEvent);
+								const replyData: IReplyEvent = Object.assign(msgData, {
+									reply: {
+										user: (await this.getSendingUser(true, roomId, evt.sender, event.sender))!,
+										event: evt,
+									},
+								});
+								if (["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(this.getMessageType(evt))) {
+									// file event
+									const replyEvent = new MessageEvent<FileMessageEventContent>(evt.raw);
+									replyData.reply.event = replyEvent;
+									replyData.reply.file = this.getFileEventData(replyEvent);
+								} else {
+									// message event
+									const replyEvent = new MessageEvent<TextualMessageEventContent>(evt.raw);
+									replyData.reply.event = replyEvent;
+									replyData.reply.message = this.getMessageEventData(replyEvent);
+								}
+								log.debug("Emitting reply event...");
+								this.bridge.emit("reply", room, relEvent, replyData, asUser, event);
+								return;
+							}
+						}
+					} catch (err) {
+						log.warn(`Failed to fetch original reply event`, err.error || err.body || err);
+					}
 				}
 				if (relate.rel_type === "m.annotation") {
 					// no feature setting as reactions are hidden if they aren't supported
@@ -595,8 +638,13 @@ export class MatrixEventHandler {
 		return msgtype;
 	}
 
-	private async getSendingUser(puppetData: IPuppet, roomId: string, userId: string): Promise<ISendingUser | null> {
-		if (puppetData.type !== "relay") {
+	private async getSendingUser(
+		puppetData: IPuppet | boolean,
+		roomId: string,
+		userId: string,
+		sender?: string,
+	): Promise<ISendingUser | null> {
+		if (!puppetData || (typeof puppetData !== "boolean" && puppetData.type !== "relay")) {
 			return null;
 		}
 		const membership = await this.getRoomMemberInfo(roomId, userId);
@@ -606,6 +654,7 @@ export class MatrixEventHandler {
 				mxid: userId,
 				avatarMxc: null,
 				avatarUrl: null,
+				user: await this.getUserParts(userId, sender || userId),
 			};
 		}
 		let avatarMxc: string | null = null;
@@ -619,6 +668,7 @@ export class MatrixEventHandler {
 			mxid: userId,
 			avatarMxc,
 			avatarUrl,
+			user: await this.getUserParts(userId, sender || userId),
 		};
 	}
 

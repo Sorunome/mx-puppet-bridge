@@ -12,6 +12,9 @@ limitations under the License.
 */
 
 import { IStringFormatterVars } from "./structures/stringformatter";
+import {
+	MessageEvent, TextualMessageEventContent, FileMessageEventContent,
+} from "@sorunome/matrix-bot-sdk";
 
 type PuppetDataSingleType = string | number | boolean | IPuppetData | null | undefined;
 export interface IPuppetData {
@@ -108,6 +111,15 @@ export interface IMessageEvent {
 	eventId?: string;
 }
 
+export interface IReplyEvent extends IMessageEvent {
+	reply: {
+		message?: IMessageEvent;
+		file?: IFileEvent;
+		event: MessageEvent<TextualMessageEventContent> | MessageEvent<FileMessageEventContent>;
+		user: ISendingUser;
+	};
+}
+
 export interface IFileEvent {
 	filename: string;
 	info?: {
@@ -118,6 +130,7 @@ export interface IFileEvent {
 	};
 	mxc: string;
 	url: string;
+	type: string;
 	eventId?: string;
 }
 
@@ -157,6 +170,7 @@ export interface ISendingUser {
 	avatarUrl: string | null;
 	displayname: string;
 	mxid: string;
+	user: IRemoteUser | null;
 }
 
 export type CreateUserHook = (user: IRemoteUser) => Promise<IRemoteUser | null>;
