@@ -53,7 +53,13 @@ export class RoomSyncroniser {
 	}
 
 	public async getRoomOp(room: string): Promise<MatrixClient|null> {
-		const mxid = await this.roomStore.getRoomOp(room);
+		let mxid = await this.roomStore.getRoomOp(room);
+		if (!mxid) {
+			const ghosts = await this.bridge.puppetStore.getGhostsInRoom(mxid);
+			if (ghosts[0] ) {
+				mxid = ghosts[0];
+			}
+		}
 		if (!mxid) {
 			return null;
 		}
