@@ -15,9 +15,11 @@ import { Log } from "./log";
 import { PuppetBridge } from "./puppetbridge";
 import {
 	MembershipEvent, RedactionEvent, RoomEvent, MessageEvent, FileMessageEventContent, TextualMessageEventContent,
-	MembershipEventContent, RoomEventContent, MessageEventContent,
+	MembershipEventContent, RoomEventContent, MessageEventContent, MatrixClient,
 } from "@sorunome/matrix-bot-sdk";
-import { IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser, IReplyEvent } from "./interfaces";
+import {
+	IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser, IReplyEvent, IEventInfo,
+} from "./interfaces";
 import * as escapeHtml from "escape-html";
 import { IPuppet } from "./db/puppetstore";
 
@@ -62,6 +64,48 @@ export class MatrixEventHandler {
 				log.error("Error handling appservice query.room", err.error || err.body || err);
 			}
 		});
+	}
+
+	public async getEventInfo(
+		roomId: string,
+		eventId: string,
+		client?: MatrixClient | null,
+		sender?: string,
+	): Promise<IEventInfo | null> {
+		try {
+			if (!client) {
+				client = await this.bridge.roomSync.getRoomOp(roomId);
+			}
+			if (!client) {
+				log.error(`Failed fetching event in room ${roomId}: no client`);
+				return null;
+			}
+			const rawEvent = await client.getEvent(roomId, eventId);
+			if (!rawEvent) {
+				return null;
+			}
+			const evt = new MessageEvent<MessageEventContent>(rawEvent);
+
+			const info: IEventInfo = {
+				user: (await this.getSendingUser(true, roomId, evt.sender, sender))!,
+				event: evt,
+			};
+			if (["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(this.getMessageType(evt))) {
+				// file event
+				const replyEvent = new MessageEvent<FileMessageEventContent>(evt.raw);
+				info.event = replyEvent;
+				info.file = this.getFileEventData(replyEvent);
+			} else {
+				// message event
+				const replyEvent = new MessageEvent<TextualMessageEventContent>(evt.raw);
+				info.event = replyEvent;
+				info.message = this.getMessageEventData(replyEvent);
+			}
+			return info;
+		} catch (err) {
+			log.error(`Event ${eventId} in room ${roomId} not found`, err.error || err.body || err);
+			return null;
+		}
 	}
 
 	private async handleRoomEvent(roomId: string, event: RoomEvent<RoomEventContent>) {
@@ -413,36 +457,14 @@ export class MatrixEventHandler {
 				}
 				if (this.bridge.protocol.features.reply && (relate.rel_type === "m.in_reply_to" || relate["m.in_reply_to"])) {
 					// okay, let's try to fetch the original event
-					try {
-						const opClient = await this.bridge.roomSync.getRoomOp(roomId);
-						if (opClient) {
-							const origEvent = await opClient.getEvent(roomId, eventId);
-							if (origEvent && ["m.room.message", "m.sticker"].includes(origEvent.type)) {
-								const evt = new MessageEvent<MessageEventContent>(origEvent);
-								const replyData: IReplyEvent = Object.assign(msgData, {
-									reply: {
-										user: (await this.getSendingUser(true, roomId, evt.sender, event.sender))!,
-										event: evt,
-									},
-								});
-								if (["m.file", "m.image", "m.audio", "m.sticker", "m.video"].includes(this.getMessageType(evt))) {
-									// file event
-									const replyEvent = new MessageEvent<FileMessageEventContent>(evt.raw);
-									replyData.reply.event = replyEvent;
-									replyData.reply.file = this.getFileEventData(replyEvent);
-								} else {
-									// message event
-									const replyEvent = new MessageEvent<TextualMessageEventContent>(evt.raw);
-									replyData.reply.event = replyEvent;
-									replyData.reply.message = this.getMessageEventData(replyEvent);
-								}
-								log.debug("Emitting reply event...");
-								this.bridge.emit("reply", room, relEvent, replyData, asUser, event);
-								return;
-							}
-						}
-					} catch (err) {
-						log.warn(`Failed to fetch original reply event`, err.error || err.body || err);
+					const info = await this.getEventInfo(roomId, eventId, null, event.sender);
+					if (info) {
+						const replyData: IReplyEvent = Object.assign(msgData, {
+							reply: info,
+						});
+						log.debug("Emitting reply event...");
+						this.bridge.emit("reply", room, relEvent, replyData, asUser, event);
+						return;
 					}
 				}
 				if (relate.rel_type === "m.annotation") {
@@ -648,13 +670,17 @@ export class MatrixEventHandler {
 			return null;
 		}
 		const membership = await this.getRoomMemberInfo(roomId, userId);
+		let user: IRemoteUser | null = null;
+		try {
+			user = await this.getUserParts(userId, sender || userId);
+		} catch {} // ignore error
 		if (!membership) {
 			return {
 				displayname: userId.substr(1).split(":")[0],
 				mxid: userId,
 				avatarMxc: null,
 				avatarUrl: null,
-				user: await this.getUserParts(userId, sender || userId),
+				user,
 			};
 		}
 		let avatarMxc: string | null = null;
@@ -668,7 +694,7 @@ export class MatrixEventHandler {
 			mxid: userId,
 			avatarMxc,
 			avatarUrl,
-			user: await this.getUserParts(userId, sender || userId),
+			user,
 		};
 	}
 

@@ -54,6 +54,7 @@ import {
 	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
 	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
 	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook, UserExistsHook, RoomExistsHook, GroupExistsHook, ResolveRoomIdHook,
+	IEventInfo,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -829,5 +830,27 @@ export class PuppetBridge extends EventEmitter {
 				throw err;
 			}
 		}
+	}
+
+	public async getEventInfo(
+		roomId: string | IRemoteRoom,
+		eventId: string,
+		client?: MatrixClient,
+	): Promise<IEventInfo | null> {
+		let sender: string | undefined;
+		if (typeof roomId !== "string") {
+			const maybeRoomId = await this.roomSync.maybeGetMxid(roomId);
+			if (!maybeRoomId) {
+				return null;
+			}
+			if (roomId.puppetId !== -1) {
+				try {
+					sender = await this.provisioner.getMxid(roomId.puppetId);
+				} catch {}
+			}
+			eventId = (await this.eventSync.getMatrix(roomId, eventId))[0];
+			roomId = maybeRoomId;
+		}
+		return this.matrixEventHandler.getEventInfo(roomId, eventId, client, sender);
 	}
 }

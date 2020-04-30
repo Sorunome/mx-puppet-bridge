@@ -19,8 +19,9 @@ import { IRemoteUser, IReceiveParams, IMessageEvent } from "./interfaces";
 import { MatrixPresence } from "./presencehandler";
 import {
 	TextualMessageEventContent, FileMessageEventContent, FileWithThumbnailInfo, MatrixClient, DimensionalFileInfo,
-	VideoFileInfo, TimedFileInfo,
+	VideoFileInfo, TimedFileInfo, MessageEvent, MessageEventContent,
 } from "@sorunome/matrix-bot-sdk";
+import * as escapeHtml from "escape-html";
 
 const log = new Log("RemoteEventHandler");
 
@@ -90,9 +91,9 @@ export class RemoteEventHandler {
 			log.verbose("User/Room doesn't exist, ignoring...");
 			return;
 		}
-		const origEvents = await this.bridge.eventSync.getMatrix(params.room, params.eventId);
-		for (const origEvent of origEvents) {
-			await ret.client.sendReadReceipt(ret.mxid, origEvent.split(";")[0]);
+		const origEventIdIds = await this.bridge.eventSync.getMatrix(params.room, params.eventId);
+		for (const origEventId of origEventIdIds) {
+			await ret.client.sendReadReceipt(ret.mxid, origEventId);
 		}
 	}
 
@@ -170,16 +171,16 @@ export class RemoteEventHandler {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.bridge.eventSync.getMatrix(params.room, eventId);
+		const origEventIdIds = await this.bridge.eventSync.getMatrix(params.room, eventId);
 		if (ix < 0) {
 			// negative indexes are from the back
-			ix = origEvents.length + ix;
+			ix = origEventIdIds.length + ix;
 		}
-		if (ix >= origEvents.length) {
+		if (ix >= origEventIdIds.length) {
 			// sanity check on the index
 			ix = 0;
 		}
-		const origEvent = origEvents[ix];
+		const origEventId = origEventIdIds[ix];
 		// this object is set to any-type as the interfaces don't do edits yet
 		const send = {
 			"msgtype": msgtype,
@@ -190,9 +191,9 @@ export class RemoteEventHandler {
 				msgtype,
 			},
 		} as any; // tslint:disable-line no-any
-		if (origEvent) {
+		if (origEventId) {
 			send["m.relates_to"] = {
-				event_id: origEvent.split(";")[0],
+				event_id: origEventId,
 				rel_type: "m.replace",
 			};
 		} else {
@@ -222,9 +223,9 @@ export class RemoteEventHandler {
 		}
 		log.info(`Received redact from ${params.user.userId} to send to ${params.room.roomId}`);
 		const { client, mxid } = await this.prepareSend(params);
-		const origEvents = await this.bridge.eventSync.getMatrix(params.room, eventId);
-		for (const origEvent of origEvents) {
-			await this.bridge.redactEvent(client, mxid, origEvent.split(";")[0]);
+		const origEventIdIds = await this.bridge.eventSync.getMatrix(params.room, eventId);
+		for (const origEventId of origEventIdIds) {
+			await this.bridge.redactEvent(client, mxid, origEventId);
 		}
 	}
 
@@ -240,26 +241,67 @@ export class RemoteEventHandler {
 		} else if (opts.notice) {
 			msgtype = "m.notice";
 		}
-		const origEvents = await this.bridge.eventSync.getMatrix(params.room, eventId);
-		const origEvent = origEvents[0];
+		const origEventIds = await this.bridge.eventSync.getMatrix(params.room, eventId);
+		const origEventId = origEventIds[0];
 		// this send object needs to be any-type, as the interfaces don't do replies yet
 		const send = {
 			msgtype,
 			body: opts.body,
+			format: "org.matrix.custom.html",
+			formatted_body: opts.formattedBody ? opts.formattedBody : escapeHtml(opts.body).replace(/\n/g, "<br>"),
 			source: this.bridge.protocol.id,
 		} as any; // tslint:disable-line no-any
-		if (origEvent) {
-			send["m.relates_to"] = {
-				"m.in_reply_to": {
-					event_id: origEvent.split(";")[0],
-				},
-			};
-		} else {
-			log.warn("Couldn't find event, sending as normal message...");
-		}
 		if (opts.formattedBody) {
 			send.format = "org.matrix.custom.html";
 			send.formatted_body = opts.formattedBody;
+		}
+		if (origEventId) {
+			send["m.relates_to"] = {
+				"m.in_reply_to": {
+					event_id: origEventId,
+				},
+			};
+			try {
+				const info = await this.bridge.getEventInfo(mxid, origEventId, client);
+				if (info) {
+					if (info.message) {
+						if (!info.message.formattedBody) {
+							info.message.formattedBody = escapeHtml(info.message.body).replace(/\n/g, "<br>");
+						}
+						const bodyParts = info.message.body.split("\n");
+						bodyParts[0] = `${info.message.emote ? "* " : ""}<${info.user.mxid}> ${bodyParts[0]}`;
+						send.body = `${bodyParts.map((l) => `> ${l}`).join("\n")}\n\n${send.body}`;
+						const richHeader = `<mx-reply><blockquote>
+	<a href="https://matrix.to/#/${mxid}/${origEventId}">In reply to</a>
+	${info.message.emote ? "* " : ""}<a href="https://matrix.to/#/${info.user.mxid}">${info.user.mxid}</a>
+	<br>${info.message.formattedBody}
+</blockquote></mx-reply>`;
+						send.formatted_body = richHeader + send.formatted_body;
+					} else if (info.file) {
+						let msg = {
+							image: "an image",
+							audio: "an audio file",
+							video: "a video",
+							sticker: "a sticker",
+						}[info.file.type];
+						if (!msg) {
+							msg = "a file";
+						}
+						const plainHeader = `> <${info.user.mxid}> sent ${msg}.\n\n`;
+						send.body = plainHeader + send.body;
+						const richHeader = `<mx-reply><blockquote>
+	<a href="https://matrix.to/#/${mxid}/${origEventId}">In reply to</a>
+	<a href="https://matrix.to/#/${info.user.mxid}">${info.user.mxid}</a>
+	<br>sent ${msg}.
+</blockquote></mx-reply>`;
+						send.formatted_body = richHeader + send.formatted_body;
+					}
+				}
+			} catch (err) {
+				log.warn("Failed to add reply fallback", err.error || err.body || err);
+			}
+		} else {
+			log.warn("Couldn't find event, sending as normal message...");
 		}
 		if (params.externalUrl) {
 			send.external_url = params.externalUrl;

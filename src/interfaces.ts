@@ -111,13 +111,15 @@ export interface IMessageEvent {
 	eventId?: string;
 }
 
+export interface IEventInfo {
+	message?: IMessageEvent;
+	file?: IFileEvent;
+	event: MessageEvent<TextualMessageEventContent> | MessageEvent<FileMessageEventContent>;
+	user: ISendingUser;
+}
+
 export interface IReplyEvent extends IMessageEvent {
-	reply: {
-		message?: IMessageEvent;
-		file?: IFileEvent;
-		event: MessageEvent<TextualMessageEventContent> | MessageEvent<FileMessageEventContent>;
-		user: ISendingUser;
-	};
+	reply: IEventInfo;
 }
 
 export interface IFileEvent {

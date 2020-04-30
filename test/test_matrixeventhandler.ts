@@ -242,7 +242,7 @@ function getHandler(opts?: IHandlerOpts) {
 			insert: async (roomId, roomData) => {
 				ROOM_SYNC_INSERTED_ENTRY = true;
 			},
-			getRoomOp: async (roomId) => {
+			getRoomOp: async (opRoomId) => {
 				return {
 					getRoomStateEvent: async (_, state, key) => {
 						if (state === "m.room.member" && key === "user") {
