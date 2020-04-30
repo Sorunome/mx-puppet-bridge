@@ -234,6 +234,19 @@ function getHandler(opts?: IHandlerOpts) {
 				DELAYED_FUNCTION_SET = fn;
 			},
 		},
+		getEventInfo: async (roomId, eventId, client) => {
+			if (eventId !== "$foxparty") {
+				return null;
+			}
+			return {
+				message: {
+					body: "Foxing around",
+				},
+				user: {
+					mxid: "@fox:example.org",
+				},
+			};
+		},
 	} as any;
 	const RemoteEventHandler = proxyquire.load("../src/remoteeventhandler", {
 		"./util": { Util: {
@@ -1137,7 +1150,13 @@ describe("RemoteEventHandler", () => {
 			expect(CLIENT_SEND_MESSAGE).eql({
 				"msgtype": "m.text",
 				"source": "remote",
-				"body": "Hey there!",
+				"body": "> <@fox:example.org> Foxing around\n\nHey there!",
+				"format": "org.matrix.custom.html",
+				"formatted_body": `<mx-reply><blockquote>
+	<a href=\"https://matrix.to/#/!someroom:example.org/$foxparty\">In reply to</a>
+	<a href=\"https://matrix.to/#/@fox:example.org\">@fox:example.org</a>
+	<br>Foxing around
+</blockquote></mx-reply>Hey there!`,
 				"m.relates_to": {
 					"m.in_reply_to": {
 						event_id: "$foxparty",
@@ -1173,7 +1192,13 @@ describe("RemoteEventHandler", () => {
 				expect(CLIENT_SEND_MESSAGE).eql({
 					"msgtype": "m." + type,
 					"source": "remote",
-					"body": "Hey there!",
+					"body": "> <@fox:example.org> Foxing around\n\nHey there!",
+					"format": "org.matrix.custom.html",
+					"formatted_body": `<mx-reply><blockquote>
+	<a href=\"https://matrix.to/#/!someroom:example.org/$foxparty\">In reply to</a>
+	<a href=\"https://matrix.to/#/@fox:example.org\">@fox:example.org</a>
+	<br>Foxing around
+</blockquote></mx-reply>Hey there!`,
 					"m.relates_to": {
 						"m.in_reply_to": {
 							event_id: "$foxparty",
@@ -1209,9 +1234,13 @@ describe("RemoteEventHandler", () => {
 			expect(CLIENT_SEND_MESSAGE).eql({
 				"msgtype": "m.text",
 				"source": "remote",
-				"body": "Hey there!",
+				"body": "> <@fox:example.org> Foxing around\n\nHey there!",
 				"format": "org.matrix.custom.html",
-				"formatted_body": "<strong>Hey there!</strong>",
+				"formatted_body": `<mx-reply><blockquote>
+	<a href=\"https://matrix.to/#/!someroom:example.org/$foxparty\">In reply to</a>
+	<a href=\"https://matrix.to/#/@fox:example.org\">@fox:example.org</a>
+	<br>Foxing around
+</blockquote></mx-reply><strong>Hey there!</strong>`,
 				"m.relates_to": {
 					"m.in_reply_to": {
 						event_id: "$foxparty",
@@ -1246,7 +1275,13 @@ describe("RemoteEventHandler", () => {
 			expect(CLIENT_SEND_MESSAGE).eql({
 				"msgtype": "m.text",
 				"source": "remote",
-				"body": "Hey there!",
+				"body": "> <@fox:example.org> Foxing around\n\nHey there!",
+				"format": "org.matrix.custom.html",
+				"formatted_body": `<mx-reply><blockquote>
+	<a href=\"https://matrix.to/#/!someroom:example.org/$foxparty\">In reply to</a>
+	<a href=\"https://matrix.to/#/@fox:example.org\">@fox:example.org</a>
+	<br>Foxing around
+</blockquote></mx-reply>Hey there!`,
 				"external_url": "https://example.org",
 				"m.relates_to": {
 					"m.in_reply_to": {
@@ -1307,6 +1342,8 @@ describe("RemoteEventHandler", () => {
 			expect(CLIENT_SEND_MESSAGE).eql({
 				msgtype: "m.text",
 				body: "Hey there!",
+				format: "org.matrix.custom.html",
+				formatted_body: "Hey there!",
 				source: "remote",
 			});
 		});
