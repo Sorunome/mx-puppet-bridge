@@ -335,12 +335,33 @@ export class PuppetBridge extends EventEmitter {
 		if (!displayname && this.hooks.botHeaderMsg) {
 			displayname = this.hooks.botHeaderMsg();
 		}
-		if (displayname) {
-			await this.appservice.botIntent.underlyingClient.setDisplayName(displayname);
-		}
-		if (this.config.bridge.avatarUrl) {
-			await this.appservice.botIntent.underlyingClient.setAvatarUrl(this.config.bridge.avatarUrl);
-		}
+		const setBotProfile = async () => {
+			try {
+				if (displayname) {
+					await this.appservice.botIntent.underlyingClient.setDisplayName(displayname);
+				}
+				if (this.config.bridge.avatarUrl) {
+					await this.appservice.botIntent.underlyingClient.setAvatarUrl(this.config.bridge.avatarUrl);
+				}
+			} catch (err) {
+				if (err.code === "ECONNREFUSED") {
+					return new Promise((resolve, reject) => {
+						const TIMEOUT_RETRY = 10000;
+						setTimeout(async () => {
+							try {
+								await setBotProfile();
+								resolve();
+							} catch (err) {
+								reject(err);
+							}
+						}, TIMEOUT_RETRY);
+					});
+				} else {
+					throw err;
+				}
+			}
+		};
+		await setBotProfile();
 		if (callback) {
 			await callback();
 		}
