@@ -33,6 +33,7 @@ const HTTP_OK = 200;
 export interface IMakeUploadFileData {
 	avatarUrl?: string | null;
 	avatarBuffer?: Buffer | null;
+	downloadFile?: ((url: string) => Promise<Buffer>) | null;
 }
 
 export class Util {
@@ -137,7 +138,11 @@ export class Util {
 			log.silly(data.avatarUrl);
 			if (!buffer) {
 				log.silly("fetching avatar...");
-				buffer = await Util.DownloadFile(data.avatarUrl!);
+				if (data.downloadFile) {
+					buffer = await data.downloadFile(data.avatarUrl!);
+				} else {
+					buffer = await Util.DownloadFile(data.avatarUrl!);
+				}
 				log.silly("avatar fetched!");
 			}
 			const hash = Util.HashBuffer(buffer!);

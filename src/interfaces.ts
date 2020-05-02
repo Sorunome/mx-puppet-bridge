@@ -24,6 +24,7 @@ export interface IPuppetData {
 export interface IRemoteProfile {
 	avatarUrl?: string | null;
 	avatarBuffer?: Buffer | null;
+	downloadFile?: ((url: string) => Promise<Buffer>) | null;
 	name?: string | null;
 	nameVars?: IStringFormatterVars | null;
 }
