@@ -112,6 +112,7 @@ class NamePatternsConfig {
 	public userOverride: string;
 	public room: string;
 	public group: string;
+	public emote: string;
 }
 
 class LimitsConfig {

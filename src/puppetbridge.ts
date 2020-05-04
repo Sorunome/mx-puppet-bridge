@@ -23,6 +23,7 @@ import {
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
 import { EventEmitter } from "events";
+import { EmoteSyncroniser } from "./emotesyncroniser";
 import { EventSyncroniser } from "./eventsyncroniser";
 import { RoomSyncroniser } from "./roomsyncroniser";
 import { UserSyncroniser } from "./usersyncroniser";
@@ -91,10 +92,12 @@ interface ISetProtocolInformation extends IProtocolInformation {
 		userOverride: string;
 		room: string;
 		group: string;
+		emote: string;
 	};
 }
 
 export class PuppetBridge extends EventEmitter {
+	public emoteSync: EmoteSyncroniser;
 	public eventSync: EventSyncroniser;
 	public roomSync: RoomSyncroniser;
 	public userSync: UserSyncroniser;
@@ -127,7 +130,7 @@ export class PuppetBridge extends EventEmitter {
 				id: "unknown-protocol",
 				displayname: "Unknown Protocol",
 				features: {},
-				namePatterns: { user: "", userOverride: "", room: "", group: "" },
+				namePatterns: { user: "", userOverride: "", room: "", group: "", emote: "" },
 			};
 		} else {
 			this.protocol = {
@@ -135,7 +138,7 @@ export class PuppetBridge extends EventEmitter {
 				displayname: prot.displayname || "Unknown Protocol",
 				externalUrl: prot.externalUrl,
 				features: prot.features || {},
-				namePatterns: Object.assign({ user: "", userOverride: "", room: "", group: "" }, prot.namePatterns),
+				namePatterns: Object.assign({ user: "", userOverride: "", room: "", group: "", emote: "" }, prot.namePatterns),
 			};
 		}
 		this.hooks = {};
@@ -155,6 +158,7 @@ export class PuppetBridge extends EventEmitter {
 				this.protocol.namePatterns.userOverride || ":name";
 			this.protocol.namePatterns.room = this.config.namePatterns.room || this.protocol.namePatterns.room || ":name";
 			this.protocol.namePatterns.group = this.config.namePatterns.group || this.protocol.namePatterns.group || ":name";
+			this.protocol.namePatterns.emote = this.config.namePatterns.emote || this.protocol.namePatterns.emote || "\\::name\\:";
 		} catch (err) {
 			log.error("Failed to load config file", err);
 			process.exit(-1);
@@ -191,6 +195,7 @@ export class PuppetBridge extends EventEmitter {
 		this.store = new Store(this.config.database, this);
 		await this.store.init();
 
+		this.emoteSync = new EmoteSyncroniser(this);
 		this.eventSync = new EventSyncroniser(this);
 		this.roomSync = new RoomSyncroniser(this);
 		this.userSync = new UserSyncroniser(this);

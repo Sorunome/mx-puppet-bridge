@@ -229,15 +229,15 @@ export class DbRoomStore {
 			row.room_id as string,
 			Number(row.puppet_id),
 		);
-		data.name = row.name as string | null;
-		data.avatarUrl = row.avatar_url as string | null;
-		data.avatarMxc = row.avatar_mxc as string | null;
-		data.avatarHash = row.avatar_hash as string | null;
-		data.topic = row.topic as string | null;
-		data.groupId = row.group_id as string | null;
+		data.name = (row.name || null) as string | null;
+		data.avatarUrl = (row.avatar_url || null) as string | null;
+		data.avatarMxc = (row.avatar_mxc || null) as string | null;
+		data.avatarHash = (row.avatar_hash || null) as string | null;
+		data.topic = (row.topic || null) as string | null;
+		data.groupId = (row.group_id || null) as string | null;
 		data.isDirect = Boolean(Number(row.is_direct));
 		data.e2be = Boolean(Number(row.e2be));
-		data.externalUrl = row.external_url as string | null;
+		data.externalUrl = (row.external_url || null) as string | null;
 		data.isUsed = Boolean(Number(row.is_used));
 
 		this.remoteCache.set(`${data.puppetId};${data.roomId}`, data);

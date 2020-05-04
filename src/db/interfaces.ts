@@ -11,6 +11,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import { IPuppetData } from "../interfaces";
+
 export interface IProfileDbEntry {
 	name?: string | null;
 	avatarUrl?: string | null;
@@ -50,4 +52,11 @@ export interface IGroupStoreEntry extends IProfileDbEntry {
 	longDescription?: string | null;
 	roomIds: string[];
 	externalUrl?: string | null;
+}
+
+export interface IEmoteStoreEntry extends IProfileDbEntry {
+	puppetId: number;
+	roomId: string | null;
+	emoteId: string;
+	data: IPuppetData;
 }

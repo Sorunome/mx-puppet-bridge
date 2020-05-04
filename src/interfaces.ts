@@ -50,6 +50,7 @@ export interface IRemoteRoom extends IRemoteBase {
 	topic?: string | null;
 	groupId?: string | null;
 	isDirect?: boolean | null;
+	emotes?: (IRemoteEmote | IRemoteEmoteFragment)[] | null;
 }
 
 export interface IRemoteGroup extends IRemoteBase {
@@ -57,6 +58,20 @@ export interface IRemoteGroup extends IRemoteBase {
 	shortDescription?: string | null;
 	longDescription?: string | null;
 	roomIds?: string[] | null;
+}
+
+export interface IRemoteEmoteFragment extends IRemoteProfile {
+	roomId?: string | null;
+	emoteId: string;
+	externalUrl?: string | null;
+	data?: IPuppetData | null;
+}
+
+export interface IRemoteEmote extends IRemoteBase {
+	roomId?: string | null;
+	emoteId: string;
+	data?: IPuppetData | null;
+	avatarMxc?: string | null;
 }
 
 type ResolvableString = string | undefined | null;

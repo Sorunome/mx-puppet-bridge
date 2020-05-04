@@ -350,7 +350,7 @@ export class DbPuppetStore {
 				puppetId: Number(row.puppet_id),
 				puppetMxid: row.puppet_mxid as string,
 				data: JSON.parse(row.data as string),
-				userId: row.user_id as string | null,
+				userId: (row.user_id || null) as string | null,
 				type: PUPPET_TYPES[row.type as number] || "invalid",
 				isPublic: Boolean(Number(row.is_public)),
 				autoinvite: Boolean(Number(row.autoinvite)),

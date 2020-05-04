@@ -12,7 +12,7 @@ limitations under the License.
 */
 
 import { PuppetBridge } from "./puppetbridge";
-import { IRemoteRoom, RemoteRoomResolvable, IRemoteUser, RemoteUserResolvable } from "./interfaces";
+import { IRemoteRoom, RemoteRoomResolvable, IRemoteUser, RemoteUserResolvable, IRemoteEmote } from "./interfaces";
 import { Util } from "./util";
 import { Log } from "./log";
 import { DbRoomStore } from "./db/roomstore";
@@ -52,7 +52,14 @@ export class RoomSyncroniser {
 		this.mxidLock = new Lock(MXID_LOOKUP_LOCK_TIMEOUT);
 	}
 
-	public async getRoomOp(room: string): Promise<MatrixClient|null> {
+	public async getRoomOp(room: string | IRemoteRoom): Promise<MatrixClient|null> {
+		if (typeof room !== "string") {
+			const roomId = await this.maybeGetMxid(room);
+			if (!roomId) {
+				return null;
+			}
+			room = roomId;
+		}
 		let mxid = await this.roomStore.getRoomOp(room);
 		if (!mxid) {
 			const ghosts = await this.bridge.puppetStore.getGhostsInRoom(room);
@@ -319,6 +326,28 @@ export class RoomSyncroniser {
 				}
 			} else {
 				log.verbose("Group sync is disabled");
+			}
+
+			// upate emotes (in the background)
+			if (data.emotes) {
+				// tslint:disable-next-line no-floating-promises
+				(async () => {
+					if (!data.emotes) {
+						return;
+					}
+					const realEmotes: IRemoteEmote[] = [];
+					for (const e of data.emotes) {
+						const emote = e as IRemoteEmote;
+						if (!emote.hasOwnProperty("roomId")) {
+							emote.roomId = data.roomId;
+						}
+						if (!emote.puppetId) {
+							emote.puppetId = data.puppetId;
+						}
+						realEmotes.push(emote);
+					}
+					await this.bridge.emoteSync.setMultiple(realEmotes);
+				})();
 			}
 
 			log.verbose("Returning mxid");

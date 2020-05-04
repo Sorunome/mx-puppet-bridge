@@ -22,12 +22,13 @@ import { DbGroupStore } from "./db/groupstore";
 import { DbPuppetStore } from "./db/puppetstore";
 import { DbEventStore } from "./db/eventstore";
 import { DbReactionStore } from "./db/reactionstore";
+import { DbEmoteStore } from "./db/emotestore";
 import { IDatabaseConnector } from "./db/connector";
 import { Util } from "./util";
 import { PuppetBridge } from "./puppetbridge";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 14;
+export const CURRENT_SCHEMA = 15;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 
@@ -39,6 +40,7 @@ export class Store {
 	private pPuppetStore: DbPuppetStore;
 	private pEventStore: DbEventStore;
 	private pReactionStore: DbReactionStore;
+	private pEmoteStore: DbEmoteStore;
 
 	constructor(
 		private config: DatabaseConfig,
@@ -67,6 +69,10 @@ export class Store {
 
 	get reactionStore() {
 		return this.pReactionStore;
+	}
+
+	get emoteStore() {
+		return this.pEmoteStore;
 	}
 
 	public async init(
@@ -202,6 +208,7 @@ export class Store {
 			this.pPuppetStore = new DbPuppetStore(this.db);
 			this.pEventStore = new DbEventStore(this.db);
 			this.pReactionStore = new DbReactionStore(this.db);
+			this.pEmoteStore = new DbEmoteStore(this.db);
 		} catch (ex) {
 			log.error("Error opening database:", ex);
 			throw new Error("Couldn't open database. The appservice won't be able to continue.");

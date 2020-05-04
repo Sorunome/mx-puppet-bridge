@@ -217,12 +217,12 @@ export class DbGroupStore {
 			row.group_id as string,
 			Number(row.puppet_id),
 		);
-		data.name = row.name as string | null;
-		data.avatarUrl = row.avatar_url as string | null;
-		data.avatarMxc = row.avatar_mxc as string | null;
-		data.avatarHash = row.avatar_hash as string | null;
-		data.shortDescription = row.short_description as string | null;
-		data.longDescription = row.long_description as string | null;
+		data.name = (row.name || null) as string | null;
+		data.avatarUrl = (row.avatar_url || null) as string | null;
+		data.avatarMxc = (row.avatar_mxc || null) as string | null;
+		data.avatarHash = (row.avatar_hash || null) as string | null;
+		data.shortDescription = (row.short_description || null) as string | null;
+		data.longDescription = (row.long_description || null) as string | null;
 
 		const rows = await this.db.All(
 			"SELECT room_id FROM group_store_rooms WHERE group_id = $groupId AND puppet_id = $puppetId", {
