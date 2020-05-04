@@ -74,7 +74,7 @@ export class DbEmoteStore {
 	}
 
 	public async getForRoom(puppetId: number, roomId: string): Promise<IEmoteStoreEntry[]> {
-		const rows = await this.db.All("SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid LIMIT 1", {
+		const rows = await this.db.All("SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid", {
 			pid: puppetId,
 			rid: roomId,
 		});
