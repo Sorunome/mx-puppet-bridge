@@ -16,8 +16,12 @@ import { DbEmoteStore } from "./db/emotestore";
 import { Util } from "./util";
 import { IRemoteEmote, IRemoteRoom } from "./interfaces";
 import { Log } from "./log";
+import { Lock } from "./structures/lock";
 
 const log = new Log("EmoteSync");
+
+// tslint:disable-next-line:no-magic-numbers
+const EMOTE_SET_LOCK_TIMEOUT = 1000 * 60;
 
 interface IPoniesRoomEmotesContent {
 	short: {
@@ -27,41 +31,52 @@ interface IPoniesRoomEmotesContent {
 
 export class EmoteSyncroniser {
 	private emoteStore: DbEmoteStore;
+	private emoteSetLock: Lock<string>;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
 		this.emoteStore = this.bridge.store.emoteStore;
+		this.emoteSetLock = new Lock(EMOTE_SET_LOCK_TIMEOUT);
 	}
 
 	public async set(data: IRemoteEmote, updateRoom: boolean = true): Promise<{emote: IRemoteEmote; update: boolean; }> {
 		log.info(`Setting new emote ${data.emoteId} in ${data.roomId}...`);
 		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
-		let emote = await this.emoteStore.get(dbPuppetId, data.roomId || null, data.emoteId);
-		if (!emote) {
-			// okay, we need to create a new one
-			emote = this.emoteStore.newData(dbPuppetId, data.roomId || null, data.emoteId);
+		const lockKey = `${dbPuppetId};${data.roomId};${data.emoteId}`;
+		this.emoteSetLock.set(lockKey);
+		try {
+			let emote = await this.emoteStore.get(dbPuppetId, data.roomId || null, data.emoteId);
+			if (!emote) {
+				// okay, we need to create a new one
+				emote = this.emoteStore.newData(dbPuppetId, data.roomId || null, data.emoteId);
+			}
+			const updateProfile = await Util.ProcessProfileUpdate(
+				emote, data, this.bridge.protocol.namePatterns.emote,
+				async (buffer: Buffer, mimetype?: string, filename?: string) => {
+					return await this.bridge.uploadContent(null, buffer, mimetype, filename);
+				},
+			);
+			emote = Object.assign(emote, updateProfile);
+			if (data.data) {
+				emote.data = data.data;
+			}
+			const doUpdate = updateProfile.hasOwnProperty("name") || updateProfile.hasOwnProperty("avatarMxc");
+			if (doUpdate) {
+				await this.emoteStore.set(emote);
+			}
+			if (updateRoom && doUpdate && data.roomId) {
+				await this.updateRoom(data as IRemoteRoom);
+			}
+			this.emoteSetLock.release(lockKey);
+			return {
+				emote,
+				update: doUpdate,
+			};
+		} catch (err) {
+			log.error("Error updating emote:", err.error || err.body || err);
+			this.emoteSetLock.release(lockKey);
+			throw err;
 		}
-		const updateProfile = await Util.ProcessProfileUpdate(
-			emote, data, this.bridge.protocol.namePatterns.emote,
-			async (buffer: Buffer, mimetype?: string, filename?: string) => {
-				return await this.bridge.uploadContent(null, buffer, mimetype, filename);
-			},
-		);
-		emote = Object.assign(emote, updateProfile);
-		if (data.data) {
-			emote.data = data.data;
-		}
-		const doUpdate = updateProfile.hasOwnProperty("name") || updateProfile.hasOwnProperty("avatarMxc");
-		if (doUpdate) {
-			await this.emoteStore.set(emote);
-		}
-		if (updateRoom && doUpdate && data.roomId) {
-			await this.updateRoom(data as IRemoteRoom);
-		}
-		return {
-			emote,
-			update: doUpdate,
-		};
 	}
 
 	public async get(search: IRemoteEmote): Promise<IRemoteEmote | null> {

@@ -332,21 +332,25 @@ export class RoomSyncroniser {
 			if (data.emotes) {
 				// tslint:disable-next-line no-floating-promises
 				(async () => {
-					if (!data.emotes) {
-						return;
-					}
-					const realEmotes: IRemoteEmote[] = [];
-					for (const e of data.emotes) {
-						const emote = e as IRemoteEmote;
-						if (!emote.hasOwnProperty("roomId")) {
-							emote.roomId = data.roomId;
+					try {
+						if (!data.emotes) {
+							return;
 						}
-						if (!emote.puppetId) {
-							emote.puppetId = data.puppetId;
+						const realEmotes: IRemoteEmote[] = [];
+						for (const e of data.emotes) {
+							const emote = e as IRemoteEmote;
+							if (!emote.hasOwnProperty("roomId")) {
+								emote.roomId = data.roomId;
+							}
+							if (!emote.puppetId) {
+								emote.puppetId = data.puppetId;
+							}
+							realEmotes.push(emote);
 						}
-						realEmotes.push(emote);
+						await this.bridge.emoteSync.setMultiple(realEmotes);
+					} catch (err) {
+						log.error("Error processing emote updates", err.error || err.body || err);
 					}
-					await this.bridge.emoteSync.setMultiple(realEmotes);
 				})();
 			}
 

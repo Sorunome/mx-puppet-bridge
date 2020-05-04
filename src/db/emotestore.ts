@@ -38,7 +38,7 @@ export class DbEmoteStore {
 	public async get(puppetId: number, roomId: string | null, emoteId: string): Promise<IEmoteStoreEntry | null> {
 		if (roomId) {
 			const row = await this.db.Get(
-				"SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid AND emote_id = $eid", {
+				"SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid AND emote_id = $eid LIMIT 1", {
 				pid: puppetId,
 				rid: roomId,
 				eid: emoteId,
@@ -57,7 +57,7 @@ export class DbEmoteStore {
 	public async getByMxc(puppetId: number, roomId: string | null, mxid: string): Promise<IEmoteStoreEntry | null> {
 		if (roomId) {
 			const row = await this.db.Get(
-				"SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid AND avatar_mxc = $mxid", {
+				"SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid AND avatar_mxc = $mxid LIMIT 1", {
 				pid: puppetId,
 				rid: roomId,
 				mxid,
@@ -74,7 +74,7 @@ export class DbEmoteStore {
 	}
 
 	public async getForRoom(puppetId: number, roomId: string): Promise<IEmoteStoreEntry[]> {
-		const rows = await this.db.All("SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid", {
+		const rows = await this.db.All("SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid LIMIT 1", {
 			pid: puppetId,
 			rid: roomId,
 		});
@@ -92,7 +92,7 @@ export class DbEmoteStore {
 		let exists: ISqlRow | null = null;
 		if (data.roomId) {
 			exists = await this.db.Get(
-				"SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid AND emote_id = $eid", {
+				"SELECT * FROM emote_store WHERE puppet_id = $pid AND room_id = $rid AND emote_id = $eid LIMIT 1", {
 				pid: data.puppetId,
 				rid: data.roomId,
 				eid: data.emoteId,
