@@ -26,7 +26,7 @@ interface IMatrixPresenceInfo {
 }
 
 interface IMatrixPresenceStatus {
-	presence?: MatrixPresence;
+	presence: MatrixPresence;
 	status_msg?: string;
 }
 
@@ -158,7 +158,7 @@ export class PresenceHandler {
 	private async setMatrixPresence(info: IMatrixPresenceInfo) {
 		const intent = this.bridge.AS.getIntentForUserId(info.mxid);
 		await intent.ensureRegistered();
-		const statusObj: IMatrixPresenceStatus = {presence: info.presence};
+		const statusObj: IMatrixPresenceStatus = { presence: info.presence || "online" };
 		if (info.status) {
 			statusObj.status_msg = info.status;
 		}
