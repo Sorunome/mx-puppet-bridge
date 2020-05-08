@@ -89,7 +89,21 @@ function getHandler(config: any = {}) {
 	return new PresenceHandler(bridge, config);
 }
 
+let originalDateNow: any;
+const MOCK_DATE = 100 * 1000;
+
 describe("PresenceHandler", () => {
+	beforeEach(() => {
+		originalDateNow = Date.now;
+		Date.now = () => {
+			return MOCK_DATE;
+		};
+	});
+
+	afterEach(() => {
+		Date.now = originalDateNow;
+	});
+
 	describe("set", () => {
 		it("should ignore users not handled", () => {
 			const handler = getHandler();
@@ -112,6 +126,7 @@ describe("PresenceHandler", () => {
 			expect(handler["presenceQueue"][0]).eql({
 				mxid: "@_puppet_1_fox:example.org",
 				presence: "online",
+				last_sent: MOCK_DATE,
 			});
 		});
 		it("should update presence, should it already exist", () => {
@@ -127,6 +142,7 @@ describe("PresenceHandler", () => {
 			expect(handler["presenceQueue"][0]).eql({
 				mxid: "@_puppet_1_fox:example.org",
 				presence: "unavailable",
+				last_sent: MOCK_DATE,
 			});
 		});
 	});
@@ -162,6 +178,7 @@ describe("PresenceHandler", () => {
 			expect(handler["presenceQueue"][0]).eql({
 				mxid: "@_puppet_1_fox:example.org",
 				status: "fox",
+				last_sent: MOCK_DATE,
 			});
 		});
 		it("should update an status, should it already exist", () => {
@@ -182,6 +199,7 @@ describe("PresenceHandler", () => {
 			expect(handler["presenceQueue"][0]).eql({
 				mxid: "@_puppet_1_fox:example.org",
 				status: "raccoon",
+				last_sent: Date.now(),
 			});
 		});
 	});
@@ -213,6 +231,7 @@ describe("PresenceHandler", () => {
 			handler["presenceQueue"].push({
 				mxid: "@_puppet_1_fox:example.org",
 				status: "blah",
+				last_sent: 0,
 			});
 			handler.setStatusInRoom("@_puppet_1_fox:example.org", "!someroom:example.org");
 			expect(statusSet).to.be.true;
@@ -247,6 +266,7 @@ describe("PresenceHandler", () => {
 			handler["presenceQueue"].push({
 				mxid: "@_puppet_1_fox:example.org",
 				presence: "online",
+				last_sent: 0,
 			});
 			let setPresence = false;
 			handler["setMatrixPresence"] = async (info) => {
@@ -257,6 +277,7 @@ describe("PresenceHandler", () => {
 			expect(handler["presenceQueue"][0]).eql({
 				mxid: "@_puppet_1_fox:example.org",
 				presence: "online",
+				last_sent: MOCK_DATE,
 			});
 			expect(setPresence).to.be.true;
 		});
@@ -265,6 +286,7 @@ describe("PresenceHandler", () => {
 			handler["presenceQueue"].push({
 				mxid: "@_puppet_1_fox:example.org",
 				presence: "offline",
+				last_sent: 0,
 			});
 			let setPresence = false;
 			handler["setMatrixPresence"] = async (info) => {
@@ -283,6 +305,21 @@ describe("PresenceHandler", () => {
 			};
 			await handler["processIntervalThread"]();
 			expect(handler["presenceQueue"].length).to.equal(0);
+			expect(setPresence).to.be.false;
+		});
+		it("should not send fresh presence", async () => {
+			const handler = getHandler();
+			handler["presenceQueue"].push({
+				mxid: "@_puppet_1_fox:example.org",
+				presence: "online",
+				last_sent: Date.now() - 1,
+			});
+			let setPresence = false;
+			handler["setMatrixPresence"] = async (info) => {
+				setPresence = true;
+			};
+			await handler["processIntervalThread"]();
+			expect(handler["presenceQueue"].length).to.equal(1);
 			expect(setPresence).to.be.false;
 		});
 	});
@@ -314,6 +351,7 @@ describe("PresenceHandler", () => {
 			const info = {
 				mxid: "@_puppet_1_fox:example.org",
 				status: "Foxies!",
+				last_sent: 0,
 			};
 			await handler["setMatrixStatus"](info);
 			expect(roomCount).to.equal(2);
