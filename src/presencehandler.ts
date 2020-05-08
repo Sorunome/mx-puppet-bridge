@@ -15,6 +15,10 @@ import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
 import { PresenceConfig } from "./config";
 
+// tslint:disable no-magic-numbers
+const PRESENCE_SYNC_TIMEOUT = 1000 * 25; // synapse has a timeout of 30s, an extra 5s gives some slack
+// tslint:enable no-magic-numbers
+
 const log = new Log("PresenceHandler");
 
 export type MatrixPresence = "offline" | "online" | "unavailable";
@@ -23,6 +27,7 @@ interface IMatrixPresenceInfo {
 	mxid: string;
 	presence?: MatrixPresence;
 	status?: string;
+	last_sent: number;
 }
 
 interface IMatrixPresenceStatus {
@@ -78,6 +83,7 @@ export class PresenceHandler {
 			const p = {
 				mxid,
 				presence,
+				last_sent: Date.now(),
 			};
 			this.presenceQueue.push(p);
 			// do this async in the BG for live updates
@@ -85,6 +91,7 @@ export class PresenceHandler {
 			this.setMatrixPresence(p);
 		} else {
 			this.presenceQueue[index].presence = presence;
+			this.presenceQueue[index].last_sent = Date.now();
 			// do this async in the BG for live updates
 			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixPresence(this.presenceQueue[index]);
@@ -101,6 +108,7 @@ export class PresenceHandler {
 			const p = {
 				mxid,
 				status,
+				last_sent: Date.now(),
 			};
 			this.presenceQueue.push(p);
 			// do this async in the BG for live updates
@@ -110,6 +118,7 @@ export class PresenceHandler {
 			this.setMatrixPresence(p);
 		} else {
 			this.presenceQueue[index].status = status;
+			this.presenceQueue[index].last_sent = Date.now();
 			// do this async in the BG for live updates
 			// tslint:disable-next-line:no-floating-promises
 			this.setMatrixStatus(this.presenceQueue[index]);
@@ -146,11 +155,18 @@ export class PresenceHandler {
 	private async processIntervalThread() {
 		const info = this.presenceQueue.shift();
 		if (info) {
-			await this.setMatrixPresence(info);
-			if (info.presence !== "offline") {
-				this.presenceQueue.push(info);
+			const now = Date.now();
+			if ((now - info.last_sent) > PRESENCE_SYNC_TIMEOUT) {
+				await this.setMatrixPresence(info);
+				if (info.presence !== "offline") {
+					info.last_sent = now;
+					this.presenceQueue.push(info);
+				} else {
+					log.verbose(`Dropping ${info.mxid} from the presence queue.`);
+				}
 			} else {
-				log.verbose(`Dropping ${info.mxid} from the presence queue.`);
+				this.presenceQueue.push(info);
+				log.silly(`Not updating presence for ${info.mxid}, still fresh enough`);
 			}
 		}
 	}
