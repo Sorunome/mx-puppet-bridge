@@ -185,6 +185,14 @@ export class Provisioner {
 		if (!this.canCreate(puppetMxid)) {
 			return -1;
 		}
+		const userInfo = await this.puppetStore.getOrCreateMxidInfo(puppetMxid);
+		if (!userInfo.token) {
+			userInfo.token = await this.loginWithSharedSecret(puppetMxid);
+			if (userInfo.token) {
+				await this.puppetStore.setMxidInfo(userInfo);
+				log.info("Enabled double puppeting for", puppetMxid, "with shared secret login");
+			}
+		}
 		const isGlobal = Boolean(this.bridge.protocol.features.globalNamespace);
 		const puppetId = await this.puppetStore.new(puppetMxid, data, userId, isGlobal);
 		log.info(`Created new puppet with id ${puppetId}`);
