@@ -138,16 +138,9 @@ export class BotProvisioner {
 						break;
 					}
 				}
-				if (!senderInfo.token) {
-					const token = await this.provisioner.loginWithSharedSecret(sender);
-					if (token) {
-						await this.provisioner.setToken(sender, token);
-						log.info("Enabled double puppeting for", sender, "with shared secret login");
-					}
-				}
 				let data: IPuppetData;
 				try {
-					data = (await Promise.resolve(retData.data)) || {};
+					data = (await retData.data) || {};
 				} catch (err) {
 					log.warn("Failed to create/update link", err);
 					await this.sendMessage(roomId, `ERROR: ${err}`);
