@@ -331,6 +331,11 @@ export class PuppetBridge extends EventEmitter {
 	public async start(callback?: () => Promise<void>) {
 		log.info("Starting application service....");
 
+		process.on("SIGINT", () => {
+			this.AS.stop();
+			process.exit(1);
+		});
+
 		this.matrixEventHandler.registerAppserviceEvents();
 		this.provisioningAPI.registerProvisioningAPI();
 		await this.appservice.begin();
