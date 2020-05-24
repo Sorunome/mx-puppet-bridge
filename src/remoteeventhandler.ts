@@ -271,10 +271,13 @@ export class RemoteEventHandler {
 						const bodyParts = info.message.body.split("\n");
 						bodyParts[0] = `${info.message.emote ? "* " : ""}<${info.user.mxid}> ${bodyParts[0]}`;
 						send.body = `${bodyParts.map((l) => `> ${l}`).join("\n")}\n\n${send.body}`;
+						const matrixReplyRegex = /^<mx-reply>.*<\/mx-reply>/gs;
+						const messageWithoutNestedReplies = info.message.formattedBody?.replace(matrixReplyRegex, "");
+
 						const richHeader = `<mx-reply><blockquote>
 	<a href="https://matrix.to/#/${mxid}/${origEventId}">In reply to</a>
 	${info.message.emote ? "* " : ""}<a href="https://matrix.to/#/${info.user.mxid}">${info.user.mxid}</a>
-	<br>${info.message.formattedBody}
+	<br>${messageWithoutNestedReplies}
 </blockquote></mx-reply>`;
 						send.formatted_body = richHeader + send.formatted_body;
 					} else if (info.file) {
