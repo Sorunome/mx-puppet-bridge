@@ -31,7 +31,7 @@ const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
 interface ISingleBridgeInformation {
 	id: string;
 	displayname?: string;
-	avatar?: string;
+	avatar_url?: string;
 	external_url?: string;
 }
 
@@ -417,7 +417,7 @@ export class RoomSyncroniser {
 			displayname: this.bridge.protocol.displayname,
 		};
 		if (this.bridge.config.bridge.avatarUrl) {
-			protocol.avatar = this.bridge.config.bridge.avatarUrl;
+			protocol.avatar_url = this.bridge.config.bridge.avatarUrl;
 		}
 		if (this.bridge.protocol.externalUrl) {
 			protocol.external_url = this.bridge.protocol.externalUrl;
@@ -429,7 +429,7 @@ export class RoomSyncroniser {
 			channel.displayname = room.name;
 		}
 		if (room.avatarMxc) {
-			channel.avatar = room.avatarMxc;
+			channel.avatar_url = room.avatarMxc;
 		}
 		if (room.externalUrl) {
 			channel.external_url = room.externalUrl;
@@ -453,7 +453,7 @@ export class RoomSyncroniser {
 					network.displayname = group.name;
 				}
 				if (group.avatarMxc) {
-					network.avatar = group.avatarMxc;
+					network.avatar_url = group.avatarMxc;
 				}
 				if (group.externalUrl) {
 					network.external_url = group.externalUrl;
