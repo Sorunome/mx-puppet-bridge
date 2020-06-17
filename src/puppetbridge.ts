@@ -51,11 +51,10 @@ import { RemoteEventHandler } from "./remoteeventhandler";
 import { NamespaceHandler } from "./namespacehandler";
 import { DelayedFunction } from "./structures/delayedfunction";
 import {
-	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IFileEvent, RetDataFn,
-	IRetData, IRetList, IProtocolInformation, CreateRoomHook, CreateUserHook, CreateGroupHook, GetDescHook,
-	BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook, ListRoomsHook, IRemoteUser, IRemoteRoom,
-	IRemoteGroup, IPuppetData, GetUserIdsInRoomHook, UserExistsHook, RoomExistsHook, GroupExistsHook, ResolveRoomIdHook,
-	IEventInfo,
+	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IProtocolInformation, CreateRoomHook,
+	CreateUserHook, CreateGroupHook, GetDescHook, BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook,
+	ListRoomsHook, ListGroupsHook, IRemoteUser, IRemoteRoom, IRemoteGroup, IPuppetData, GetUserIdsInRoomHook,
+	UserExistsHook, RoomExistsHook, GroupExistsHook, ResolveRoomIdHook, IEventInfo,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -79,6 +78,7 @@ export interface IPuppetBridgeHooks {
 	getDmRoomId?: GetDmRoomIdHook;
 	listUsers?: ListUsersHook;
 	listRooms?: ListRoomsHook;
+	listGroups?: ListGroupsHook;
 	getUserIdsInRoom?: GetUserIdsInRoomHook;
 	resolveRoomId?: ResolveRoomIdHook;
 }
@@ -435,6 +435,10 @@ export class PuppetBridge extends EventEmitter {
 
 	public setListRoomsHook(hook: ListRoomsHook) {
 		this.hooks.listRooms = hook;
+	}
+
+	public setListGroupsHook(hook: ListGroupsHook) {
+		this.hooks.listGroups = hook;
 	}
 
 	public setGetUserIdsInRoomHook(hook: GetUserIdsInRoomHook) {
