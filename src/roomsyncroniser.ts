@@ -31,11 +31,12 @@ const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
 interface ISingleBridgeInformation {
 	id: string;
 	displayname?: string;
-	avatar?: string;
+	avatar_url?: string;
 	external_url?: string;
 }
 
 interface IBridgeInformation {
+	bridgebot?: string;
 	creator?: string;
 	protocol: ISingleBridgeInformation;
 	network?: ISingleBridgeInformation;
@@ -306,6 +307,9 @@ export class RoomSyncroniser {
 			if (doUpdate) {
 				log.verbose("Storing update to DB");
 				await this.roomStore.set(room);
+				log.verbose("Room info changed in getMxid, updating bridge info state event");
+				// This might use getMxid itself, so do it in the background to avoid duplicate locks
+				this.updateBridgeInformation(data).catch(err => log.error("Failed to update bridge info state event:", err));
 			}
 
 			this.mxidLock.release(lockKey);
@@ -392,7 +396,7 @@ export class RoomSyncroniser {
 	}
 
 	public async updateBridgeInformation(data: IRemoteRoom) {
-		log.info("Updating bridge infromation state event");
+		log.info("Updating bridge information state event");
 		const room = await this.maybeGet(data);
 		if (!room) {
 			log.warn("Room not found");
@@ -406,13 +410,14 @@ export class RoomSyncroniser {
 		const e = (s: string) => encodeURIComponent(Util.str2mxid(s));
 		const stateKey = `de.sorunome.mx-puppet-bridge://${this.bridge.protocol.id}` +
 			`${room.groupId ? "/" + e(room.groupId) : ""}/${e(room.roomId)}`;
+		const bridgebot = this.bridge.botIntent.userId;
 		const creator = await this.bridge.provisioner.getMxid(data.puppetId);
 		const protocol: ISingleBridgeInformation = {
 			id: this.bridge.protocol.id,
 			displayname: this.bridge.protocol.displayname,
 		};
 		if (this.bridge.config.bridge.avatarUrl) {
-			protocol.avatar = this.bridge.config.bridge.avatarUrl;
+			protocol.avatar_url = this.bridge.config.bridge.avatarUrl;
 		}
 		if (this.bridge.protocol.externalUrl) {
 			protocol.external_url = this.bridge.protocol.externalUrl;
@@ -424,12 +429,13 @@ export class RoomSyncroniser {
 			channel.displayname = room.name;
 		}
 		if (room.avatarMxc) {
-			channel.avatar = room.avatarMxc;
+			channel.avatar_url = room.avatarMxc;
 		}
 		if (room.externalUrl) {
 			channel.external_url = room.externalUrl;
 		}
 		const content: IBridgeInformation = {
+			bridgebot,
 			creator,
 			protocol,
 			channel,
@@ -447,7 +453,7 @@ export class RoomSyncroniser {
 					network.displayname = group.name;
 				}
 				if (group.avatarMxc) {
-					network.avatar = group.avatarMxc;
+					network.avatar_url = group.avatarMxc;
 				}
 				if (group.externalUrl) {
 					network.external_url = group.externalUrl;
@@ -460,6 +466,13 @@ export class RoomSyncroniser {
 		await client.sendStateEvent(
 			room.mxid,
 			"m.bridge",
+			stateKey,
+			content,
+		);
+		// TODO remove this once https://github.com/matrix-org/matrix-doc/pull/2346 is in spec
+		await client.sendStateEvent(
+			room.mxid,
+			"uk.half-shot.bridge",
 			stateKey,
 			content,
 		);
