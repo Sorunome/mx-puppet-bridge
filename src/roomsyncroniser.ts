@@ -309,7 +309,7 @@ export class RoomSyncroniser {
 				await this.roomStore.set(room);
 				log.verbose("Room info changed in getMxid, updating bridge info state event");
 				// This might use getMxid itself, so do it in the background to avoid duplicate locks
-				this.updateBridgeInformation(data).catch(err => log.error("Failed to update bridge info state event:", err));
+				this.updateBridgeInformation(data).catch((err) => log.error("Failed to update bridge info state event:", err));
 			}
 
 			this.mxidLock.release(lockKey);
