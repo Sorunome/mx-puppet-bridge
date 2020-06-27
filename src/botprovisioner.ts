@@ -608,6 +608,31 @@ Usage: \`fixghosts <room resolvable>\``,
 			withPid: false,
 			inRoom: true,
 		});
+		this.registerCommand("resendbridgeinfo", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				await sendMessage("Re-sending bridge information state events...");
+				const puppets = await this.provisioner.getForMxid(sender);
+				const puppetIds = await Promise.all(puppets.map(puppet =>
+					this.bridge.namespaceHandler.getDbPuppetId(puppet.puppetId)
+						.catch(err => log.warning(`Failed to get DB puppet ID for ${puppet.puppetId}:`, err))));
+				const uniquePuppetIds = [...new Set(puppetIds)]
+				const roomLists = await Promise.all(uniquePuppetIds.map(puppetId => puppetId
+					? this.bridge.roomStore.getByPuppetId(puppetId)
+						.catch(err => log.warning(`Failed to find puppet by ID ${puppetId}:`, err))
+					: Promise.resolve(null)));
+				const rooms = await Promise.all(roomLists.flatMap(roomList => roomList
+					? roomList.map(room => this.bridge.namespaceHandler.getRemoteRoom(room, sender)
+						.catch(err => log.warning(`Failed to get remote room ${room.puppetId}/${room.roomId}:`, err)))
+					: Promise.resolve(null)));
+				await Promise.all(rooms.map(room => room &&
+					this.bridge.roomSync.updateBridgeInformation(room)
+					.catch(err => log.warning(`Failed to update bridge info in ${room.roomId}:`, err))));
+				await sendMessage("Bridge information state event re-sent to all your rooms");
+			},
+			help: `Re-send bridge info state events to all rooms.`,
+			withPid: false,
+			inRoom: false,
+		});
 	}
 
 	private async sendMessage(roomId: string, message: string, client?: MatrixClient | null) {
