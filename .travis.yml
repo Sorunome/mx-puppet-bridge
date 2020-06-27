@@ -1,0 +1,20 @@
+dist: xenial
+language: node_js
+install: npm install
+
+cache:
+  directories:
+    - node_modules
+
+jobs:
+  include:
+    - stage: lint
+      script: npm run lint
+      node_js: "12"
+    - stage: unit tests
+      script: npm run test
+      node_js: "10"
+    - node_js: "12"
+    - stage: coverage
+      script: npm run coverage
+      node_js: "12"
