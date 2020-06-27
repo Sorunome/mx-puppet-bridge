@@ -203,5 +203,6 @@ export type GetDataFromStrHook = (str: string) => Promise<IRetData>;
 export type GetDmRoomIdHook = (user: IRemoteUser) => Promise<string | null>;
 export type ListUsersHook = (puppetId: number) => Promise<IRetList[]>;
 export type ListRoomsHook = (puppetId: number) => Promise<IRetList[]>;
+export type ListGroupsHook = (puppetId: number) => Promise<IRetList[]>;
 export type GetUserIdsInRoomHook = (room: IRemoteRoom) => Promise<Set<string> | null>;
 export type ResolveRoomIdHook = (ident: string) => Promise<string | null>;

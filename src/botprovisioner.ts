@@ -471,6 +471,44 @@ Usage: \`listusers\``,
 Usage: \`listrooms\``,
 			withPid: false,
 		});
+		this.registerCommand("listgroups", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
+				if (!this.bridge.hooks.listGroups) {
+					await sendMessage("Feature not implemented!");
+					return;
+				} else if (!this.bridge.groupSyncEnabled) {
+					await sendMessage("Group sync is not enabled!");
+					return;
+				}
+				const descs = await this.provisioner.getDescMxid(sender);
+				if (descs.length === 0) {
+					await sendMessage("Nothing linked yet!");
+					return;
+				}
+				let reply = "";
+				for (const d of descs) {
+					const groups = await this.bridge.hooks.listGroups(d.puppetId);
+					reply += `### ${d.puppetId}: ${d.desc}:\n\n`;
+					for (const g of groups) {
+						const mxid = await this.bridge.groupSync.getMxid({
+							puppetId: d.puppetId,
+							groupId: g.id!,
+						});
+						const replyPart = ` - ${g.name}: [${g.name}](https://matrix.to/#/${mxid})\n`;
+						if (reply.length + replyPart.length > MAX_MSG_SIZE) {
+							await sendMessage(reply);
+							reply = "";
+						}
+						reply += replyPart;
+					}
+				}
+				await sendMessage(reply);
+			},
+			help: `Synchronize and list all groups that are linked currently, from all links.
+
+Usage: \`listgroups\``,
+			withPid: false,
+		});
 		this.registerCommand("settype", {
 			fn: async (puppetId: number, param: string, sendMessage: SendMessageFn) => {
 				if (!PUPPET_TYPES.includes(param as PuppetType)) {
