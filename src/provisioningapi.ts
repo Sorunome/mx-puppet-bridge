@@ -14,6 +14,7 @@ limitations under the License.
 import { PuppetBridge } from "./puppetbridge";
 import { Router, Request, Response } from "express";
 import { IPuppet } from "./db/puppetstore";
+import { createHmac } from "crypto";
 
 const OK = 200;
 const CREATED = 201;
@@ -60,16 +61,27 @@ export class ProvisioningAPI {
 		return this.apiRouterV1;
 	}
 
+	private isValidAuth(auth: string | undefined, user_id: string): boolean {
+		if (!auth || !auth.startsWith("Bearer ")) {
+			return false;
+		}
+
+		auth = auth.slice("Bearer ".length);
+		if (auth === this.apiSharedSecret) {
+			return true;
+		}
+
+		const secret = createHmac("sha512", this.apiSharedSecret)
+			.update(Buffer.from(user_id, "utf-8"))
+			.digest("hex");
+		return auth === secret;
+	}
+
 	private async checkProvisioningSharedSecret(req: IAuthedRequest, res: Response, next: () => void) {
 		if (!this.apiSharedSecret) {
 			res.status(FORBIDDEN).json({
 				error: "The provisioning API is disabled",
 				errcode: "M_FORBIDDEN",
-			});
-		} else if (req.header("Authorization") !== `Bearer ${this.apiSharedSecret}`) {
-			res.status(UNAUTHORIZED).json({
-				error: "Unknown or missing token",
-				errcode: "M_UNKNOWN_TOKEN",
 			});
 		} else if (!req.query.user_id) {
 			res.status(BAD_REQUEST).json({
@@ -80,6 +92,11 @@ export class ProvisioningAPI {
 			res.status(BAD_REQUEST).json({
 				error: "user_id query parameter isn't a string?",
 				errcode: "M_BAD_REQUEST",
+			});
+		} else if (!this.isValidAuth(req.header("Authorization"), req.query.user_id)) {
+			res.status(UNAUTHORIZED).json({
+				error: "Unknown or missing token",
+				errcode: "M_UNKNOWN_TOKEN",
 			});
 		} else {
 			req.userId = req.query.user_id;
