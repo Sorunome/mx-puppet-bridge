@@ -146,7 +146,7 @@ export class MatrixEventHandler {
 
 	private async handleGhostJoinEvent(roomId: string, event: MembershipEvent) {
 		// if we were already membership "join" we just changed avatar / displayname
-		if ((event.raw.prev_content. || event.unsigned.prev_content || {}).membership === "join") {
+		if ((event.raw.prev_content || event.unsigned.prev_content || {}).membership === "join") {
 			return;
 		}
 		const ghostId = event.membershipFor;

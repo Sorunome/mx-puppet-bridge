@@ -28,7 +28,7 @@ import { Util } from "./util";
 import { PuppetBridge } from "./puppetbridge";
 const log = new Log("Store");
 
-export const CURRENT_SCHEMA = 15;
+export const CURRENT_SCHEMA = 16;
 
 type GetSchemaClass = (version: number) => IDbSchema;
 
@@ -104,6 +104,7 @@ export class Store {
 			} catch (ex) {
 				log.error("Couldn't update database to schema ", version);
 				log.error(ex);
+				log.error("Schema migration failed! Please visit #mx-puppet-bridge:sorunome.de and ask for help!");
 				log.info("Rolling back to version ", version - 1);
 				try {
 					await schema.rollBack(this);
