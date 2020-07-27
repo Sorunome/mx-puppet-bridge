@@ -145,6 +145,10 @@ export class MatrixEventHandler {
 	}
 
 	private async handleGhostJoinEvent(roomId: string, event: MembershipEvent) {
+		// if we were already membership "join" we just changed avatar / displayname
+		if ((event.raw.prev_content. || event.unsigned.prev_content || {}).membership === "join") {
+			return;
+		}
 		const ghostId = event.membershipFor;
 		log.info(`Got new ghost join event from ${ghostId} in ${roomId}...`);
 		// we CAN'T check for if the room exists here, as if we create a new room
