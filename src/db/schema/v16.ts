@@ -15,16 +15,22 @@ import { IDbSchema } from "./dbschema";
 import { Store } from "../../store";
 import { Log } from "../../log";
 
-async function createIndex(store: Store, table: string, columns: string[]) {
+async function createIndex(store: Store, table: string, columns: string[], wipe: boolean = false) {
 	const columnsStr = columns.join(", ");
 	try {
 		await store.db.Exec(`CREATE UNIQUE INDEX ${table}_unique ON ${table} (${columnsStr})`);
 	} catch (err) {
-		if (store.db.type === "postgres") {
-			const wherestr = columns.map((c) => `a.${c} = b.${c}`).join(" AND ");
-			await store.db.Exec(`DELETE FROM ${table} a WHERE a.ctid <> (SELECT min(b.ctid) FROM ${table} b WHERE ${wherestr})`);
+		if (wipe) {
+			await store.db.Exec(`DELETE FROM ${table}`);
 		} else {
-			await store.db.Exec(`DELETE FROM ${table} WHERE rowid NOT IN (SELECT min(rowid) FROM ${table} GROUP BY ${columnsStr})`);
+			if (store.db.type === "postgres") {
+				const wherestr = columns.map((c) => `a.${c} = b.${c}`).join(" AND ");
+				await store.db.Exec(
+					`DELETE FROM ${table} a WHERE a.ctid <> (SELECT min(b.ctid) FROM ${table} b WHERE ${wherestr})`,
+				);
+			} else {
+				await store.db.Exec(`DELETE FROM ${table} WHERE rowid NOT IN (SELECT min(rowid) FROM ${table} GROUP BY ${columnsStr})`);
+			}
 		}
 		await store.db.Exec(`CREATE UNIQUE INDEX ${table}_unique ON ${table} (${columnsStr})`);
 	}
@@ -36,17 +42,18 @@ const indexes = [
 	["group_store_rooms", ["puppet_id", "group_id", "room_id"]],
 	["ghosts_joined_chans", ["ghost_mxid", "chan_mxid"]],
 	["puppet_mxid_store", ["puppet_mxid"]],
-	["emote_store", ["puppet_id", "room_id", "emote_id"]],
+	["emote_store", ["puppet_id", "room_id", "emote_id"], true],
 	["reaction_store", ["puppet_id", "room_id", "user_id", "event_id", "key"]],
-	["user_store", ["puppet_id", "user_id"]],
-	["user_store_room_override", ["puppet_id", "user_id", "room_id"]],
+	["user_store", ["puppet_id", "user_id"], true],
+	["user_store_room_override", ["puppet_id", "user_id", "room_id"], true],
 ];
 
 export class Schema implements IDbSchema {
 	public description = "add unique indexes";
 	public async run(store: Store) {
 		for (const i of indexes) {
-			await createIndex(store, i[0] as string, i[1] as string[]);
+			// tslint:disable-next-line no-magic-numbers
+			await createIndex(store, i[0] as string, i[1] as string[], i[2] as boolean);
 		}
 	}
 	public async rollBack(store: Store) {
