@@ -199,9 +199,9 @@ export class RoomSyncroniser {
 					invite: invites ? Array.from(invites) : null,
 					initial_state: [],
 				} as any; // tslint:disable-line no-any
+				const suffix = await this.bridge.namespaceHandler.getSuffix(dbPuppetId, data.roomId);
 				if (!data.isDirect) {
 					// we also want to set an alias for later reference
-					const suffix = await this.bridge.namespaceHandler.getSuffix(dbPuppetId, data.roomId);
 					createParams.room_alias_name = this.bridge.AS.getAliasLocalpartForSuffix(suffix);
 					createParams.initial_state.push({
 						type: "m.room.canonical_alias",
@@ -227,7 +227,17 @@ export class RoomSyncroniser {
 					});
 				}
 				log.verbose("Creating room with create parameters", createParams);
-				mxid = await client!.createRoom(createParams);
+				try {
+					mxid = await client!.createRoom(createParams);
+				} catch (err) {
+					if (err.body.errcode === "M_ROOM_IN_USE") {
+						const ret = await this.attemptRoomRestore(this.bridge.AS.getAliasForSuffix(suffix));
+						mxid = ret.mxid;
+						client = ret.client;
+					} else {
+						throw err;
+					}
+				}
 				await this.roomStore.setRoomOp(mxid, await client!.getUserId());
 				room = this.roomStore.newData(mxid, data.roomId, dbPuppetId);
 				room = Object.assign(room, updateProfile);
@@ -793,6 +803,36 @@ export class RoomSyncroniser {
 				return null;
 			}
 		}
+	}
+
+	private async attemptRoomRestore(alias: string): Promise<{ mxid: string, client: MatrixClient }> {
+		log.warn(`Attempting to restore room with alias ${alias}...`);
+		const botClient = this.bridge.botIntent.underlyingClient;
+		const roomId = await botClient.resolveRoom(alias);
+		log.verbose(`Got room id ${roomId}`);
+		let client = await this.getRoomOp(roomId);
+		if (client) {
+			log.verbose("Got old op client, verifying if it is still intact...");
+			if (await client.userHasPowerLevelFor(await client.getUserId(), roomId, "m.room.message", false)) {
+				log.info("Found old and intact room, returning...");
+				return {
+					mxid: roomId,
+					client,
+				};
+			}
+		}
+		client = this.bridge.botIntent.underlyingClient;
+		log.verbose("Testing bot client...");
+		// we just test if we can fetch members, so if we are in the room
+		const members = await client.getJoinedRoomMembers(roomId);
+		if (members.includes(await client.getUserId())) {
+			// bot client is in it, all is fine
+			return {
+				mxid: roomId,
+				client,
+			};
+		}
+		throw new Error("Unable to recover room");
 	}
 
 	private async giveOp(client: MatrixClient, roomMxid: string, newOp: string) {
