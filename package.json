@@ -1,6 +1,6 @@
 {
   "name": "mx-puppet-bridge",
-  "version": "0.0.44",
+  "version": "0.0.45",
   "description": "Matrix Puppeting Bridge library",
   "repository": {
     "type": "git",
