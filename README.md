@@ -81,7 +81,7 @@ protocol implementation may add additional parsing to the remote room ID to allo
 It can be a hassle to have to tell the bridge what your access token is to enable double-puppeting.
 To circumvent that automatic double-puppeting is available. Configure your homeserver with
 [matrix-synapse-secret-auth](https://github.com/devture/matrix-synapse-shared-secret-auth) and set
-the secert for that homeserver in the `bridge.loginSharedSecretMap` mapping.
+the secret for that homeserver in the `bridge.loginSharedSecretMap` mapping.
 
 ### Adding of metadata for images, videos and audio
 Sent images, video and audio can have metadata added to them, for that make sure that `ffprobe`
