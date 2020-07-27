@@ -24,18 +24,22 @@ import { StringFormatter } from "./structures/stringformatter";
 
 const log = new Log("UserSync");
 
-// tslint:disable-next-line:no-magic-numbers
+// tslint:disable no-magic-numbers
 const CLIENT_LOOKUP_LOCK_TIMEOUT = 1000 * 60;
+const ROOM_OVERRIDE_LOCK_TIMEOUT = 1000 * 60;
 const MATRIX_URL_SCHEME_MASK = "https://matrix.to/#/";
+// tslint:enable no-magic-numbers
 
 export class UserSyncroniser {
 	private userStore: DbUserStore;
 	private clientLock: Lock<string>;
+	private roomOverrideLock: Lock<string>;
 	constructor(
 		private bridge: PuppetBridge,
 	) {
 		this.userStore = this.bridge.userStore;
 		this.clientLock = new Lock(CLIENT_LOOKUP_LOCK_TIMEOUT);
+		this.roomOverrideLock = new Lock(ROOM_OVERRIDE_LOCK_TIMEOUT);
 	}
 
 	public async getClientFromTokenCallback(token: ITokenResponse | null): Promise<MatrixClient | null> {
@@ -321,8 +325,11 @@ export class UserSyncroniser {
 		roomOverride: IRemoteUserRoomOverride,
 		origUserData?: IUserStoreEntry,
 	) {
+		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(userData.puppetId);
+		const lockKey = `${dbPuppetId};${userData.userId};${roomId}`;
 		try {
-			const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(userData.puppetId);
+			await this.roomOverrideLock.wait(lockKey);
+			this.roomOverrideLock.set(lockKey);
 			log.info(`Updating room override for puppet ${dbPuppetId} ${userData.userId} in ${roomId}`);
 			let user = await this.userStore.getRoomOverride(dbPuppetId, userData.userId, roomId);
 			const newRoomOverride = await Util.ProcessProfileUpdate(
@@ -351,5 +358,6 @@ export class UserSyncroniser {
 		} catch (err) {
 			log.error(`Error setting room overrides for ${userData.userId} in ${roomId}:`, err.error || err.body || err);
 		}
+		this.roomOverrideLock.release(lockKey);
 	}
 }
