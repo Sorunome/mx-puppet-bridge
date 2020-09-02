@@ -22,9 +22,7 @@ import { IProfileDbEntry } from "./db/interfaces";
 import { IRemoteProfile } from "./interfaces";
 import { StringFormatter } from "./structures/stringformatter";
 import { spawn } from "child_process";
-import got, { Response } from "got";
-// This import is weird and needs to stay weird as it isn't exported in the index file of got
-import { OptionsOfDefaultResponseBody } from "got/dist/source/create";
+import got, { Response, OptionsOfBufferResponseBody } from "got";
 
 const log = new Log("Util");
 
@@ -37,7 +35,10 @@ export interface IMakeUploadFileData {
 }
 
 export class Util {
-	public static async DownloadFile(url: string, options: OptionsOfDefaultResponseBody = {}): Promise<Buffer> {
+	public static async DownloadFile(
+		url: string,
+		options: OptionsOfBufferResponseBody = {responseType: "buffer"},
+	): Promise<Buffer> {
 		if (!options.method) {
 			options.method = "GET";
 		}
