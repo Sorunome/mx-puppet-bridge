@@ -287,7 +287,7 @@ export class Util {
 			cmd.on("close", (code: number) => {
 				clearTimeout(timeout);
 				try {
-					resolve(Number(databuf));
+					resolve(Number(databuf.replace(/.*(\d+).*/, "$1")));
 				} catch (err) {
 					reject(err);
 				}

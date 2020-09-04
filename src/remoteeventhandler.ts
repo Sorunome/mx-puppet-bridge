@@ -23,6 +23,7 @@ import {
 } from "@sorunome/matrix-bot-sdk";
 import * as escapeHtml from "escape-html";
 import { encode as blurhashEncode } from "blurhash";
+import * as Canvas from "canvas";
 
 const log = new Log("RemoteEventHandler");
 
@@ -408,11 +409,34 @@ export class RemoteEventHandler {
 				} catch (err) {
 					log.debug("Error fetching exif orientation for image", err);
 				}
-				if (i.w && i.h) {
-					const BLURHASH_CHUNKS = 4;
+				const BLURHASH_CHUNKS = 4;
+				const image = await new Promise<Canvas.Image>((resolve, reject) => {
+					const img = new Canvas.Image();
+					img.onload = () => resolve(img);
+					img.onerror = (...args) => reject(args);
+					img.src = "data:image/png;base64," + buffer.toString("base64");
+				});
+				let drawWidth = image.width;
+				let drawHeight = image.height;
+				const drawMax = 50;
+				if (drawWidth > drawMax || drawHeight > drawMax) {
+					if (drawWidth > drawHeight) {
+						drawHeight = Math.round(drawMax * (drawHeight / drawWidth));
+						drawWidth = drawMax;
+					} else {
+						drawWidth = Math.round(drawMax * (drawWidth / drawHeight));
+						drawHeight = drawMax;
+					}
+				}
+
+				const canvas = Canvas.createCanvas(drawWidth, drawHeight);
+				const context = canvas.getContext("2d");
+				if (context) {
+					context.drawImage(image, 0, 0, drawWidth, drawHeight);
+					const blurhashImageData = context.getImageData(0, 0, drawWidth, drawHeight);
 					// tslint:disable-next-line no-any
 					(i as any)["xyz.amorgan.blurhash"] = blurhashEncode(
-						new Uint8ClampedArray(buffer), i.w, i.h, BLURHASH_CHUNKS, BLURHASH_CHUNKS,
+						blurhashImageData.data, drawWidth, drawHeight, BLURHASH_CHUNKS, BLURHASH_CHUNKS,
 					);
 				}
 			} catch (err) {
