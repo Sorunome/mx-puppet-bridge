@@ -266,4 +266,34 @@ export class Util {
 			cmd.stdin.end(buffer);
 		});
 	}
+
+	public static async getExifOrientation(buffer: Buffer): Promise<number> {
+		return new Promise<number>((resolve, reject) => {
+			const cmd = spawn("identify", ["-format", "'%[EXIF:Orientation]'", "-"]);
+			const TIMEOUT = 5000;
+			const timeout = setTimeout(() => {
+				cmd.kill();
+			}, TIMEOUT);
+			let databuf = "";
+			cmd.stdout.on("data", (data: string) => {
+				databuf += data;
+			});
+			cmd.stdout.on("error", (error) => {}); // disregard
+			cmd.on("error", (error) => {
+				cmd.kill();
+				clearTimeout(timeout);
+				reject(error);
+			});
+			cmd.on("close", (code: number) => {
+				clearTimeout(timeout);
+				try {
+					resolve(Number(databuf));
+				} catch (err) {
+					reject(err);
+				}
+			});
+			cmd.stdin.on("error", (error) => {}); // disregard
+			cmd.stdin.end(buffer);
+		});
+	}
 }

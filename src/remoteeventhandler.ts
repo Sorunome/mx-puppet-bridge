@@ -22,6 +22,7 @@ import {
 	VideoFileInfo, TimedFileInfo, MessageEvent, MessageEventContent,
 } from "@sorunome/matrix-bot-sdk";
 import * as escapeHtml from "escape-html";
+import { encode as blurhashEncode } from "blurhash";
 
 const log = new Log("RemoteEventHandler");
 
@@ -394,6 +395,25 @@ export class RemoteEventHandler {
 				}
 				if (typeof imageData.height === "number") {
 					i.h = imageData.height;
+				}
+				try {
+					const orientation = await Util.getExifOrientation(buffer);
+					const FIRST_EXIF_ROTATED = 5;
+					if (orientation > FIRST_EXIF_ROTATED) {
+						// flip width and height
+						const tmp = i.w;
+						i.w = i.h;
+						i.h = tmp;
+					}
+				} catch (err) {
+					log.debug("Error fetching exif orientation for image", err);
+				}
+				if (i.w && i.h) {
+					const BLURHASH_CHUNKS = 4;
+					// tslint:disable-next-line no-any
+					(i as any)["xyz.amorgan.blurhash"] = blurhashEncode(
+						new Uint8ClampedArray(buffer), i.w, i.h, BLURHASH_CHUNKS, BLURHASH_CHUNKS,
+					);
 				}
 			} catch (err) {
 				log.debug("Error adding information for image", err);

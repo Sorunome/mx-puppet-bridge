@@ -347,10 +347,13 @@ export class PuppetBridge extends EventEmitter {
 		}
 		const setBotProfile = async () => {
 			try {
-				if (displayname) {
+				const currProfile = await this.appservice.botIntent.underlyingClient.getUserProfile(
+					this.appservice.botIntent.userId,
+				);
+				if (displayname && displayname !== currProfile.displayname) {
 					await this.appservice.botIntent.underlyingClient.setDisplayName(displayname);
 				}
-				if (this.config.bridge.avatarUrl) {
+				if (this.config.bridge.avatarUrl && this.config.bridge.avatarUrl !== currProfile.avatar_url) {
 					await this.appservice.botIntent.underlyingClient.setAvatarUrl(this.config.bridge.avatarUrl);
 				}
 			} catch (err) {
