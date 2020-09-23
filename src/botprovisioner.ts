@@ -528,7 +528,7 @@ Usage: \`settype <puppetId> <type>\``,
 				await this.provisioner.setIsPublic(puppetId, isPublic);
 				await sendMessage(`Set puppet to ${isPublic ? "public" : "private"}`);
 			},
-			help: `Sets if the given puppet is public.
+			help: `Sets if the given puppet creates rooms as public or invite-only.
 
 Usage: \`setispublic <puppetId> <1/0>`,
 		});
@@ -539,7 +539,7 @@ Usage: \`setispublic <puppetId> <1/0>`,
 					await this.provisioner.setIsGlobalNamespace(puppetId, isGlobal);
 					await sendMessage(`Set puppet to ${isGlobal ? "global" : "private"} namespace`);
 				},
-				help: `Sets if the given puppet is public.
+				help: `Sets if the given puppet creates shared or separate rooms for multiple users accessing the same bridged room.
 
 Usage: \`setisglobalnamespace <puppetId> <1/0>\``,
 			});
@@ -550,7 +550,7 @@ Usage: \`setisglobalnamespace <puppetId> <1/0>\``,
 				await this.provisioner.setAutoinvite(puppetId, autoinvite);
 				await sendMessage(`Set puppet to ${autoinvite ? "autoinvite" : "ignore"}`);
 			},
-			help: `Sets if the given puppet should autoinvite you to new rooms.
+			help: `Sets if the given puppet should autoinvite you to newly bridged rooms.
 
 Usage: \`setautoinvite <puppetId> <1/0>`,
 		});
