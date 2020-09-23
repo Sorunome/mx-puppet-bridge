@@ -370,9 +370,13 @@ export class Provisioner {
 		if (!roomParts) {
 			return false;
 		}
-		const room = await this.bridge.roomSync.maybeGet(roomParts);
+		let room = await this.bridge.roomSync.maybeGet(roomParts);
 		if (!room) {
-			return false;
+			await this.bridge.bridgeRoom(roomParts);
+			room = await this.bridge.roomSync.maybeGet(roomParts);
+			if (!room) {
+				return false;
+			}
 		}
 		if (await this.bridge.namespaceHandler.canSeeRoom(room, userId)) {
 			const client = (await this.bridge.roomSync.getRoomOp(room.mxid)) || this.bridge.botIntent.underlyingClient;
