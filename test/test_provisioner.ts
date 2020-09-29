@@ -122,6 +122,11 @@ function getProvisioner() {
 				PUPPETSTORE_DELETE = puppetId;
 			},
 		},
+		roomStore: {
+			getAll: async () => {
+				return [];
+			},
+		},
 		config: {
 			bridge: {
 				loginSharedSecretMap: {

@@ -45,6 +45,18 @@ export class DbRoomStore {
 		};
 	}
 
+	public async getAll(): Promise<IRoomStoreEntry[]> {
+		const rows = await this.db.All("SELECT * FROM room_store");
+		const results: IRoomStoreEntry[] = [];
+		for (const row of rows) {
+			const res = this.getFromRow(row);
+			if (res) {
+				results.push(res);
+			}
+		}
+		return results;
+	}
+
 	public async getByRemote(puppetId: number, roomId: string): Promise<IRoomStoreEntry | null> {
 		const cached = this.remoteCache.get(`${puppetId};${roomId}`);
 		if (cached) {
