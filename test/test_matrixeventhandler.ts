@@ -306,6 +306,7 @@ function getHandler(opts?: IHandlerOpts) {
 				return [];
 			},
 			canRelay: (mxid) => !mxid.startsWith("@bad"),
+			adjustMute: async (userId, room) => {},
 		},
 		eventSync: {
 			getRemote: (room, mxid) => {

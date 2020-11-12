@@ -182,6 +182,11 @@ export class MatrixEventHandler {
 	private async handleUserJoinEvent(roomId: string, event: MembershipEvent) {
 		const userId = event.membershipFor;
 		log.info(`Got new user join event from ${userId} in ${roomId}...`);
+		try {
+			await this.bridge.provisioner.adjustMute(userId, roomId);
+		} catch (err) {
+			log.error("Error checking mute status", err.error || err.body || err);
+		}
 		const room = await this.getRoomParts(roomId, event.sender);
 		if (!room) {
 			log.verbose("Room not found, ignoring...");

@@ -197,6 +197,10 @@ export class Provisioner {
 		const puppetId = await this.puppetStore.new(puppetMxid, data, userId, isGlobal);
 		log.info(`Created new puppet with id ${puppetId}`);
 		this.bridge.emit("puppetNew", puppetId, data);
+		const WAIT_CONNECT_TIMEOUT = 10000;
+		setTimeout(async () => {
+			await this.adjustMuteListRooms(puppetId, puppetMxid);
+		}, WAIT_CONNECT_TIMEOUT);
 		return puppetId;
 	}
 
@@ -224,6 +228,7 @@ export class Provisioner {
 		}
 		await this.bridge.roomSync.deleteForPuppet(puppetId);
 		await this.puppetStore.delete(puppetId);
+		await this.adjustMuteEverywhere(puppetMxid);
 		this.bridge.emit("puppetDelete", puppetId);
 	}
 
@@ -363,6 +368,86 @@ export class Provisioner {
 			throw new Error(`The user (${userId}) isn't in room ${room.mxid}`);
 		}
 		await client.setUserPowerLevel(userId, room.mxid, ADMIN_POWER_LEVEL);
+	}
+
+	public async adjustMute(userId: string, room: string) {
+		const MUTED_POWER_LEVEL = -1;
+		const UNMUTED_POWER_LEVEL = 0;
+		log.verbose(`Adjusting Mute for ${userId} in ${room}`);
+
+		let currentLevel = UNMUTED_POWER_LEVEL;
+		const client = await this.bridge.roomSync.getRoomOp(room);
+		if (!client) {
+			throw new Error("Failed to get operator of " + room);
+		}
+		if (!await client.userHasPowerLevelFor(userId, room, "m.room.message", false)) {
+			currentLevel = MUTED_POWER_LEVEL;
+		}
+
+		let targetLevel = UNMUTED_POWER_LEVEL;
+		const roomParts = await this.bridge.roomSync.resolve(room);
+		if (!roomParts) {
+			throw new Error("Failed to resolve room " + room);
+		}
+		const data = await this.bridge.roomStore.getByMxid(room);
+		if (!data) {
+			throw new Error("Failed to get data for " + room);
+			return;
+		}
+		if (!data || data.isDirect) {
+			log.verbose(`No muting in direct rooms`);
+		} else if (!await this.bridge.namespaceHandler.canSeeRoom(roomParts, userId)) {
+			targetLevel = MUTED_POWER_LEVEL;
+		}
+
+		if (currentLevel !== targetLevel) {
+			log.verbose(`Adjusting power level of ${userId} in ${room} to ${targetLevel}`);
+			await client.setUserPowerLevel(userId, room, targetLevel);
+		}
+	}
+
+	public async adjustMuteIfInRoom(userId: string, room: string) {
+		const client = await this.bridge.roomSync.getRoomOp(room);
+		if (!client) {
+			throw new Error("Failed to get operator of " + room);
+		}
+		try {
+			const members = await client.getJoinedRoomMembers(room);
+			if (!members.includes(userId)) {
+				return;
+			}
+		} catch (err) {
+			log.error("Error getting room members", err.error || err.body || err);
+		}
+		await this.adjustMute(userId, room);
+	}
+
+	public async adjustMuteListRooms(puppetId: number, userId: string) {
+		if (!this.bridge.hooks.listRooms) {
+			return;
+		}
+		const rooms = await this.bridge.hooks.listRooms(puppetId);
+		for (const r of rooms) {
+			if (!r.id!) {
+				continue;
+			}
+			const roomInfo = await this.bridge.roomSync.maybeGet({
+				puppetId,
+				roomId: r.id!,
+			});
+			if (!roomInfo) {
+				continue;
+			}
+			log.verbose(`roommxid: ${roomInfo.mxid}`);
+			await this.adjustMuteIfInRoom(userId, roomInfo.mxid);
+		}
+	}
+
+	public async adjustMuteEverywhere(userId: string) {
+		const entries = await this.bridge.roomStore.getAll();
+		for (const entry of entries) {
+			await this.adjustMuteIfInRoom(userId, entry.mxid);
+		}
 	}
 
 	public async invite(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {

@@ -646,6 +646,27 @@ Usage: \`fixghosts <room resolvable>\``,
 			withPid: false,
 			inRoom: true,
 		});
+		this.registerCommand("fixmute", {
+			fn: async (sender: string, param: string, sendMessage: SendMessageFn, roomId?: string) => {
+				const roomParts = await this.bridge.roomSync.resolve(roomId || param);
+				if (!roomParts) {
+					await sendMessage("Room not resolvable");
+					return;
+				}
+				const room = await this.bridge.roomSync.maybeGet(roomParts);
+				if (!room) {
+					await sendMessage("Room not found");
+					return;
+				}
+				await sendMessage("Fixing muted user...");
+				await this.provisioner.adjustMuteIfInRoom(sender, room.mxid);
+			},
+			help: `Fix the power levels according to puppet & relay availability in the bridged room.
+
+Usage: \`fixmute <room resolvable>\``,
+			withPid: false,
+			inRoom: true,
+		});
 		this.registerCommand("resendbridgeinfo", {
 			fn: async (sender: string, param: string, sendMessage: SendMessageFn) => {
 				await sendMessage("Re-sending bridge information state events...");
