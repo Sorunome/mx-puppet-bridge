@@ -42,7 +42,7 @@ export class StringFormatter {
 				case "[": {
 					const res = StringFormatter.getIfParts(pattern, i);
 					i += res.length;
-					// i++ will be performed at the end of the if-loop. This would cause the
+					// i++ will be performed at the end of the for-loop. This would cause the
 					// last char of the if-condition to be gobbled up twice. This fixes that.
 					i--;
 					const ifComputed = StringFormatter.condition(res.if, vars);
