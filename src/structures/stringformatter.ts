@@ -110,6 +110,7 @@ export class StringFormatter {
 				resStrs[searching] += char;
 			}
 		}
+		length--; // else we gobble the ] twice
 		return {
 			if: resStrs[SEARCHING_IF],
 			then: resStrs[SEARCHING_THEN],
@@ -153,6 +154,9 @@ export class StringFormatter {
 				case "=": {
 					const res = StringFormatter.condition(pattern.substr(i + 1), vars);
 					if (res === result) {
+						if (!res) {
+							return "true";
+						}
 						return res;
 					}
 					return "";

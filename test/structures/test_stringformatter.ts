@@ -172,5 +172,28 @@ describe("StringFormatter", () => {
 			ret = StringFormatter.format(pattern, vars);
 			expect(ret).to.equal("bunny");
 		});
+		it("should do multiple if-conditions", () => {
+			const pattern = "[:team?:team - ,][:type=channel?#,]:name";
+			let vars: any = {
+				team: "Foxes",
+				type: "channel",
+				name: "den",
+			};
+			let ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("Foxes - #den");
+			vars = {
+				type: "channel",
+				name: "den",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("#den");
+			vars = {
+				team: "Foxes",
+				type: "voice",
+				name: "den",
+			};
+			ret = StringFormatter.format(pattern, vars);
+			expect(ret).to.equal("Foxes - den");
+		});
 	});
 });
