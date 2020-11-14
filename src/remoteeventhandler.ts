@@ -15,8 +15,7 @@ import { Log } from "./log";
 import { PuppetBridge } from "./puppetbridge";
 import { Util } from "./util";
 import { TimedCache } from "./structures/timedcache";
-import { IRemoteUser, IReceiveParams, IMessageEvent } from "./interfaces";
-import { MatrixPresence } from "./presencehandler";
+import { IRemoteUser, IReceiveParams, IMessageEvent, MatrixPresence } from "./interfaces";
 import {
 	TextualMessageEventContent, FileMessageEventContent, FileWithThumbnailInfo, MatrixClient, DimensionalFileInfo,
 	VideoFileInfo, TimedFileInfo, MessageEvent, MessageEventContent,

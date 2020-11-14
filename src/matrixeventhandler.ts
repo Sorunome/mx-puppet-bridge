@@ -18,7 +18,7 @@ import {
 	MembershipEventContent, RoomEventContent, MessageEventContent, MatrixClient,
 } from "@sorunome/matrix-bot-sdk";
 import {
-	IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser, IReplyEvent, IEventInfo,
+	IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser, IReplyEvent, IEventInfo, IPresenceEvent,
 } from "./interfaces";
 import * as escapeHtml from "escape-html";
 import { IPuppet } from "./db/puppetstore";
@@ -32,6 +32,7 @@ const AVATAR_SIZE = 800;
 
 export class MatrixEventHandler {
 	private memberInfoCache: { [roomId: string]: { [userId: string]: MembershipEventContent } };
+	private typingCache: Map<string, Set<string>> = new Map();
 
 	constructor(
 		private bridge: PuppetBridge,
@@ -62,6 +63,20 @@ export class MatrixEventHandler {
 				await this.handleRoomQuery(alias, createRoom);
 			} catch (err) {
 				log.error("Error handling appservice query.room", err.error || err.body || err);
+			}
+		});
+		// tslint:disable-next-line no-any
+		this.bridge.AS.on("ephemeral.event", async (rawEvent: any) => {
+			switch (rawEvent.type) {
+				case "m.presence":
+					await this.handlePresence(rawEvent);
+					break;
+				case "m.typing":
+					await this.handleTyping(rawEvent.room_id, rawEvent);
+					break;
+				case "m.receipt":
+					await this.handleReceipt(rawEvent.room_id, rawEvent);
+					break;
 			}
 		});
 	}
@@ -590,6 +605,163 @@ export class MatrixEventHandler {
 		await this.bridge.bridgeRoom(parts);
 	}
 
+	// tslint:disable-next-line no-any
+	private async handlePresence(rawEvent: any) {
+		if (this.bridge.AS.isNamespacedUser(rawEvent.sender)) {
+			return; // we don't handle our own namespace
+		}
+		log.info(`Got presence event for mxid ${rawEvent.sender}`);
+		const puppetDatas = await this.bridge.provisioner.getForMxid(rawEvent.sender);
+		let puppetData: IPuppet | null = null;
+		for (const p of puppetDatas) {
+			if (p.type === "puppet") {
+				puppetData = p;
+				break;
+			}
+		}
+		if (!puppetData) {
+			const allPuppets = await this.bridge.provisioner.getAll();
+			const allRelays = allPuppets.filter((p) => p.type === "relay" && p.isGlobalNamespace);
+			if (allRelays.length > 0) {
+				puppetData = allRelays[0];
+			}
+		}
+		if (!puppetData) {
+			log.error("Puppet not found. Something is REALLY wrong!!!!");
+			return;
+		}
+		if (puppetData.type === "relay") {
+			if (!this.bridge.protocol.features.advancedRelay) {
+				log.verbose("Simple relays can't have foreign presences, dropping...");
+				return;
+			}
+			if (!this.bridge.provisioner.canRelay(rawEvent.sender)) {
+				log.verbose("Presence wasn't sent from a relay-able person, dropping...");
+				return;
+			}
+		} else if (rawEvent.sender !== puppetData.puppetMxid) {
+			log.verbose("Presence wasn't sent from the correct puppet, dropping...");
+			return;
+		}
+		const asUser = await this.getSendingUser(puppetData, "", rawEvent.sender);
+		const presence: IPresenceEvent = {
+			currentlyActive: rawEvent.content.currently_active,
+			lastActiveAgo: rawEvent.content.last_active_ago,
+			presence: rawEvent.content.presence,
+			statusMsg: rawEvent.content.status_msg,
+		};
+		log.verbose("Emitting presence event...");
+		this.bridge.emit("presence", puppetData.puppetId, presence, asUser, rawEvent);
+	}
+
+	// tslint:disable-next-line no-any
+	private async handleTyping(roomId: string, rawEvent: any) {
+		let first = true;
+		const pastTypingSet = this.typingCache.get(roomId) || new Set<string>();
+		const newTypingSet = new Set<string>(rawEvent.content.user_ids);
+		const changeUserIds = new Map<string, boolean>();
+		// first determine all the typing stops
+		for (const pastUserId of pastTypingSet) {
+			if (!newTypingSet.has(pastUserId)) {
+				changeUserIds.set(pastUserId, false);
+			}
+		}
+		// now determine all typing starts
+		for (const newUserId of newTypingSet) {
+			if (!pastTypingSet.has(newUserId)) {
+				changeUserIds.set(newUserId, true);
+			}
+		}
+		this.typingCache.set(roomId, newTypingSet);
+		for (const [userId, typing] of changeUserIds) {
+			if (this.bridge.AS.isNamespacedUser(userId)) {
+				continue; // we don't handle our own namespace
+			}
+			if (first) {
+				log.info(`Got typing event in room ${roomId}`);
+				first = false;
+			}
+			const room = await this.getRoomParts(roomId, userId);
+			if (!room) {
+				log.verbose("Room not found, ignoring...");
+				continue;
+			}
+			const puppetData = await this.bridge.provisioner.get(room.puppetId);
+			if (!puppetData) {
+				log.error("Puppet not found. Something is REALLY wrong!!!");
+				continue;
+			}
+			if (puppetData.type === "relay") {
+				if (!this.bridge.protocol.features.advancedRelay) {
+					log.verbose("Simple relays can't have foreign typing, dropping...");
+					continue;
+				}
+				if (!this.bridge.provisioner.canRelay(userId)) {
+					log.verbose("Typing wasn't sent from a relay-able person, dropping...");
+					continue;
+				}
+			} else if (userId !== puppetData.puppetMxid) {
+				log.verbose("Typing wasn't sent from the correct puppet, dropping...");
+				continue;
+			}
+			const asUser = await this.getSendingUser(puppetData, roomId, userId);
+			log.verbose("Emitting typing event...");
+			this.bridge.emit("typing", room, typing, asUser, rawEvent);
+		}
+	}
+
+	// tslint:disable-next-line no-any
+	private async handleReceipt(roomId: string, rawEvent: any) {
+		let first = true;
+		// tslint:disable-next-line no-any
+		for (const [eventId, allContents] of Object.entries<any>(rawEvent.content)) {
+			if (allContents["m.read"]) {
+				// we have read receipts
+				// tslint:disable-next-line no-any
+				for (const [userId, content] of Object.entries<any>(allContents["m.read"])) {
+					if (this.bridge.AS.isNamespacedUser(userId)) {
+						continue; // we don't handle our own namespace
+					}
+					if (first) {
+						log.info(`Got receipt event in room ${roomId}`);
+						first = false;
+					}
+					const room = await this.getRoomParts(roomId, userId);
+					if (!room) {
+						log.verbose("Room not found, dropping...");
+						continue;
+					}
+					const event = (await this.bridge.eventSync.getRemote(room, eventId))[0];
+					if (!event) {
+						log.verbose("Event not found, dropping...");
+						continue;
+					}
+					const puppetData = await this.bridge.provisioner.get(room.puppetId);
+					if (!puppetData) {
+						log.error("Puppet not found. Something is REALLY wrong!!!!");
+						continue;
+					}
+					if (puppetData.type === "relay") {
+						if (!this.bridge.protocol.features.advancedRelay) {
+							log.verbose("Simple relays can't have foreign receipts, dropping...");
+							continue;
+						}
+						if (!this.bridge.provisioner.canRelay(userId)) {
+							log.verbose("Receipt wasn't sent from a relay-able person, dropping...");
+							continue;
+						}
+					} else if (userId !== puppetData.puppetMxid) {
+						log.verbose("Receipt wasn't sent from the correct puppet, dropping...");
+						continue;
+					}
+					const asUser = await this.getSendingUser(puppetData, roomId, userId);
+					log.debug("Emitting read event...");
+					this.bridge.emit("read", room, event, content, asUser, rawEvent);
+				}
+			}
+		}
+	}
+
 	private getRoomDisplaynameCache(roomId: string): { [userId: string]: MembershipEventContent } {
 		if (!(roomId in this.memberInfoCache)) {
 			this.memberInfoCache[roomId] = {};
@@ -678,7 +850,7 @@ export class MatrixEventHandler {
 		if (!puppetData || (typeof puppetData !== "boolean" && puppetData.type !== "relay")) {
 			return null;
 		}
-		const membership = await this.getRoomMemberInfo(roomId, userId);
+		const membership = roomId ? await this.getRoomMemberInfo(roomId, userId) : null;
 		let user: IRemoteUser | null = null;
 		try {
 			user = await this.getUserParts(userId, sender || userId);

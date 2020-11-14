@@ -112,6 +112,7 @@ Event parameters:
 ```ts
 room: IRemoteRoom; // the room where to send to
 data: IMessageEvent; // the data on the message
+asUser: ISendingUser | null, // optionally, as which user to send
 event: any; // the raw message event
 ```
 
@@ -122,6 +123,7 @@ Event parameters:
 room: IRemoteRoom; // the room where the edit happened
 eventId: string; // the remote event ID of the original event
 data: IMessageEvent; // the data on the new message
+asUser: ISendingUser | null, // optionally, as which user to send
 event: any; // the raw message event
 ```
 
@@ -131,6 +133,7 @@ Event parameters:
 ```ts
 room: IRemoteRoom; // the room where the redact happened
 eventId: string; // the remote event ID that got redacted
+asUser: ISendingUser | null, // optionally, as which user to send
 event: any; // the raw redact event
 ```
 
@@ -139,7 +142,39 @@ File events are `image`, `audio`, `video`, `sticker` and `file`. Appropriate fal
 ```ts
 room: IRemoteRoom; // the room where to send to
 data: IFileEvent; // the data on the file
+asUser: ISendingUser | null, // optionally, as which user to send
 event: any; // the raw file event
+```
+
+### presence
+A presence event from matrix
+Event parameters:
+```ts
+puppetId: number; // the puppet id
+presence: IPresenceEvent; // the presence
+asUser: ISendingUser | null, // optionally, as which user to send
+rawEvent: any; // raw event
+```
+
+### typing
+A typing event from matrix
+Event parameters:
+```ts
+room: IRemoteRoom; // the room where the typing happened
+typing: boolean; // true / false
+asUser: ISendingUser | null, // optionally, as which user to send
+rawEvent: any; // raw event
+```
+
+### read
+A read event from matrix
+Event parameters:
+```ts
+room: IRemoteRoom; // the room where the read happened
+eventId: string; // the remote event id where the read happened
+content: any; // the content of the event
+asUser: ISendingUser | null, // optionally, as which user to send
+rawEvent: any; // raw event
 ```
 
 ### puppetNew

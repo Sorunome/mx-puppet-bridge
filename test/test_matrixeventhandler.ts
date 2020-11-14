@@ -221,6 +221,12 @@ function getHandler(opts?: IHandlerOpts) {
 						puppetId: 1,
 					};
 				}
+				if (roomId.startsWith("!room:")) {
+					return {
+						roomId: "room",
+						puppetId: 1,
+					};
+				}
 				return null;
 			},
 			maybeLeaveGhost: async (roomId, userId) => {
@@ -297,9 +303,13 @@ function getHandler(opts?: IHandlerOpts) {
 					return [
 						{
 							puppetId: 1,
+							type: "puppet",
+							puppetMxid,
 						},
 						{
 							puppetId: 2,
+							type: "puppet",
+							puppetMxid,
 						},
 					];
 				}
@@ -1244,6 +1254,77 @@ describe("MatrixEventHandler", () => {
 			const alias = "#_puppet_1_foxroom:example.org";
 			await handler["handleRoomQuery"](alias, async (type) => {});
 			expect(BRIDGE_ROOM_ID_BRIDGED).to.equal("foxroom");
+		});
+	});
+	describe("handlePresence", () => {
+		it("should do nothing on own presence", async () => {
+			const handler = getHandler();
+			const event = {
+				type: "m.presence",
+				sender: "@_puppet_1_fox:example.org",
+				content: {
+					presence: "online",
+				},
+			};
+			await handler["handlePresence"](event);
+			expect(BRIDGE_EVENTS_EMITTED).to.eql([]);
+		});
+		it("should emit user presence", async () => {
+			const handler = getHandler();
+			const event = {
+				type: "m.presence",
+				sender: "@user:example.org",
+				content: {
+					presence: "online",
+				},
+			};
+			await handler["handlePresence"](event);
+			expect(BRIDGE_EVENTS_EMITTED).to.eql(["presence"]);
+		});
+	});
+	describe("handleTyping", () => {
+		it("should do typing", async () => {
+			const handle = getHandler();
+			let event: any = {
+				type: "m.typing",
+				content: {
+					user_ids: ["@user:example.org"],
+				},
+				room_id: "!room:example.org",
+			};
+			await handle["handleTyping"]("!room:example.org", event);
+			expect(BRIDGE_EVENTS_EMITTED).to.eql(["typing"]);
+			await handle["handleTyping"]("!room:example.org", event);
+			expect(BRIDGE_EVENTS_EMITTED).to.eql(["typing"]);
+			event = {
+				type: "m.typing",
+				content: {
+					user_ids: [],
+				},
+				room_id: "!room:example.org",
+			};
+			await handle["handleTyping"]("!room:example.org", event);
+			expect(BRIDGE_EVENTS_EMITTED).to.eql(["typing", "typing"]);
+		});
+	});
+	describe("handleReceipt", () => {
+		it("should do read receipts", async () => {
+			const handle = getHandler();
+			const event = {
+				type: "m.receipt",
+				room_id: "!room:example.org",
+				content: {
+					"$event:example.org": {
+						"m.read": {
+							"@user:example.org": {
+								ts: 1234,
+							},
+						},
+					},
+				},
+			};
+			await handle["handleReceipt"]("!room:example.org", event);
+			expect(BRIDGE_EVENTS_EMITTED).to.eql(["read"]);
 		});
 	});
 	describe("getRoomDisplaynameCache", () => {

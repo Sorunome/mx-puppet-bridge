@@ -43,7 +43,7 @@ import { Lock } from "./structures/lock";
 import { PuppetBridgeJoinRoomStrategy } from "./joinstrategy";
 import { BotProvisioner, ICommand } from "./botprovisioner";
 import { ProvisioningAPI } from "./provisioningapi";
-import { PresenceHandler, MatrixPresence } from "./presencehandler";
+import { PresenceHandler } from "./presencehandler";
 import { TypingHandler } from "./typinghandler";
 import { ReactionHandler } from "./reactionhandler";
 import { MatrixEventHandler } from "./matrixeventhandler";
@@ -54,7 +54,7 @@ import {
 	IPuppetBridgeRegOpts, IPuppetBridgeFeatures, IReceiveParams, IMessageEvent, IProtocolInformation, CreateRoomHook,
 	CreateUserHook, CreateGroupHook, GetDescHook, BotHeaderMsgHook, GetDataFromStrHook, GetDmRoomIdHook, ListUsersHook,
 	ListRoomsHook, ListGroupsHook, IRemoteUser, IRemoteRoom, IRemoteGroup, IPuppetData, GetUserIdsInRoomHook,
-	UserExistsHook, RoomExistsHook, GroupExistsHook, ResolveRoomIdHook, IEventInfo,
+	UserExistsHook, RoomExistsHook, GroupExistsHook, ResolveRoomIdHook, IEventInfo, MatrixPresence,
 } from "./interfaces";
 
 const log = new Log("PuppetBridge");
@@ -263,10 +263,10 @@ export class PuppetBridge extends EventEmitter {
 			opts.botUser = opts.prefix + "bot";
 		}
 		const reg: IAppserviceRegistration = {
-			as_token: uuid(),
-			hs_token: uuid(),
-			id: opts.id,
-			namespaces: {
+			"as_token": uuid(),
+			"hs_token": uuid(),
+			"id": opts.id,
+			"namespaces": {
 				users: [{
 					exclusive: true,
 					regex: `@${opts.prefix}.*`,
@@ -277,10 +277,11 @@ export class PuppetBridge extends EventEmitter {
 					regex: `#${opts.prefix}.*`,
 				}],
 			},
-			protocols: [ ],
-			rate_limited: false,
-			sender_localpart: opts.botUser,
-			url: opts.url,
+			"protocols": [ ],
+			"rate_limited": false,
+			"sender_localpart": opts.botUser,
+			"url": opts.url,
+			"de.sorunome.msc2409.push_ephemeral": true,
 		};
 		fs.writeFileSync(this.registrationPath, yaml.safeDump(reg));
 	}

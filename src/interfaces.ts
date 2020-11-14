@@ -16,6 +16,8 @@ import {
 	MessageEvent, TextualMessageEventContent, FileMessageEventContent,
 } from "@sorunome/matrix-bot-sdk";
 
+export type MatrixPresence = "offline" | "online" | "unavailable";
+
 type PuppetDataSingleType = string | number | boolean | IPuppetData | null | undefined;
 export interface IPuppetData {
 	[key: string]: PuppetDataSingleType | PuppetDataSingleType[];
@@ -125,6 +127,13 @@ export interface IMessageEvent {
 	emote?: boolean;
 	notice?: boolean;
 	eventId?: string;
+}
+
+export interface IPresenceEvent {
+	currentlyActive?: boolean;
+	lastActiveAgo?: number;
+	presence: MatrixPresence;
+	statusMsg?: string;
 }
 
 export interface IEventInfo {

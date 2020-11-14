@@ -14,14 +14,13 @@ limitations under the License.
 import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
 import { PresenceConfig } from "./config";
+import { MatrixPresence } from "./interfaces";
 
 // tslint:disable no-magic-numbers
 const PRESENCE_SYNC_TIMEOUT = 1000 * 25; // synapse has a timeout of 30s, an extra 5s gives some slack
 // tslint:enable no-magic-numbers
 
 const log = new Log("PresenceHandler");
-
-export type MatrixPresence = "offline" | "online" | "unavailable";
 
 interface IMatrixPresenceInfo {
 	mxid: string;
