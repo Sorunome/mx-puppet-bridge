@@ -22,6 +22,7 @@ protocol is used as relay bot between the remote protocol and matrix.
  - [voip.ms](https://github.com/zoenb/mx-puppet-voipms)
  - [Skype](https://github.com/Sorunome/mx-puppet-skype)
  - [Steam](https://github.com/icewind1991/mx-puppet-steam)
+ - [VK](https://github.com/innereq/mx-puppet-vk)
 
 ## Docs
  - [bridge.md](https://github.com/Sorunome/mx-puppet-bridge/blob/master/bridge.md)
