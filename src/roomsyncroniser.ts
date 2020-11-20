@@ -174,6 +174,25 @@ export class RoomSyncroniser {
 					invites.delete(this.bridge.botIntent.userId);
 					client = this.bridge.botIntent.underlyingClient;
 					userId = this.bridge.botIntent.userId;
+				} else if (this.bridge.AS.isNamespacedUser(userId)) {
+					// and if it is a direct room, we do *not* want our ghost to create it, if possible
+					const puppetData = await this.bridge.provisioner.get(data.puppetId);
+					if (puppetData && puppetData.userId) {
+						const userIdSuffix = await this.bridge.namespaceHandler.getSuffix(dbPuppetId, puppetData.userId);
+						const badIntent = this.bridge.AS.getIntentForSuffix(userIdSuffix);
+						if (badIntent.userId === userId) {
+							// alright, our own ghost is creating the room, let's see if we can find someone else
+							for (const inviteId of invites) {
+								if (inviteId !== userId && this.bridge.AS.isNamespacedUser(inviteId)) {
+									invites.add(userId);
+									invites.delete(inviteId);
+									userId = inviteId;
+									client = this.bridge.AS.getIntentForUserId(inviteId).underlyingClient;
+									break;
+								}
+							}
+						}
+					}
 				}
 				const updateProfile = await Util.ProcessProfileUpdate(
 					null, data, this.bridge.protocol.namePatterns.room,
