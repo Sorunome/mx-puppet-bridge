@@ -21,6 +21,7 @@ import {
 	VideoFileInfo, TimedFileInfo, MessageEvent, MessageEventContent,
 } from "@sorunome/matrix-bot-sdk";
 import * as escapeHtml from "escape-html";
+import * as unescapeHtml from "unescape";
 import { encode as blurhashEncode } from "blurhash";
 import * as Canvas from "canvas";
 
@@ -133,6 +134,7 @@ export class RemoteEventHandler {
 			return;
 		}
 		log.info(`Received message from ${params.user.userId} to send to ${params.room.roomId}`);
+		this.preprocessMessageEvent(opts);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
 		if (opts.emote) {
@@ -165,6 +167,7 @@ export class RemoteEventHandler {
 			return;
 		}
 		log.info(`Received edit from ${params.user.userId} to send to ${params.room.roomId}`);
+		this.preprocessMessageEvent(opts);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
 		if (opts.emote) {
@@ -235,6 +238,7 @@ export class RemoteEventHandler {
 			return;
 		}
 		log.info(`Received reply from ${params.user.userId} to send to ${params.room.roomId}`);
+		this.preprocessMessageEvent(opts);
 		const { client, mxid } = await this.prepareSend(params);
 		let msgtype = "m.text";
 		if (opts.emote) {
@@ -602,5 +606,28 @@ export class RemoteEventHandler {
 		}
 
 		return { client, mxid };
+	}
+
+	private preprocessMessageEvent(opts: IMessageEvent) {
+		if (!opts.formattedBody) {
+			return;
+		}
+		const html = opts.formattedBody.toLowerCase();
+		let stripPTags = (html.match(/<p[^>]*>/g) || []).length <= 1;
+		if (stripPTags) {
+			const otherBlockTags = ["table", "pre", "ol", "ul", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "div", "hr"];
+			for (const tag of otherBlockTags) {
+				if (html.match(new RegExp(`</?\\s*${tag}\\s*/?>`))) {
+					stripPTags = false;
+					break;
+				}
+			}
+		}
+		if (stripPTags) {
+			opts.formattedBody = opts.formattedBody.replace(/<p[^>]*>/ig, "").replace(/<\/p>/ig, "");
+		}
+		if (unescapeHtml(opts.formattedBody.trim().replace(/<br\s*\/?>/gi, "\n").trim()) === opts.body.trim()) {
+			delete opts.formattedBody;
+		}
 	}
 }
