@@ -72,4 +72,14 @@ export class MessageDeduplicator {
 		}
 		return returnValue;
 	}
+
+	public dispose() {
+		for (const key of this.data.all) {
+			this.data.delete(key);
+		}
+		for (const key of this.authorIds.all) {
+			this.authorIds.delete(key);
+		}
+		this.locks.dispose();
+	}
 }

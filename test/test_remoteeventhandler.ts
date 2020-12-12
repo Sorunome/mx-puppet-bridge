@@ -13,6 +13,7 @@ limitations under the License.
 
 import { expect } from "chai";
 import * as proxyquire from "proxyquire";
+import { MessageDeduplicator } from "../src/structures/messagededuplicator";
 
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal
@@ -24,6 +25,8 @@ interface IHandlerOpts {
 	noautoinvite?: boolean;
 	blockMessage?: boolean;
 }
+
+const DEDUPLICATOR_TIMEOUT = 100;
 
 let CLIENT_SEND_READ_RECEIPT = "";
 let CLIENT_SEND_MESSAGE = {} as any;
@@ -199,6 +202,7 @@ function getHandler(opts?: IHandlerOpts) {
 			},
 		},
 		reactionHandler: {
+			deduplicator: new MessageDeduplicator(DEDUPLICATOR_TIMEOUT, DEDUPLICATOR_TIMEOUT + DEDUPLICATOR_TIMEOUT),
 			addRemote: async (params, eventId, key, client, mxid) => {
 				REACTION_HANDLER_ADD_REMOTE = true;
 			},
@@ -1391,6 +1395,30 @@ describe("RemoteEventHandler", () => {
 			await handler.sendReaction(params, eventId, key);
 			expect(REACTION_HANDLER_ADD_REMOTE).to.be.false;
 		});
+		it("should do nothing, if the thing is deduplicated", async () => {
+			const handler = getHandler();
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const key = "fox";
+			handler["bridge"].reactionHandler.deduplicator.lock("1;foxhole;foxparty;add", "fox", "fox");
+			await handler.sendReaction(params, eventId, key);
+			expect(REACTION_HANDLER_ADD_REMOTE).to.be.false;
+		});
 		it("should pass the request on to the reaction handler", async () => {
 			const handler = getHandler();
 			handler["prepareSend"] = async (_) => {
@@ -1438,6 +1466,30 @@ describe("RemoteEventHandler", () => {
 			} as any;
 			const eventId = "foxparty";
 			const key = "fox";
+			await handler.removeReaction(params, eventId, key);
+			expect(REACTION_HANDLER_REMOVE_REMOTE).to.be.false;
+		});
+		it("should do nothing, if the thing is deduplicated", async () => {
+			const handler = getHandler();
+			handler["prepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			const eventId = "foxparty";
+			const key = "fox";
+			handler["bridge"].reactionHandler.deduplicator.lock("1;foxhole;foxparty;remove", "fox", "fox");
 			await handler.removeReaction(params, eventId, key);
 			expect(REACTION_HANDLER_REMOVE_REMOTE).to.be.false;
 		});

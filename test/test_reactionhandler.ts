@@ -366,8 +366,9 @@ describe("ReactionHandler", () => {
 			const eventId = "foxparty";
 			const reactionMxid = "$newreaction";
 			const key = "fox";
-			await handler.addMatrix(room, eventId, reactionMxid, key);
+			await handler.addMatrix(room, eventId, reactionMxid, key, null);
 			expect(REACTION_STORE_INSERT).eql({});
+			handler.deduplicator.dispose();
 		});
 		it("should insert the event to the store, should all be fine", async () => {
 			const handler = getHandler();
@@ -378,7 +379,7 @@ describe("ReactionHandler", () => {
 			const eventId = "foxparty";
 			const reactionMxid = "$newreaction";
 			const key = "fox";
-			await handler.addMatrix(room, eventId, reactionMxid, key);
+			await handler.addMatrix(room, eventId, reactionMxid, key, null);
 			expect(REACTION_STORE_INSERT).eql({
 				puppetId: 1,
 				roomId: "foxhole",
@@ -387,6 +388,8 @@ describe("ReactionHandler", () => {
 				reactionMxid,
 				key,
 			});
+			expect(handler.deduplicator["data"].has("1;foxhole;foxparty;add;puppet;m:fox")).to.be.true;
+			handler.deduplicator.dispose();
 		});
 	});
 	describe("handleRedactEvent", () => {
@@ -402,6 +405,7 @@ describe("ReactionHandler", () => {
 			await handler.handleRedactEvent(room, event, null);
 			expect(BRIDGE_EVENTS_EMITTED).eql([]);
 			expect(REACTION_STORE_DELETE).to.equal("");
+			handler.deduplicator.dispose();
 		});
 		it("should do nothing, if the room doesn't match", async () => {
 			const handler = getHandler();
@@ -415,6 +419,7 @@ describe("ReactionHandler", () => {
 			await handler.handleRedactEvent(room, event, null);
 			expect(BRIDGE_EVENTS_EMITTED).eql([]);
 			expect(REACTION_STORE_DELETE).to.equal("");
+			handler.deduplicator.dispose();
 		});
 		it("should redact the event, is all fine", async () => {
 			const handler = getHandler();
@@ -428,6 +433,8 @@ describe("ReactionHandler", () => {
 			await handler.handleRedactEvent(room, event, null);
 			expect(BRIDGE_EVENTS_EMITTED).eql(["removeReaction"]);
 			expect(REACTION_STORE_DELETE).to.equal("$oldreaction");
+			expect(handler.deduplicator["data"].has("1;foxhole;foxparty;remove;puppet;m:fox")).to.be.true;
+			handler.deduplicator.dispose();
 		});
 	});
 });

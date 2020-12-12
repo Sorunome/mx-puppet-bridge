@@ -326,12 +326,18 @@ export class RemoteEventHandler {
 		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
 			return;
 		}
+		if (await this.bridge.reactionHandler.deduplicator.dedupe(`${params.room.puppetId};${params.room.roomId};${eventId};add`, params.user.userId, undefined, reaction)) {
+			return;
+		}
 		const { client, mxid } = await this.prepareSend(params);
 		await this.bridge.reactionHandler.addRemote(params, eventId, reaction, client, mxid);
 	}
 
 	public async removeReaction(params: IReceiveParams, eventId: string, reaction: string) {
 		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
+		if (await this.bridge.reactionHandler.deduplicator.dedupe(`${params.room.puppetId};${params.room.roomId};${eventId};remove`, params.user.userId, undefined, reaction)) {
 			return;
 		}
 		const { client, mxid } = await this.prepareSend(params);

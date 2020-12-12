@@ -16,10 +16,12 @@ import { IRemoteRoom, IRemoteUser, IReceiveParams, ISendingUser } from "./interf
 import { MatrixClient, RedactionEvent } from "@sorunome/matrix-bot-sdk";
 import { DbReactionStore, IReactionStoreEntry } from "./db/reactionstore";
 import { Log } from "./log";
+import { MessageDeduplicator } from "./structures/messagededuplicator";
 
 const log = new Log("ReactionHandler");
 
 export class ReactionHandler {
+	public deduplicator = new MessageDeduplicator();
 	private reactionStore: DbReactionStore;
 	constructor(
 		private bridge: PuppetBridge,
@@ -109,24 +111,34 @@ export class ReactionHandler {
 		await this.reactionStore.deleteForEvent(params.room.puppetId, eventId);
 	}
 
-	public async addMatrix(room: IRemoteRoom, eventId: string, reactionMxid: string, key: string) {
+	public async addMatrix(
+		room: IRemoteRoom,
+		eventId: string,
+		reactionMxid: string,
+		key: string,
+		asUser: ISendingUser | null,
+	) {
 		const puppet = await this.bridge.provisioner.get(room.puppetId);
-		if (!puppet || !puppet.userId) {
+		const userId = (asUser && asUser.user && asUser.user.userId) || (!asUser && puppet && puppet.userId) || null;
+		if (!userId) {
 			return;
 		}
 		log.info(`Got reaction from matrix in room ${room.roomId} to add...`);
 		const entry: IReactionStoreEntry = {
 			puppetId: room.puppetId,
 			roomId: room.roomId,
-			userId: puppet.userId,
+			userId,
 			eventId,
 			reactionMxid,
 			key,
 		};
+		this.deduplicator.lock(`${room.puppetId};${room.roomId};${eventId};add`, userId, key);
 		await this.reactionStore.insert(entry);
 	}
 
 	public async handleRedactEvent(room: IRemoteRoom, event: RedactionEvent, asUser: ISendingUser | null) {
+		const puppet = await this.bridge.provisioner.get(room.puppetId);
+		const userId = (asUser && asUser.user && asUser.user.userId) || (!asUser && puppet && puppet.userId) || "";
 		for (const redacts of event.redactsEventIds) {
 			const reaction = await this.reactionStore.getFromReactionMxid(redacts);
 			if (!reaction) {
@@ -137,6 +149,7 @@ export class ReactionHandler {
 				log.warn("Redacted reaction isn't from our room, this is odd");
 				continue;
 			}
+			this.deduplicator.lock(`${room.puppetId};${room.roomId};${reaction.eventId};remove`, userId, reaction.key);
 			log.debug("Emitting removeReaction event...");
 			this.bridge.emit("removeReaction", room, reaction.eventId, reaction.key, asUser, event);
 			// and finally delete it off of the DB

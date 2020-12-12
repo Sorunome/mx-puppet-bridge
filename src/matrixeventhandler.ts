@@ -494,7 +494,7 @@ export class MatrixEventHandler {
 				if (relate.rel_type === "m.annotation") {
 					// no feature setting as reactions are hidden if they aren't supported
 					if (puppetData.type !== "relay" || this.bridge.protocol.features.advancedRelay) {
-						await this.bridge.reactionHandler.addMatrix(room, relEvent, event.eventId, relate.key);
+						await this.bridge.reactionHandler.addMatrix(room, relEvent, event.eventId, relate.key, asUser);
 						log.debug("Emitting reaction event...");
 						this.bridge.emit("reaction", room, relEvent, relate.key, asUser, event);
 					}

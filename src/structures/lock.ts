@@ -70,4 +70,10 @@ export class Lock<T> {
 			await promise;
 		}
 	}
+
+	public dispose() {
+		for (const key of this.locks.keys()) {
+			this.release(key);
+		}
+	}
 }
