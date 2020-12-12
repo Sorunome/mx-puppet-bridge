@@ -96,7 +96,6 @@ export class RoomSyncroniser {
 	public async getMxid(
 		data: IRemoteRoom,
 		client?: MatrixClient,
-		invites?: Set<string>,
 		doCreate: boolean = true,
 	): Promise<{ mxid: string; created: boolean; }> {
 		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(data.puppetId);
@@ -129,10 +128,23 @@ export class RoomSyncroniser {
 				if (newData) {
 					data = newData;
 				}
-				const createInfo = await this.bridge.namespaceHandler.getRoomCreateInfo(data);
-				if (!invites) {
-					invites = new Set<string>();
+				const invites = new Set<string>();
+				// we need a bit of leverage for playing around who actually creates the room,
+				// so adding two ghosts to the invites set should be fine
+				const allGhosts = await this.bridge.namespaceHandler.getUserIdsInRoom(data);
+				if (allGhosts) {
+					const MAX_GHOSTS_AUTOINVITE = 2;
+					let i = 0;
+					for (const ghost of allGhosts) {
+						const ghostSuffix = await this.bridge.namespaceHandler.getSuffix(data.puppetId, ghost);
+						invites.add(this.bridge.AS.getUserIdForSuffix(ghostSuffix));
+						if (i++ >= MAX_GHOSTS_AUTOINVITE) {
+							break;
+						}
+					}
 				}
+				const createInfo = await this.bridge.namespaceHandler.getRoomCreateInfo(data);
+				// we want to nvite all the needed matrix users
 				for (const user of createInfo.invites) {
 					invites.add(user);
 				}
@@ -387,6 +399,11 @@ export class RoomSyncroniser {
 				})();
 			}
 
+			// join ghosts, if created (in the background)
+			if (created) {
+				await this.addGhosts(data);
+			}
+
 			log.verbose("Returning mxid");
 			return { mxid, created };
 		} catch (err) {
@@ -544,7 +561,6 @@ export class RoomSyncroniser {
 			log.info("No ghosts to add, returning...");
 			return;
 		}
-		const puppetUserIds = await this.bridge.namespaceHandler.getRoomPuppetUserIds(room);
 		const maxAutojoinUsers = this.bridge.config.limits.maxAutojoinUsers;
 		if (maxAutojoinUsers !== -1) {
 			// alright, let's make sure that we do not have too many ghosts to autojoin
@@ -556,10 +572,6 @@ export class RoomSyncroniser {
 					roomUserIds.delete(userId);
 				}
 			});
-		}
-		// cleanup
-		for (const userId of puppetUserIds) {
-			roomUserIds.delete(userId);
 		}
 
 		// and now iterate over and do all the joins!
@@ -663,16 +675,14 @@ export class RoomSyncroniser {
 			if (oldOpClient) {
 				log.verbose("Giving OP to new client...");
 				let newGhost: string | null = null;
-				if (this.bridge.hooks.getUserIdsInRoom) {
-					const roomUserIds = await this.bridge.hooks.getUserIdsInRoom({
-						puppetId,
-						roomId: entry.roomId,
-					});
-					if (roomUserIds) {
-						for (const userId of roomUserIds) {
-							newGhost = userId;
-							break;
-						}
+				const roomUserIds = await this.bridge.namespaceHandler.getUserIdsInRoom({
+					puppetId,
+					roomId: entry.roomId,
+				});
+				if (roomUserIds) {
+					for (const userId of roomUserIds) {
+						newGhost = userId;
+						break;
 					}
 				}
 				let newOpIntent = this.bridge.botIntent;

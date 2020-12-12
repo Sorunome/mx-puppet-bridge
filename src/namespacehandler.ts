@@ -397,8 +397,18 @@ export class NamespaceHandler {
 		if (!this.bridge.hooks.getUserIdsInRoom) {
 			return null;
 		}
+		const cleanupUserIds = async (userIds: Set<string> | null): Promise<Set<string> | null> => {
+			if (!userIds) {
+				return null;
+			}
+			const puppetUserIds = await this.getRoomPuppetUserIds(room);
+			for (const userId of puppetUserIds) {
+				userIds.delete(userId);
+			}
+			return userIds;
+		};
 		if (room.puppetId !== -1) {
-			return await this.bridge.hooks.getUserIdsInRoom(room);
+			return await cleanupUserIds(await this.bridge.hooks.getUserIdsInRoom(room));
 		}
 		if (!this.enabled) {
 			throw new Error("Global namespace not enabled");
@@ -415,10 +425,10 @@ export class NamespaceHandler {
 			somePuppet = puppetId;
 			break;
 		}
-		return await this.bridge.hooks.getUserIdsInRoom({
+		return await cleanupUserIds(await this.bridge.hooks.getUserIdsInRoom({
 			puppetId: somePuppet,
 			roomId: room.roomId,
-		});
+		}));
 	}
 
 	public async getRemoteUser(user: IRemoteUser | null, sender: string): Promise<IRemoteUser | null> {

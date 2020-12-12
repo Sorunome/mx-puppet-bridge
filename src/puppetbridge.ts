@@ -485,7 +485,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async updateRoom(room: IRemoteRoom) {
 		log.verbose("Got request to update a room");
-		await this.roomSync.getMxid(room, undefined, undefined, false);
+		await this.roomSync.getMxid(room, undefined, false);
 	}
 
 	/**
@@ -513,8 +513,6 @@ export class PuppetBridge extends EventEmitter {
 		}
 		log.info(`Got request to bridge room puppetId=${room.puppetId} roomId=${room.roomId}`);
 		await this.roomSync.getMxid(room);
-		// tslint:disable-next-line no-floating-promises
-		this.roomSync.addGhosts(room);
 	}
 
 	/**
