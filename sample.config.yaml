@@ -97,8 +97,8 @@ presence:
   enabled: true
   # How often to send status to the homeserver in milliseconds
   interval: 500
-  # if the im.vector.user_status state setting should be diabled
-  #disableStatusState: false
+  # if the im.vector.user_status state setting should be enabled
+  #enableStatusState: false
   # A blacklist of remote user IDs for the im.vector.user_status state setting
   #statusStateBlacklist:
   # - baduser

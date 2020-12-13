@@ -93,7 +93,7 @@ class ProvisioningConfig {
 export class PresenceConfig {
 	public enabled: boolean = true;
 	public interval: number = 500;
-	public disableStatusState: boolean = false;
+	public enableStatusState: boolean = false;
 	public statusStateBlacklist: string[] = [];
 }
 

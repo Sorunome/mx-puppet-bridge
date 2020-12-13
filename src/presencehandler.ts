@@ -197,7 +197,7 @@ export class PresenceHandler {
 	}
 
 	private async setMatrixStatusInRoom(info: IMatrixPresenceInfo, roomId: string) {
-		if (this.config.disableStatusState || (info.presence === "offline" && !info.status)) {
+		if (!this.config.enableStatusState || (info.presence === "offline" && !info.status)) {
 			return;
 		}
 		const userParts = this.bridge.userSync.getPartsFromMxid(info.mxid);
