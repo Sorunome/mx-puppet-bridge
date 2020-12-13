@@ -186,6 +186,7 @@ function getHandler(opts?: IHandlerOpts) {
 			},
 		},
 		typingHandler: {
+			deduplicator: new MessageDeduplicator(DEDUPLICATOR_TIMEOUT, DEDUPLICATOR_TIMEOUT + DEDUPLICATOR_TIMEOUT),
 			set: async (userId, mxid, typing) => {
 				TYPING_HANDLER_SET = `${userId};${mxid};${typing}`;
 			},
@@ -349,6 +350,28 @@ describe("RemoteEventHandler", () => {
 					puppetId: 1,
 				},
 			} as any;
+			await handler.setUserTyping(params, true);
+			expect(TYPING_HANDLER_SET).to.equal("");
+		});
+		it("should do nothing, if it is deduped", async () => {
+			const handler = getHandler();
+			handler["maybePrepareSend"] = async (_) => {
+				return {
+					client: getClient("@_puppet_1_fox:example.org"),
+					mxid: "!someroom:example.org",
+				};
+			};
+			const params = {
+				user: {
+					userId: "fox",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
+					puppetId: 1,
+				},
+			} as any;
+			handler["bridge"].typingHandler.deduplicator.lock("1;foxhole", "fox", "true");
 			await handler.setUserTyping(params, true);
 			expect(TYPING_HANDLER_SET).to.equal("");
 		});

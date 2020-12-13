@@ -50,7 +50,13 @@ export class MessageDeduplicator {
 		this.locks.release(roomId);
 	}
 
-	public async dedupe(roomId: string, authorId: string, eventId?: string, message?: string): Promise<boolean> {
+	public async dedupe(
+		roomId: string,
+		authorId: string,
+		eventId?: string,
+		message?: string,
+		clear: boolean = true,
+	): Promise<boolean> {
 		if (!this.authorIds.has(authorId)) {
 			return false;
 		}
@@ -59,14 +65,18 @@ export class MessageDeduplicator {
 		if (eventId) {
 			const key = `${roomId};${authorId};e:${eventId}`;
 			if (this.data.has(key)) {
-				this.data.delete(key);
+				if (clear) {
+					this.data.delete(key);
+				}
 				returnValue = true;
 			}
 		}
 		if (message) {
 			const key = `${roomId};${authorId};m:${message}`;
 			if (this.data.has(key)) {
-				this.data.delete(key);
+				if (clear) {
+					this.data.delete(key);
+				}
 				returnValue = true;
 			}
 		}

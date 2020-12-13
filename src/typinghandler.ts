@@ -1,5 +1,5 @@
 /*
-Copyright 2019 mx-puppet-bridge
+Copyright 2019, 2020 mx-puppet-bridge
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -14,10 +14,12 @@ limitations under the License.
 import { PuppetBridge } from "./puppetbridge";
 import { Log } from "./log";
 import ExpireSet from "expire-set";
+import { MessageDeduplicator } from "./structures/messagededuplicator";
 
 const log = new Log("TypingHandler");
 
 export class TypingHandler {
+	public deduplicator = new MessageDeduplicator();
 	private typingUsers: ExpireSet<string>;
 	constructor(
 		private bridge: PuppetBridge,

@@ -80,6 +80,11 @@ export class RemoteEventHandler {
 			log.verbose("User/Room doesn't exist, ignoring...");
 			return;
 		}
+		if (await this.bridge.typingHandler.deduplicator.dedupe(
+			`${params.room.puppetId};${params.room.roomId}`, params.user.userId, undefined, typing.toString(), false,
+		)) {
+			return;
+		}
 		await this.bridge.typingHandler.set(await ret.client.getUserId(), ret.mxid, typing);
 	}
 

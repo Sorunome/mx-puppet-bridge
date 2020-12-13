@@ -706,6 +706,11 @@ export class MatrixEventHandler {
 			}
 			const asUser = await this.getSendingUser(puppetData, roomId, userId);
 			log.verbose("Emitting typing event...");
+			const dedupeUserId = (asUser && asUser.user && asUser.user.userId)
+				|| (!asUser && puppetData && puppetData.userId) || null;
+			if (dedupeUserId) {
+				this.bridge.typingHandler.deduplicator.lock(`${room.puppetId};${room.roomId}`, dedupeUserId, typing.toString());
+			}
 			this.bridge.emit("typing", room, typing, asUser, rawEvent);
 		}
 	}

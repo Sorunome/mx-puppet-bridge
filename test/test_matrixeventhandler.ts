@@ -17,6 +17,7 @@ import {
 	RoomEvent, RoomEventContent, MembershipEvent, RedactionEvent, MessageEventContent, MessageEvent,
 	FileMessageEventContent, TextualMessageEventContent,
 } from "@sorunome/matrix-bot-sdk";
+import { MessageDeduplicator } from "../src/structures/messagededuplicator";
 
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal
@@ -36,6 +37,8 @@ interface IHandlerOpts {
 	getDmRoomIdHook?: any;
 	createRoomHook?: any;
 }
+
+const DEDUPLICATOR_TIMEOUT = 100;
 
 let PUPPETSTORE_JOINED_GHOST_TO_ROOM = "";
 let PUPPETSTORE_LEAVE_GHOST_FROM_ROOM = "";
@@ -341,6 +344,9 @@ function getHandler(opts?: IHandlerOpts) {
 			setStatusInRoom: async (userId, roomId) => {
 				PRESENCE_HANDLER_SET_STATUS_IN_ROOM = `${userId};${roomId}`;
 			},
+		},
+		typingHandler: {
+			deduplicator: new MessageDeduplicator(DEDUPLICATOR_TIMEOUT, DEDUPLICATOR_TIMEOUT + DEDUPLICATOR_TIMEOUT),
 		},
 	} as any;
 	return new MatrixEventHandler(bridge);
@@ -1294,6 +1300,8 @@ describe("MatrixEventHandler", () => {
 			};
 			await handle["handleTyping"]("!room:example.org", event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["typing"]);
+			expect(await handle["bridge"].typingHandler.deduplicator.dedupe("1;room", "puppetGhost", undefined, "true"))
+				.to.be.true;
 			await handle["handleTyping"]("!room:example.org", event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["typing"]);
 			event = {
@@ -1305,6 +1313,8 @@ describe("MatrixEventHandler", () => {
 			};
 			await handle["handleTyping"]("!room:example.org", event);
 			expect(BRIDGE_EVENTS_EMITTED).to.eql(["typing", "typing"]);
+			expect(await handle["bridge"].typingHandler.deduplicator.dedupe("1;room", "puppetGhost", undefined, "false"))
+				.to.be.true;
 		});
 	});
 	describe("handleReceipt", () => {
