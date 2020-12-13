@@ -57,10 +57,13 @@ function getIntent(userId) {
 }
 
 function getHandler(config: any = {}) {
+	CLIENT_STATE_EVENT_TYPE = "";
+	CLIENT_STATE_EVENT_KEY = "";
+	CLIENT_STATE_EVENT_DATA = {};
 	config = Object.assign({
 		enabled: true,
 		interval: 500,
-		disableStatusState: false,
+		enableStatusState: false,
 		statusStateBlacklist: [],
 	}, config);
 	const bridge = {
@@ -359,7 +362,9 @@ describe("PresenceHandler", () => {
 	});
 	describe("setMatrixStatusInRoom", () => {
 		it("should ignore offline blank presence changes", async () => {
-			const handler = getHandler();
+			const handler = getHandler({
+				enableStatusState: true,
+			});
 			const info = {
 				mxid: "@_puppet_1_fox:example.org",
 				status: "",
@@ -371,9 +376,26 @@ describe("PresenceHandler", () => {
 			expect(CLIENT_STATE_EVENT_KEY).to.equal("");
 			expect(CLIENT_STATE_EVENT_DATA).eql({});
 		});
-		it("should ignore if presence status setting is disabled", async () => {
+		it("should set status state if setting is enabled", async () => {
 			const handler = getHandler({
-				disableStatusState: true,
+				enableStatusState: true,
+			});
+			const info = {
+				mxid: "@_puppet_1_fox:example.org",
+				status: "Foxies!",
+				presence: "online",
+			} as any;
+			const roomId = "!room:example.org";
+			await handler["setMatrixStatusInRoom"](info, roomId);
+			expect(CLIENT_STATE_EVENT_TYPE).to.equal("im.vector.user_status");
+			expect(CLIENT_STATE_EVENT_KEY).to.equal("@_puppet_1_fox:example.org");
+			expect(CLIENT_STATE_EVENT_DATA).eql({
+				status: "Foxies!",
+			});
+		});
+		it("should not set status state if setting is not enabled", async () => {
+			const handler = getHandler({
+				enableStatusState: false,
 			});
 			const info = {
 				mxid: "@_puppet_1_fox:example.org",
@@ -389,6 +411,7 @@ describe("PresenceHandler", () => {
 		it("should ignore if presence status user is blacklisted", async () => {
 			const handler = getHandler({
 				statusStateBlacklist: ["badfox"],
+				enableStatusState: true,
 			});
 			const info = {
 				mxid: "@_puppet_1_badfox:example.org",
@@ -400,21 +423,6 @@ describe("PresenceHandler", () => {
 			expect(CLIENT_STATE_EVENT_TYPE).to.equal("");
 			expect(CLIENT_STATE_EVENT_KEY).to.equal("");
 			expect(CLIENT_STATE_EVENT_DATA).eql({});
-		});
-		it("should send the correct state event", async () => {
-			const handler = getHandler();
-			const info = {
-				mxid: "@_puppet_1_fox:example.org",
-				status: "Foxies!",
-				presence: "online",
-			} as any;
-			const roomId = "!room:example.org";
-			await handler["setMatrixStatusInRoom"](info, roomId);
-			expect(CLIENT_STATE_EVENT_TYPE).to.equal("im.vector.user_status");
-			expect(CLIENT_STATE_EVENT_KEY).to.equal("@_puppet_1_fox:example.org");
-			expect(CLIENT_STATE_EVENT_DATA).eql({
-				status: "Foxies!",
-			});
 		});
 	});
 });
