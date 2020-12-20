@@ -105,6 +105,13 @@ export class RemoteEventHandler {
 	}
 
 	public async addUser(params: IReceiveParams) {
+		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
+			return;
+		}
+		const userIds = await this.bridge.namespaceHandler.getRoomPuppetUserIds(params.room);
+		if (userIds.has(params.user.userId)) {
+			return;
+		}
 		log.info(`Got request to add userId=${params.user.userId} to roomId=${params.room.roomId}` +
 			` puppetId=${params.room.puppetId}`);
 		const mxid = await this.bridge.roomSync.maybeGetMxid(params.room);

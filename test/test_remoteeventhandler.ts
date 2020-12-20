@@ -114,6 +114,9 @@ function getHandler(opts?: IHandlerOpts) {
 			isMessageBlocked: async (params) => {
 				return Boolean(opts!.blockMessage);
 			},
+			getRoomPuppetUserIds: async (room) => {
+				return new Set(["puppet"]);
+			},
 		},
 		redactEvent: async (client, roomId, eventId) => {
 			BRIDGE_REDACT_EVENT = `${roomId};${eventId}`;
@@ -515,6 +518,21 @@ describe("RemoteEventHandler", () => {
 				},
 				room: {
 					roomId: "nofoxhole",
+					puppetId: 1,
+				},
+			} as any;
+			await handler.addUser(params);
+			expect(INTENT_REGISTERED_AND_JOINED).to.equal("");
+		});
+		it("should do nothing, if the user is the puppet", async () => {
+			const handler = getHandler();
+			const params = {
+				user: {
+					userId: "puppet",
+					puppetId: 1,
+				},
+				room: {
+					roomId: "foxhole",
 					puppetId: 1,
 				},
 			} as any;
