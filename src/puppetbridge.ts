@@ -332,6 +332,11 @@ export class PuppetBridge extends EventEmitter {
 	public async start(callback?: () => Promise<void>) {
 		log.info("Starting application service....");
 
+		process.on("unhandledRejection", (err, promise) => {
+			log.error("Unhandled Promise Rejection:", err);
+			log.error(promise);
+		});
+
 		process.on("SIGINT", () => {
 			this.AS.stop();
 			process.exit(1);
