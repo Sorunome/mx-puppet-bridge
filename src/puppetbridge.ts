@@ -22,6 +22,8 @@ import {
 } from "@sorunome/matrix-bot-sdk";
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
+import * as prometheus from "prom-client";
+import * as express from "express";
 import { EventEmitter } from "events";
 import { EmoteSyncroniser } from "./emotesyncroniser";
 import { EventSyncroniser } from "./eventsyncroniser";
@@ -96,6 +98,11 @@ interface ISetProtocolInformation extends IProtocolInformation {
 	};
 }
 
+const bridgeConnectionMetric = new prometheus.Gauge({
+	name: "bridge_connected",
+	help: "Users connected to the remote network",
+})
+
 export class PuppetBridge extends EventEmitter {
 	public emoteSync: EmoteSyncroniser;
 	public eventSync: EventSyncroniser;
@@ -118,6 +125,8 @@ export class PuppetBridge extends EventEmitter {
 	private mxcLookupLock: Lock<string>;
 	private matrixEventHandler: MatrixEventHandler;
 	private remoteEventHandler: RemoteEventHandler;
+	private matrixClientSyncroniser: MatrixClientSyncroniser;
+	private connectionMetricStatus: { [puppetId: number]: boolean };
 
 	constructor(
 		private registrationPath: string,
@@ -142,6 +151,7 @@ export class PuppetBridge extends EventEmitter {
 			};
 		}
 		this.hooks = {};
+		this.connectionMetricStatus = {};
 		this.delayedFunction = new DelayedFunction();
 		this.mxcLookupLock = new Lock(MXC_LOOKUP_LOCK_TIMEOUT);
 	}
@@ -210,6 +220,18 @@ export class PuppetBridge extends EventEmitter {
 
 		this.botProvisioner = new BotProvisioner(this);
 		this.provisioningAPI = new ProvisioningAPI(this);
+
+		this.matrixClientSyncroniser = new MatrixClientSyncroniser(this);
+
+		if (this.config.metrics.enabled) {
+			prometheus.collectDefaultMetrics();
+			const metricsServer = express();
+			metricsServer.get(this.config.metrics.path, (req, res) => {
+				res.set("Content-Type", prometheus.register.contentType);
+				res.end(prometheus.register.metrics());
+			});
+			metricsServer.listen(this.config.metrics.port);
+		}
 
 		// pipe matrix-bot-sdk logging int ours
 		const logMap = new Map<string, Log>();
@@ -671,10 +693,25 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	public trackConnectionStatus(puppetId: number, isConnected: boolean) {
+		if (Boolean(this.connectionMetricStatus[puppetId]) === isConnected) {
+			return;
+		}
+		this.connectionMetricStatus[puppetId] = isConnected;
+		if (isConnected) {
+			bridgeConnectionMetric.inc();
+		} else {
+			bridgeConnectionMetric.dec();
+		}
+	}
+
 	/**
 	 * Send a status message either to the status message room or to a specified room
 	 */
-	public async sendStatusMessage(puppetId: number | IRemoteRoom, msg: string) {
+	public async sendStatusMessage(puppetId: number | IRemoteRoom, msg: string, isConnected: boolean | null = null) {
+		if (isConnected !== null && typeof puppetId === "number") {
+			this.trackConnectionStatus(puppetId, isConnected);
+		}
 		await this.botProvisioner.sendStatusMessage(puppetId, msg);
 	}
 

@@ -33,6 +33,7 @@
     "js-yaml": "^3.13.1",
     "markdown-it": "^9.1.0",
     "pg-promise": "^10.5.0",
+    "prom-client": "^13.0.0",
     "unescape": "^1.0.1",
     "uuid": "^3.4.0",
     "winston": "^3.2.1",
