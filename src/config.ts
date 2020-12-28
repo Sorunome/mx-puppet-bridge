@@ -18,6 +18,7 @@ export class Config {
 	public bridge: BridgeConfig = new BridgeConfig();
 	public logging: LoggingConfig = new LoggingConfig();
 	public database: DatabaseConfig = new DatabaseConfig();
+	public metrics: MetricsConfig = new MetricsConfig();
 	public provisioning: ProvisioningConfig = new ProvisioningConfig();
 	public presence: PresenceConfig = new PresenceConfig();
 	public relay: RelayConfig = new RelayConfig();
@@ -75,6 +76,12 @@ export class LoggingFileConfig extends LoggingInterfaceConfig {
 	public maxFiles: string = "14d";
 	public maxSize: string|number = "50m";
 	public datePattern: string = "YYYY-MM-DD";
+}
+
+export class MetricsConfig {
+	public enabled: boolean = false;
+	public port: number = 8000;
+	public path: string = "/metrics";
 }
 
 export class DatabaseConfig {
