@@ -22,6 +22,7 @@ import {
 } from "@sorunome/matrix-bot-sdk";
 import * as escapeHtml from "escape-html";
 import * as unescapeHtml from "unescape";
+import * as prometheus from "prom-client";
 import { encode as blurhashEncode } from "blurhash";
 import * as Canvas from "canvas";
 
@@ -44,6 +45,14 @@ export class RemoteEventHandler {
 		private bridge: PuppetBridge,
 	) {
 		this.ghostInviteCache = new TimedCache(PUPPET_INVITE_CACHE_LIFETIME);
+		this.bridge.metrics.remoteUpdateBucket = new prometheus.Histogram({
+			name: "bridge_remote_update_seconds",
+			help: "Time spent processing updates from the remote network, by protocol and type",
+			labelNames: ["protocol", "type"],
+			// tslint:disable-next-line no-magic-numbers
+			buckets: [0.002, 0.005, 0.01, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 7, 10],
+		});
+
 	}
 
 	public async setUserPresence(user: IRemoteUser, presence: MatrixPresence) {
@@ -145,6 +154,9 @@ export class RemoteEventHandler {
 		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
 			return;
 		}
+		const stopTimer = this.bridge.metrics.remoteUpdateBucket.startTimer({
+			protocol: this.bridge.protocol.id,
+		});
 		log.info(`Received message from ${params.user.userId} to send to ${params.room.roomId}`);
 		this.preprocessMessageEvent(opts);
 		const { client, mxid } = await this.prepareSend(params);
@@ -172,12 +184,16 @@ export class RemoteEventHandler {
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
+		stopTimer({ type: msgtype });
 	}
 
 	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
 		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
 			return;
 		}
+		const stopTimer = this.bridge.metrics.remoteUpdateBucket.startTimer({
+			protocol: this.bridge.protocol.id,
+		});
 		log.info(`Received edit from ${params.user.userId} to send to ${params.room.roomId}`);
 		this.preprocessMessageEvent(opts);
 		const { client, mxid } = await this.prepareSend(params);
@@ -231,6 +247,7 @@ export class RemoteEventHandler {
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
+		stopTimer({ type: msgtype });
 	}
 
 	public async sendRedact(params: IReceiveParams, eventId: string) {
@@ -249,6 +266,9 @@ export class RemoteEventHandler {
 		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
 			return;
 		}
+		const stopTimer = this.bridge.metrics.remoteUpdateBucket.startTimer({
+			protocol: this.bridge.protocol.id,
+		});
 		log.info(`Received reply from ${params.user.userId} to send to ${params.room.roomId}`);
 		this.preprocessMessageEvent(opts);
 		const { client, mxid } = await this.prepareSend(params);
@@ -332,6 +352,7 @@ export class RemoteEventHandler {
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
+		stopTimer({ type: msgtype });
 	}
 
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
@@ -368,6 +389,9 @@ export class RemoteEventHandler {
 		if (await this.bridge.namespaceHandler.isMessageBlocked(params)) {
 			return;
 		}
+		const stopTimer = this.bridge.metrics.remoteUpdateBucket.startTimer({
+			protocol: this.bridge.protocol.id,
+		});
 		log.info(`Received file to send from ${params.user.userId} in ${params.room.roomId}.`);
 		log.verbose(`thing=${typeof thing === "string" ? thing : "<Buffer>"} name=${name}`);
 		if (!name) {
@@ -519,6 +543,7 @@ export class RemoteEventHandler {
 		}
 		// aaand stop typing
 		await this.bridge.typingHandler.set(await client.getUserId(), mxid, false);
+		stopTimer({ type: msgtype });
 	}
 
 	private async maybePrepareSend(params: IReceiveParams): Promise<ISendInfo | null> {

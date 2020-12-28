@@ -37,6 +37,26 @@ export class DbUserStore {
 		};
 	}
 
+	public async getAll() {
+		const results: object[] = [];
+		const rows = await this.db.All(
+			"SELECT * FROM user_store;",
+		);
+		if (!rows) {
+			return [];
+		}
+		for (const r of rows) {
+			const data = {
+				name: r.name as string | null,
+				avatarUrl: r.avatar_url as string | null,
+				avatarMxc: r.avatar_mxc as string | null,
+				avatarHash: r.avatar_hash as string | null,
+			};
+			results.push(data);
+		}
+		return results;
+	}
+
 	public async get(puppetId: number, userId: string): Promise<IUserStoreEntry | null> {
 		const cacheKey = `${puppetId};${userId}`;
 		const cached = this.usersCache.get(cacheKey);

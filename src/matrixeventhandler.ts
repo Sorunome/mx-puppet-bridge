@@ -21,6 +21,7 @@ import {
 	IFileEvent, IMessageEvent, IRemoteRoom, ISendingUser, IRemoteUser, IReplyEvent, IEventInfo, IPresenceEvent,
 } from "./interfaces";
 import * as escapeHtml from "escape-html";
+import * as prometheus from "prom-client";
 import { IPuppet } from "./db/puppetstore";
 
 const log = new Log("MatrixEventHandler");
@@ -38,35 +39,77 @@ export class MatrixEventHandler {
 		private bridge: PuppetBridge,
 	) {
 		this.memberInfoCache = {};
+		this.bridge.metrics.matrixEvent = new prometheus.Counter({
+			name: "bridge_matrix_events_total",
+			help: "Total matrix events bridged to the remote network, by protocol and type",
+			labelNames: ["protocol", "type"],
+		});
+		this.bridge.metrics.matrixEventBucket = new prometheus.Histogram({
+			name: "bridge_matrix_event_seconds",
+			help: "Time spent processing matrix events in seconds, by protocol",
+			labelNames: ["protocol", "type"],
+			// tslint:disable-next-line no-magic-numbers
+			buckets: [0.002, 0.005, 0.01, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 7, 10],
+		});
+		this.bridge.metrics.matrixEventError = new prometheus.Counter({
+			name: "bridge_matrix_event_errors_total",
+			help: "Errors encountered during matrix event processing",
+			labelNames: ["protocol"],
+		});
 	}
 
 	public registerAppserviceEvents() {
 		// tslint:disable-next-line no-any
 		this.bridge.AS.on("room.event", async (roomId: string, rawEvent: any) => {
+			const stopTimer = this.bridge.metrics.matrixEventBucket.startTimer({
+				protocol: this.bridge.protocol.id,
+				type: "room.event",
+			});
 			try {
 				await this.handleRoomEvent(roomId, new RoomEvent<RoomEventContent>(rawEvent));
 			} catch (err) {
 				log.error("Error handling appservice room.event", err.error || err.body || err);
+				this.bridge.metrics.matrixEventError.inc({protocol: this.bridge.protocol.id});
+			} finally {
+				stopTimer();
 			}
 		});
 		// tslint:disable-next-line no-any
 		this.bridge.AS.on("room.invite", async (roomId: string, rawEvent: any) => {
+			const stopTimer = this.bridge.metrics.matrixEventBucket.startTimer({
+				protocol: this.bridge.protocol.id,
+				type: "room.invite",
+			});
 			try {
 				await this.handleInviteEvent(roomId, new MembershipEvent(rawEvent));
 			} catch (err) {
 				log.error("Error handling appservice room.invite", err.error || err.body || err);
+				this.bridge.metrics.matrixEventError.inc({protocol: this.bridge.protocol.id});
+			} finally {
+				stopTimer();
 			}
 		});
 		// tslint:disable-next-line no-any
 		this.bridge.AS.on("query.room", async (alias: string, createRoom: any) => {
+			const stopTimer = this.bridge.metrics.matrixEventBucket.startTimer({
+				protocol: this.bridge.protocol.id,
+				type: "query.room",
+			});
 			try {
 				await this.handleRoomQuery(alias, createRoom);
 			} catch (err) {
+				this.bridge.metrics.matrixEventError.inc({protocol: this.bridge.protocol.id});
 				log.error("Error handling appservice query.room", err.error || err.body || err);
+			} finally {
+				stopTimer();
 			}
 		});
 		// tslint:disable-next-line no-any
 		this.bridge.AS.on("ephemeral.event", async (rawEvent: any) => {
+			const stopTimer = this.bridge.metrics.matrixEventBucket.startTimer({
+				protocol: this.bridge.protocol.id,
+				type: "ephemeral.event",
+			});
 			try {
 				switch (rawEvent.type) {
 					case "m.presence":
@@ -82,6 +125,7 @@ export class MatrixEventHandler {
 			} catch (err) {
 				log.error("Error handling appservice ephemeral.event", err.error || err.body || err);
 			}
+			stopTimer();
 		});
 	}
 
@@ -130,6 +174,10 @@ export class MatrixEventHandler {
 	private async handleRoomEvent(roomId: string, event: RoomEvent<RoomEventContent>) {
 		if (event.type === "m.room.member") {
 			const membershipEvent = new MembershipEvent(event.raw);
+			this.bridge.metrics.matrixEvent.inc({
+				protocol: this.bridge.protocol.id,
+				type: `${event.type}.${membershipEvent.membership}`,
+			});
 			switch (membershipEvent.membership) {
 				case "join":
 					await this.handleJoinEvent(roomId, membershipEvent);
@@ -144,6 +192,10 @@ export class MatrixEventHandler {
 		if (event.type === "m.room.redaction") {
 			const evt = new RedactionEvent(event.raw);
 			await this.handleRedactEvent(roomId, evt);
+			this.bridge.metrics.matrixEvent.inc({
+				protocol: this.bridge.protocol.id,
+				type: event.type,
+			});
 			return;
 		}
 		// we handle stickers and reactions as message events
@@ -369,6 +421,10 @@ export class MatrixEventHandler {
 		} else {
 			await this.handleTextEvent(roomId, room, puppetData, new MessageEvent<TextualMessageEventContent>(event.raw));
 		}
+		this.bridge.metrics.matrixEvent.inc({
+			protocol: this.bridge.protocol.id,
+			type: msgtype,
+		});
 	}
 
 	private getFileEventData(event: MessageEvent<FileMessageEventContent>): IFileEvent {
@@ -591,6 +647,7 @@ export class MatrixEventHandler {
 		await this.bridge.roomSync.markAsDirect(roomData);
 		await intent.joinRoom(roomId);
 		await this.bridge.userSync.getClient(parts); // create user, if it doesn't exist
+		this.bridge.metrics.room?.inc({ type: roomData.isDirect ? "dm" : "group", protocol: this.bridge.protocol.id });
 	}
 
 	// tslint:disable-next-line no-any
