@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import * as prometheus from "prom-client";
+
 type SQLTYPES = number | boolean | string | null;
 
 export interface ISqlCommandParameters {
@@ -26,6 +28,7 @@ export interface ISqlRow {
 
 export interface IDatabaseConnector {
 	type: string;
+	latency: prometheus.Histogram<string>;
 	Open(): void;
 	Get(sql: string, parameters?: ISqlCommandParameters): Promise<ISqlRow|null>;
 	All(sql: string, parameters?: ISqlCommandParameters): Promise<ISqlRow[]>;

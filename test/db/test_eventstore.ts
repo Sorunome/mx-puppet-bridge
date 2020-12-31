@@ -14,17 +14,23 @@ limitations under the License.
 import { expect } from "chai";
 import { DbEventStore } from "../../src/db/eventstore";
 import { Store } from "../../src/store";
+import * as prometheus from "prom-client";
 
 // we are a test file and thus our linting rules are slightly different
 // tslint:disable:no-unused-expression max-file-line-count no-any no-magic-numbers no-string-literal
 
 async function getStore(): Promise<DbEventStore> {
+	prometheus.register.clear();
 	const store = new Store({
 		filename: ":memory:",
 	} as any, {} as any);
 	await store.init();
 	return new DbEventStore(store.db);
 }
+
+beforeEach("Prometheus clean up", () => {
+	prometheus.register.clear();
+});
 
 describe("DbEventStore", () => {
 	it("should insert things", async () => {

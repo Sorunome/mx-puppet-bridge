@@ -159,9 +159,29 @@ export class PuppetBridge extends EventEmitter {
 		}
 		this.hooks = {};
 		this.connectionMetricStatus = {};
-		this.metrics = new BridgeMetrics();
 		this.delayedFunction = new DelayedFunction();
 		this.mxcLookupLock = new Lock(MXC_LOOKUP_LOCK_TIMEOUT);
+		this.metrics = new BridgeMetrics();
+		this.metrics.room = new prometheus.Gauge({
+			name: "bridge_rooms_total",
+			help: "Total rooms bridged to the remote network, by type and protocol",
+			labelNames: ["type", "protocol"],
+		});
+		this.metrics.puppet = new prometheus.Gauge({
+			name: "bridge_puppets_total",
+			help: "Puppets linked to remote network, puppeted by matrix users",
+			labelNames: ["protocol"],
+		});
+		this.metrics.connected = new prometheus.Gauge({
+			name: "bridge_connected",
+			help: "Users connected to the remote network",
+			labelNames: ["protocol"],
+		});
+		this.metrics.message = new prometheus.Counter({
+			name: "bridge_messages_total",
+			help: "Total messages bridged into matrix, by type and protocol",
+			labelNames: ["type", "protocol"],
+		});
 	}
 
 	/** @internal */
@@ -239,26 +259,6 @@ export class PuppetBridge extends EventEmitter {
 			});
 			metricsServer.listen(this.config.metrics.port);
 		}
-		this.metrics.room = new prometheus.Gauge({
-			name: "bridge_rooms_total",
-			help: "Total rooms bridged to the remote network, by type and protocol",
-			labelNames: ["type", "protocol"],
-		});
-		this.metrics.puppet = new prometheus.Gauge({
-			name: "bridge_puppets_total",
-			help: "Puppets linked to remote network, puppeted by matrix users",
-			labelNames: ["protocol"],
-		});
-		this.metrics.connected = new prometheus.Gauge({
-			name: "bridge_connected",
-			help: "Users connected to the remote network",
-			labelNames: ["protocol"],
-		});
-		this.metrics.message = new prometheus.Counter({
-			name: "bridge_messages_total",
-			help: "Total messages bridged into matrix, by type and protocol",
-			labelNames: ["type", "protocol"],
-		});
 
 		// pipe matrix-bot-sdk logging int ours
 		const logMap = new Map<string, Log>();
@@ -563,11 +563,10 @@ export class PuppetBridge extends EventEmitter {
 
 		// check if this is a valid room at all
 		const room = await this.namespaceHandler.createRoom(roomData);
-		if (room) {
-			this.metrics.room.inc({type: room.isDirect ? "dm" : "group", protocol: this.protocol?.id});
-		} else {
+		if (!room) {
 			return;
 		}
+		this.metrics.room.inc({type: room.isDirect ? "dm" : "group", protocol: this.protocol?.id});
 		if (room.isDirect) {
 			return;
 		}
@@ -743,8 +742,11 @@ export class PuppetBridge extends EventEmitter {
 	 * Send a status message either to the status message room or to a specified room
 	 */
 	public async sendStatusMessage(puppetId: number | IRemoteRoom, msg: string, isConnected: boolean | null = null) {
-		if (isConnected !== null && typeof puppetId === "number") {
-			this.trackConnectionStatus(puppetId, isConnected);
+		if (isConnected !== null) {
+			this.trackConnectionStatus(
+				typeof puppetId === "number" ? puppetId : puppetId.puppetId,
+				isConnected,
+			);
 		}
 		await this.botProvisioner.sendStatusMessage(puppetId, msg);
 	}
