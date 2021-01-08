@@ -62,7 +62,7 @@ export class ReactionHandler {
 			send.external_url = params.externalUrl;
 		}
 		if (key.startsWith("mxc://")) {
-			send["m.relates_to"].url = key;
+			send.url = key;
 		}
 		const matrixEventId = await client.sendEvent(mxid, "m.reaction", send);
 		if (matrixEventId && params.eventId) {
