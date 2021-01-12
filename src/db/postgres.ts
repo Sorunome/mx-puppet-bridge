@@ -37,7 +37,7 @@ export class Postgres implements IDatabaseConnector {
 	constructor(private connectionString: string) {
 
 	}
-	public async Open() {
+	public async Open(): Promise<void> {
 		// Hide username:password
 		const logConnString = this.connectionString.substr(
 			this.connectionString.indexOf("@") || 0,
