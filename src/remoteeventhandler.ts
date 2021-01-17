@@ -285,8 +285,8 @@ export class RemoteEventHandler {
 						if (!info.message.formattedBody) {
 							info.message.formattedBody = escapeHtml(info.message.body).replace(/\n/g, "<br>");
 						}
-						const bodyParts = info.message.body.split("\n");
-						bodyParts[0] = `${info.message.emote ? "* " : ""}<${info.user.mxid}> ${bodyParts[0]}`;
+						const bodyParts = this.preprocessBody(info.message.body).split("\n");
+						bodyParts[0] = `${info.message.emote ? "* " : ""}<${this.preprocessBody(info.user.mxid)}> ${bodyParts[0]}`;
 						send.body = `${bodyParts.map((l) => `> ${l}`).join("\n")}\n\n${send.body}`;
 						const matrixReplyRegex = /^<mx-reply>.*<\/mx-reply>/gs;
 						const messageWithoutNestedReplies = info.message.formattedBody?.replace(matrixReplyRegex, "");
@@ -610,11 +610,16 @@ export class RemoteEventHandler {
 		return { client, mxid };
 	}
 
-	private preprocessMessageEvent(opts: IMessageEvent) {
+	private preprocessBody(body: string): string {
 		for (const homeserver of this.bridge.config.bridge.stripHomeservers) {
 			const urlRegex = homeserver.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-			opts.body = opts.body.replace(new RegExp(`@([\x21-\x39\x3b-\x7e]+):${urlRegex}`, "g"), "@$1");
+			body = body.replace(new RegExp(`@([\x21-\x39\x3b-\x7e]+):${urlRegex}`, "g"), "@$1");
 		}
+		return body;
+	}
+
+	private preprocessMessageEvent(opts: IMessageEvent) {
+		opts.body = this.preprocessBody(opts.body);
 		if (!opts.formattedBody) {
 			return;
 		}
