@@ -67,16 +67,20 @@ export class MatrixEventHandler {
 		});
 		// tslint:disable-next-line no-any
 		this.bridge.AS.on("ephemeral.event", async (rawEvent: any) => {
-			switch (rawEvent.type) {
-				case "m.presence":
-					await this.handlePresence(rawEvent);
-					break;
-				case "m.typing":
-					await this.handleTyping(rawEvent.room_id, rawEvent);
-					break;
-				case "m.receipt":
-					await this.handleReceipt(rawEvent.room_id, rawEvent);
-					break;
+			try {
+				switch (rawEvent.type) {
+					case "m.presence":
+						await this.handlePresence(rawEvent);
+						break;
+					case "m.typing":
+						await this.handleTyping(rawEvent.room_id, rawEvent);
+						break;
+					case "m.receipt":
+						await this.handleReceipt(rawEvent.room_id, rawEvent);
+						break;
+				}
+			} catch (err) {
+				log.error("Error handling appservice ephemeral.event", err.error || err.body || err);
 			}
 		});
 	}
