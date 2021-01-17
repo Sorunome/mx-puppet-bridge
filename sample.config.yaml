@@ -22,6 +22,9 @@ bridge:
   # optionally enable group synchronisation.
   # Needs synapse config "enable_group_creation" set to true
   #enableGroupSync: true
+  # Strip the homeserver url from pings that are on these homeservers in the body
+  #stripHomeservers:
+  # - example.org
 
 logging:
   # Log level of console output

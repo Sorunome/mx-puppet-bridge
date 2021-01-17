@@ -51,6 +51,7 @@ class BridgeConfig {
 	public displayname?: string;
 	public avatarUrl?: string;
 	public enableGroupSync: boolean = false;
+	public stripHomeservers: string[] = [];
 }
 
 export class LoggingConfig {

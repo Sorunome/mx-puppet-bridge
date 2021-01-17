@@ -611,6 +611,10 @@ export class RemoteEventHandler {
 	}
 
 	private preprocessMessageEvent(opts: IMessageEvent) {
+		for (const homeserver of this.bridge.config.bridge.stripHomeservers) {
+			const urlRegex = homeserver.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			opts.body = opts.body.replace(new RegExp(`@([\x21-\x39\x3b-\x7e]+):${urlRegex}`, "g"), "@$1");
+		}
 		if (!opts.formattedBody) {
 			return;
 		}

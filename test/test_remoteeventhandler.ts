@@ -105,6 +105,9 @@ function getHandler(opts?: IHandlerOpts) {
 			},
 		},
 		config: {
+			bridge: {
+				stripHomeservers: ["badserver.org"],
+			},
 			presence: {
 				enabled: opts.enablePresence,
 			},
@@ -1967,6 +1970,24 @@ describe("RemoteEventHandler", () => {
 			} as any;
 			await handler["prepareSend"](params);
 			expect(CLIENT_INVITE_USER).to.equal("");
+		});
+	});
+	describe("preprocessMessageEvent", () => {
+		it("should strip bad homeserver URLs from mxids", () => {
+			const handler = getHandler();
+			const opts = {
+				body: "hmm @user:badserver.org, how are you today?",
+			};
+			handler.preprocessMessageEvent(opts);
+			expect(opts.body).to.equal("hmm @user, how are you today?");
+		});
+		it("should not strip other homeserver URLs from mxids", () => {
+			const handler = getHandler();
+			const opts = {
+				body: "hmm @user:goodserver.org, how are you today?",
+			};
+			handler.preprocessMessageEvent(opts);
+			expect(opts.body).to.equal("hmm @user:goodserver.org, how are you today?");
 		});
 	});
 });
