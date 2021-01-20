@@ -307,7 +307,7 @@ export class RemoteEventHandler {
 						if (!msg) {
 							msg = "a file";
 						}
-						const plainHeader = `> <${info.user.mxid}> sent ${msg}.\n\n`;
+						const plainHeader = `> <${this.preprocessBody(info.user.mxid)}> sent ${msg}.\n\n`;
 						send.body = plainHeader + send.body;
 						const richHeader = `<mx-reply><blockquote>
 	<a href="https://matrix.to/#/${mxid}/${origEventId}">In reply to</a>
