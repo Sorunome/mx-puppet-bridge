@@ -37,13 +37,15 @@ export class Postgres implements IDatabaseConnector {
 	constructor(private connectionString: string) {
 
 	}
-	public Open() {
+	public async Open(): Promise<void> {
 		// Hide username:password
 		const logConnString = this.connectionString.substr(
 			this.connectionString.indexOf("@") || 0,
 		);
 		log.info(`Opening ${logConnString}`);
 		this.db = pgp(this.connectionString);
+		// Wait for postgres to be ready by returning a promise for a connection
+		return this.db.connect();
 	}
 
 	public async Get(sql: string, parameters?: ISqlCommandParameters): Promise<ISqlRow|null> {
