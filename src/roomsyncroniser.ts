@@ -51,6 +51,28 @@ export class RoomSyncroniser {
 	) {
 		this.roomStore = this.bridge.roomStore;
 		this.mxidLock = new Lock(MXID_LOOKUP_LOCK_TIMEOUT);
+		if (this.bridge.config.metrics.enabled) {
+			const roomMetricsInit = (rooms) => {
+				this.bridge.metrics.room.set(
+					{
+						type: "dm",
+						protocol: this.bridge.protocol.id,
+					},
+					rooms.filter((room) => room.isDirect).length,
+				);
+				this.bridge.metrics.room.set(
+					{
+						type: "group",
+						protocol: this.bridge.protocol.id,
+					},
+					rooms.filter((room) => !room.isDirect).length,
+				);
+			};
+			this.roomStore.getAll()
+				.catch((err) => log.error("could not get room store"))
+				.then(roomMetricsInit)
+				.catch((err) => log.warn("could not init room metrics"));
+		}
 	}
 
 	public async getRoomOp(room: string | IRemoteRoom): Promise<MatrixClient|null> {

@@ -135,6 +135,15 @@ namePatterns:
   room: :name
   group: :name
 
+# Prometheus metrics configuration
+metrics:
+  # If enabled, the metrics are served at http://localhost:$port$path
+  enabled: false
+  # On which port the prometheus metrics will be served
+  port: 8000
+  # Path on which the metrics are available, the default is /metrics
+  path: "/metrics"
+
 limits:
   # Up to how many users should be auto-joined on room creation? -1 to disable
   # Defaults to 200

@@ -21,6 +21,7 @@ import { IUserStoreEntry, IUserStoreRoomOverrideEntry, IProfileDbEntry } from ".
 import { Lock } from "./structures/lock";
 import { ITokenResponse } from "./provisioner";
 import { StringFormatter } from "./structures/stringformatter";
+import * as prometheus from "prom-client";
 
 const log = new Log("UserSync");
 
@@ -40,6 +41,16 @@ export class UserSyncroniser {
 		this.userStore = this.bridge.userStore;
 		this.clientLock = new Lock(CLIENT_LOOKUP_LOCK_TIMEOUT);
 		this.roomOverrideLock = new Lock(ROOM_OVERRIDE_LOCK_TIMEOUT);
+		const that = this;
+		this.bridge.metrics.remoteUser = new prometheus.Gauge({
+			name: "bridge_remote_users_total",
+			help: "Total number of users on the remote network",
+			labelNames: ["protocol"],
+			async collect() {
+				const remoteUsers = await that.userStore.getAll();
+				this.set({protocol: that.bridge.protocol.id}, remoteUsers.length);
+			},
+		});
 	}
 
 	public async getClientFromTokenCallback(token: ITokenResponse | null): Promise<MatrixClient | null> {

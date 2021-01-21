@@ -23,11 +23,14 @@ const GROUP_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 
 export class DbGroupStore {
 	private groupsCache: TimedCache<string, IGroupStoreEntry>;
+	private protocol: string;
 	constructor(
 		private db: IDatabaseConnector,
 		cache: boolean = true,
+		protocolId: string = "unknown",
 	) {
 		this.groupsCache = new TimedCache(cache ? GROUP_CACHE_LIFETIME : 0);
+		this.protocol = protocolId;
 	}
 
 	public newData(mxid: string, groupId: string, puppetId: number): IGroupStoreEntry {
@@ -44,6 +47,7 @@ export class DbGroupStore {
 		groupId: string,
 		ignoreCache: boolean = false,
 	): Promise<IGroupStoreEntry | null> {
+		const stopTimer = this.db.latency.startTimer(this.labels("select_by_remote"));
 		if (!ignoreCache) {
 			const cached = this.groupsCache.get(`${puppetId};${groupId}`);
 			if (cached) {
@@ -55,10 +59,13 @@ export class DbGroupStore {
 			groupId,
 			puppetId,
 		});
-		return await this.getFromRow(row);
+		const result =  await this.getFromRow(row);
+		stopTimer();
+		return result;
 	}
 
 	public async getByPuppetId(puppetId: number): Promise<IGroupStoreEntry[]> {
+		const stopTimer = this.db.latency.startTimer(this.labels("select_by_puppet"));
 		const rows = await this.db.All(
 			"SELECT * FROM group_store WHERE puppet_id = $puppetId", {
 			puppetId,
@@ -70,17 +77,22 @@ export class DbGroupStore {
 				results.push(res);
 			}
 		}
+		stopTimer();
 		return results;
 	}
 
 	public async getByMxid(mxid: string): Promise<IGroupStoreEntry | null> {
+		const stopTimer = this.db.latency.startTimer(this.labels("select_by_mxid"));
 		const row = await this.db.Get(
 			"SELECT * FROM group_store WHERE mxid = $mxid", { mxid },
 		);
-		return await this.getFromRow(row);
+		const result = await this.getFromRow(row);
+		stopTimer();
+		return result;
 	}
 
 	public async set(data: IGroupStoreEntry) {
+		const stopTimer = this.db.latency.startTimer(this.labels("insert_update"));
 		// first de-dupe the room IDs
 		const uniqueRoomIds: string[] = [];
 		for (const roomId of data.roomIds) {
@@ -194,9 +206,11 @@ export class DbGroupStore {
 			}
 		}
 		this.groupsCache.set(`${data.puppetId};${data.groupId}`, data);
+		stopTimer();
 	}
 
 	public async delete(data: IGroupStoreEntry) {
+		const stopTimer = this.db.latency.startTimer(this.labels("delete"));
 		await this.db.Run(
 			"DELETE FROM group_store WHERE mxid = $mxid", { mxid: data.mxid },
 		);
@@ -206,9 +220,11 @@ export class DbGroupStore {
 			groupId: data.groupId,
 		});
 		this.groupsCache.delete(`${data.puppetId};${data.groupId}`);
+		stopTimer();
 	}
 
 	private async getFromRow(row: ISqlRow | null): Promise<IGroupStoreEntry | null> {
+		const stopTimer = this.db.latency.startTimer(this.labels("select_from_row"));
 		if (!row) {
 			return null;
 		}
@@ -236,6 +252,16 @@ export class DbGroupStore {
 		}
 
 		this.groupsCache.set(`${data.puppetId};${data.groupId}`, data);
+		stopTimer();
 		return data;
+	}
+
+	private labels(queryName: string): object {
+		return {
+			protocol: this.protocol,
+			engine: this.db.type,
+			table: "group_store",
+			type: queryName,
+		};
 	}
 }

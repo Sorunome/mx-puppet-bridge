@@ -17,6 +17,7 @@ limitations under the License.
 import * as pgPromise from "pg-promise";
 import { Log } from "../log";
 import { IDatabaseConnector, ISqlCommandParameters, ISqlRow } from "./connector";
+import * as prometheus from "prom-client";
 const log = new Log("Postgres");
 
 const pgp: pgPromise.IMain = pgPromise({
@@ -31,11 +32,18 @@ export class Postgres implements IDatabaseConnector {
 	}
 
 	public type = "postgres";
+	public latency: prometheus.Histogram<string>;
 
 	// tslint:disable-next-line no-any
 	private db: pgPromise.IDatabase<any>;
 	constructor(private connectionString: string) {
-
+		this.latency = new prometheus.Histogram({
+			name: "bridge_database_query_seconds",
+			help: "Time spent querying the database engine",
+			labelNames: ["protocol", "engine", "type", "table"],
+			// tslint:disable-next-line no-magic-numbers
+			buckets: [0.002, 0.005, 0.0075, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
+		});
 	}
 	public Open() {
 		// Hide username:password

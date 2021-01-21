@@ -321,6 +321,7 @@ export class Provisioner {
 		await this.puppetStore.deleteStatusRoom(mxid);
 		// alright, we did all the verifying, time to actually bridge this room!
 		await this.bridge.roomSync.rebridge(mxid, newRoomParts);
+		this.bridge.metrics.room.inc({ type: "group", protocol: this.bridge.protocol.id });
 	}
 
 	public async unbridgeRoom(userId: string, ident: RemoteRoomResolvable): Promise<boolean> {
@@ -337,6 +338,7 @@ export class Provisioner {
 		}
 		// alright, unbridge the room
 		await this.bridge.roomSync.delete(roomParts, true);
+		this.bridge.metrics.room.dec({ type: "group", protocol: this.bridge.protocol.id });
 		return true;
 	}
 

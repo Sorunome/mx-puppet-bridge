@@ -23,11 +23,14 @@ const USERS_CACHE_LIFETIME = 1000 * 60 * 60 * 24;
 
 export class DbUserStore {
 	private usersCache: TimedCache<string, IUserStoreEntry>;
+	private protocol: string;
 	constructor(
 		private db: IDatabaseConnector,
 		cache: boolean = true,
+		protocol: string = "unknown",
 	) {
 		this.usersCache = new TimedCache(cache ? USERS_CACHE_LIFETIME : 0);
+		this.protocol = protocol;
 	}
 
 	public newData(puppetId: number, userId: string): IUserStoreEntry {
@@ -37,7 +40,32 @@ export class DbUserStore {
 		};
 	}
 
+	public async getAll(): Promise<IUserStoreEntry[]> {
+		const stopTimer = this.db.latency.startTimer(this.labels("select_all"));
+		const results: IUserStoreEntry[] = [];
+		const rows = await this.db.All(
+			"SELECT * FROM user_store;",
+		);
+		if (!rows) {
+			return [];
+		}
+		for (const r of rows) {
+			const data = {
+				name: r.name as string | null,
+				userId: r.user_id as string,
+				puppetId: r.puppet_id as number,
+				avatarUrl: r.avatar_url as string | null,
+				avatarMxc: r.avatar_mxc as string | null,
+				avatarHash: r.avatar_hash as string | null,
+			};
+			results.push(data);
+		}
+		stopTimer();
+		return results;
+	}
+
 	public async get(puppetId: number, userId: string): Promise<IUserStoreEntry | null> {
+		const stopTimer = this.db.latency.startTimer(this.labels("select"));
 		const cacheKey = `${puppetId};${userId}`;
 		const cached = this.usersCache.get(cacheKey);
 		if (cached) {
@@ -55,10 +83,12 @@ export class DbUserStore {
 		data.avatarMxc = row.avatar_mxc as string | null;
 		data.avatarHash = row.avatar_hash as string | null;
 		this.usersCache.set(cacheKey, data);
+		stopTimer();
 		return data;
 	}
 
 	public async set(data: IUserStoreEntry) {
+		const stopTimer = this.db.latency.startTimer(this.labels("insert_update"));
 		const exists = await this.db.Get(
 			"SELECT 1 FROM user_store WHERE user_id = $id AND puppet_id = $pid", {id: data.userId, pid: data.puppetId},
 		);
@@ -97,9 +127,11 @@ export class DbUserStore {
 		});
 		const cacheKey = `${data.puppetId};${data.userId}`;
 		this.usersCache.set(cacheKey, data);
+		stopTimer();
 	}
 
 	public async delete(data: IUserStoreEntry) {
+		const stopTimer = this.db.latency.startTimer(this.labels("delete"));
 		await this.db.Run("DELETE FROM user_store WHERE user_id = $user_id AND puppet_id = $puppet_id", {
 			user_id: data.userId,
 			puppet_id: data.puppetId,
@@ -111,6 +143,7 @@ export class DbUserStore {
 		});
 		const cacheKey = `${data.puppetId};${data.userId}`;
 		this.usersCache.delete(cacheKey);
+		stopTimer();
 	}
 
 	public newRoomOverrideData(puppetId: number, userId: string, roomId: string): IUserStoreRoomOverrideEntry {
@@ -126,6 +159,7 @@ export class DbUserStore {
 		userId: string,
 		roomId: string,
 	): Promise<IUserStoreRoomOverrideEntry | null> {
+		const stopTimer = this.db.latency.startTimer(this.labels("get_room_override"));
 		const row = await this.db.Get(
 			"SELECT * FROM user_store_room_override WHERE user_id = $uid AND puppet_id = $pid AND room_id = $rid", {
 			uid: userId,
@@ -135,10 +169,12 @@ export class DbUserStore {
 		if (!row) {
 			return null;
 		}
+		stopTimer();
 		return this.getRoomOverrideFromRow(row);
 	}
 
 	public async setRoomOverride(data: IUserStoreRoomOverrideEntry) {
+		const stopTimer = this.db.latency.startTimer(this.labels("insert_update_room_override"));
 		const exists = await this.db.Get(
 			"SELECT 1 FROM user_store_room_override WHERE user_id = $uid AND puppet_id = $pid AND room_id = $rid", {
 			uid: data.userId,
@@ -181,9 +217,11 @@ export class DbUserStore {
 			avatar_mxc: data.avatarMxc || null,
 			avatar_hash: data.avatarHash || null,
 		});
+		stopTimer();
 	}
 
 	public async getAllRoomOverrides(puppetId: number, userId: string): Promise<IUserStoreRoomOverrideEntry[]> {
+		const stopTimer = this.db.latency.startTimer(this.labels("select_all_room_override"));
 		const result: IUserStoreRoomOverrideEntry[] = [];
 		const rows = await this.db.All(
 			"SELECT * FROM user_store_room_override WHERE user_id = $uid AND puppet_id = $pid", {
@@ -196,6 +234,7 @@ export class DbUserStore {
 				result.push(entry);
 			}
 		}
+		stopTimer();
 		return result;
 	}
 
@@ -213,5 +252,14 @@ export class DbUserStore {
 		data.avatarMxc = row.avatar_mxc as string | null;
 		data.avatarHash = row.avatar_hash as string | null;
 		return data;
+	}
+
+	private labels(queryName: string): object {
+		return {
+			protocol: this.protocol,
+			engine: this.db.type,
+			table: "user_store",
+			type: queryName,
+		};
 	}
 }

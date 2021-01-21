@@ -17,14 +17,23 @@ limitations under the License.
 import * as Database from "better-sqlite3";
 import { Log } from "../log";
 import { IDatabaseConnector, ISqlCommandParameters, ISqlRow } from "./connector";
+import * as prometheus from "prom-client";
 const log = new Log("SQLite3");
 
 export class SQLite3 implements IDatabaseConnector {
 	public type = "sqlite";
+	public latency: prometheus.Histogram<string>;
 	private db: Database;
 	private insertId: number;
 	constructor(private filename: string) {
 		this.insertId = -1;
+		this.latency = new prometheus.Histogram({
+			name: "bridge_database_query_seconds",
+			help: "Time spent querying the database engine",
+			labelNames: ["protocol", "engine", "type", "table"],
+			// tslint:disable-next-line no-magic-numbers
+			buckets: [0.002, 0.005, 0.0075, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
+		});
 	}
 
 	public async Open() {

@@ -13,6 +13,7 @@ limitations under the License.
 
 import { expect } from "chai";
 import * as proxyquire from "proxyquire";
+import * as prometheus from "prom-client";
 import { MessageDeduplicator } from "../src/structures/messagededuplicator";
 
 // we are a test file and thus our linting rules are slightly different
@@ -250,6 +251,7 @@ function getHandler(opts?: IHandlerOpts) {
 				},
 			};
 		},
+		metrics: {},
 	} as any;
 	const RemoteEventHandler = proxyquire.load("../src/remoteeventhandler", {
 		"./util": { Util: {
@@ -257,6 +259,7 @@ function getHandler(opts?: IHandlerOpts) {
 			GetMimeType: (buffer) => buffer.toString(),
 		}},
 	}).RemoteEventHandler;
+	prometheus.register.clear();
 	return new RemoteEventHandler(bridge);
 }
 

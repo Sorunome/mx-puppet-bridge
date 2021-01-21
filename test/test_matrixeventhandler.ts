@@ -17,6 +17,7 @@ import {
 	RoomEvent, RoomEventContent, MembershipEvent, RedactionEvent, MessageEventContent, MessageEvent,
 	FileMessageEventContent, TextualMessageEventContent,
 } from "@sorunome/matrix-bot-sdk";
+import * as prometheus from "prom-client";
 import { MessageDeduplicator } from "../src/structures/messagededuplicator";
 
 // we are a test file and thus our linting rules are slightly different
@@ -348,7 +349,9 @@ function getHandler(opts?: IHandlerOpts) {
 		typingHandler: {
 			deduplicator: new MessageDeduplicator(DEDUPLICATOR_TIMEOUT, DEDUPLICATOR_TIMEOUT + DEDUPLICATOR_TIMEOUT),
 		},
+		metrics: {},
 	} as any;
+	prometheus.register.clear();
 	return new MatrixEventHandler(bridge);
 }
 

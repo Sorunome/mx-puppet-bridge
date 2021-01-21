@@ -22,6 +22,8 @@ import {
 } from "@sorunome/matrix-bot-sdk";
 import * as uuid from "uuid/v4";
 import * as yaml from "js-yaml";
+import * as prometheus from "prom-client";
+import * as express from "express";
 import { EventEmitter } from "events";
 import { EmoteSyncroniser } from "./emotesyncroniser";
 import { EventSyncroniser } from "./eventsyncroniser";
@@ -96,6 +98,18 @@ interface ISetProtocolInformation extends IProtocolInformation {
 	};
 }
 
+export class BridgeMetrics {
+	public room: prometheus.Gauge<string>;
+	public puppet: prometheus.Gauge<string>;
+	public message: prometheus.Counter<string>;
+	public remoteUser: prometheus.Gauge<string>;
+	public matrixEvent: prometheus.Counter<string>;
+	public matrixEventBucket: prometheus.Histogram<string>;
+	public matrixEventError: prometheus.Counter<string>;
+	public remoteUpdateBucket: prometheus.Histogram<string>;
+	public connected: prometheus.Gauge<string>;
+}
+
 export class PuppetBridge extends EventEmitter {
 	public emoteSync: EmoteSyncroniser;
 	public eventSync: EventSyncroniser;
@@ -114,10 +128,12 @@ export class PuppetBridge extends EventEmitter {
 	public presenceHandler: PresenceHandler;
 	public reactionHandler: ReactionHandler;
 	public namespaceHandler: NamespaceHandler;
+	public metrics: BridgeMetrics;
 	private appservice: Appservice;
 	private mxcLookupLock: Lock<string>;
 	private matrixEventHandler: MatrixEventHandler;
 	private remoteEventHandler: RemoteEventHandler;
+	private connectionMetricStatus: { [puppetId: number]: boolean };
 
 	constructor(
 		private registrationPath: string,
@@ -142,8 +158,30 @@ export class PuppetBridge extends EventEmitter {
 			};
 		}
 		this.hooks = {};
+		this.connectionMetricStatus = {};
 		this.delayedFunction = new DelayedFunction();
 		this.mxcLookupLock = new Lock(MXC_LOOKUP_LOCK_TIMEOUT);
+		this.metrics = new BridgeMetrics();
+		this.metrics.room = new prometheus.Gauge({
+			name: "bridge_rooms_total",
+			help: "Total rooms bridged to the remote network, by type and protocol",
+			labelNames: ["type", "protocol"],
+		});
+		this.metrics.puppet = new prometheus.Gauge({
+			name: "bridge_puppets_total",
+			help: "Puppets linked to remote network, puppeted by matrix users",
+			labelNames: ["protocol"],
+		});
+		this.metrics.connected = new prometheus.Gauge({
+			name: "bridge_connected",
+			help: "Users connected to the remote network",
+			labelNames: ["protocol"],
+		});
+		this.metrics.message = new prometheus.Counter({
+			name: "bridge_messages_total",
+			help: "Total messages bridged into matrix, by type and protocol",
+			labelNames: ["type", "protocol"],
+		});
 	}
 
 	/** @internal */
@@ -210,6 +248,17 @@ export class PuppetBridge extends EventEmitter {
 
 		this.botProvisioner = new BotProvisioner(this);
 		this.provisioningAPI = new ProvisioningAPI(this);
+
+		if (this.config.metrics.enabled) {
+			prometheus.collectDefaultMetrics();
+			const metricsServer = express();
+			metricsServer.get(this.config.metrics.path, async (req, res) => {
+				res.set("Content-Type", prometheus.register.contentType);
+				const metrics = await prometheus.register.metrics();
+				res.send(metrics);
+			});
+			metricsServer.listen(this.config.metrics.port);
+		}
 
 		// pipe matrix-bot-sdk logging int ours
 		const logMap = new Map<string, Log>();
@@ -386,6 +435,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 		log.info("Activating users...");
 		const puppets = await this.provisioner.getAll();
+		this.metrics.puppet.set({protocol: this.protocol.id}, puppets.length);
 		for (const p of puppets) {
 			this.emit("puppetNew", p.puppetId, p.data);
 		}
@@ -513,7 +563,11 @@ export class PuppetBridge extends EventEmitter {
 
 		// check if this is a valid room at all
 		const room = await this.namespaceHandler.createRoom(roomData);
-		if (!room || room.isDirect) {
+		if (!room) {
+			return;
+		}
+		this.metrics.room.inc({type: room.isDirect ? "dm" : "group", protocol: this.protocol?.id});
+		if (room.isDirect) {
 			return;
 		}
 		log.info(`Got request to bridge room puppetId=${room.puppetId} roomId=${room.roomId}`);
@@ -537,6 +591,7 @@ export class PuppetBridge extends EventEmitter {
 		}
 		log.info(`Got request to unbridge room puppetId=${room.puppetId} roomId=${room.roomId}`);
 		await this.roomSync.delete(room, true);
+		this.metrics.room.dec({type: room.isDirect ? "dm" : "group", protocol: this.protocol?.id});
 	}
 
 	/**
@@ -671,10 +726,28 @@ export class PuppetBridge extends EventEmitter {
 		}
 	}
 
+	public trackConnectionStatus(puppetId: number, isConnected: boolean) {
+		if (Boolean(this.connectionMetricStatus[puppetId]) === isConnected) {
+			return;
+		}
+		this.connectionMetricStatus[puppetId] = isConnected;
+		if (isConnected) {
+			this.metrics.connected.inc({protocol: this.protocol.id});
+		} else {
+			this.metrics.connected.dec({protocol: this.protocol.id});
+		}
+	}
+
 	/**
 	 * Send a status message either to the status message room or to a specified room
 	 */
-	public async sendStatusMessage(puppetId: number | IRemoteRoom, msg: string) {
+	public async sendStatusMessage(puppetId: number | IRemoteRoom, msg: string, isConnected: boolean | null = null) {
+		if (isConnected !== null) {
+			this.trackConnectionStatus(
+				typeof puppetId === "number" ? puppetId : puppetId.puppetId,
+				isConnected,
+			);
+		}
 		await this.botProvisioner.sendStatusMessage(puppetId, msg);
 	}
 
@@ -697,6 +770,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendFile(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.remoteEventHandler.sendFileByType("m.file", params, thing, name);
+		this.metrics.message.inc({type: "file", protocol: this.protocol.id});
 	}
 
 	/**
@@ -704,6 +778,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendVideo(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.remoteEventHandler.sendFileByType("m.video", params, thing, name);
+		this.metrics.message.inc({type: "video", protocol: this.protocol.id});
 	}
 
 	/**
@@ -711,6 +786,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendAudio(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.remoteEventHandler.sendFileByType("m.audio", params, thing, name);
+		this.metrics.message.inc({type: "audio", protocol: this.protocol.id});
 	}
 
 	/**
@@ -718,6 +794,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendImage(params: IReceiveParams, thing: string | Buffer, name?: string) {
 		await this.remoteEventHandler.sendFileByType("m.image", params, thing, name);
+		this.metrics.message.inc({type: "image", protocol: this.protocol.id});
 	}
 
 	/**
@@ -725,6 +802,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendMessage(params: IReceiveParams, opts: IMessageEvent) {
 		await this.remoteEventHandler.sendMessage(params, opts);
+		this.metrics.message.inc({type: "text", protocol: this.protocol.id});
 	}
 
 	/**
@@ -732,6 +810,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendEdit(params: IReceiveParams, eventId: string, opts: IMessageEvent, ix: number = 0) {
 		await this.remoteEventHandler.sendEdit(params, eventId, opts, ix);
+		this.metrics.message.inc({type: "edit", protocol: this.protocol.id});
 	}
 
 	/**
@@ -739,6 +818,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendRedact(params: IReceiveParams, eventId: string) {
 		await this.remoteEventHandler.sendRedact(params, eventId);
+		this.metrics.message.inc({type: "redact", protocol: this.protocol.id});
 	}
 
 	/**
@@ -753,6 +833,7 @@ export class PuppetBridge extends EventEmitter {
 	 */
 	public async sendReaction(params: IReceiveParams, eventId: string, reaction: string) {
 		await this.remoteEventHandler.sendReaction(params, eventId, reaction);
+		this.metrics.message.inc({type: "reaction", protocol: this.protocol.id});
 	}
 
 	/**

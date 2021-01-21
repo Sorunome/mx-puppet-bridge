@@ -203,13 +203,13 @@ export class Store {
 		}
 		try {
 			this.db.Open();
-			this.pRoomStore = new DbRoomStore(this.db);
-			this.pUserStore = new DbUserStore(this.db);
-			this.pGroupStore = new DbGroupStore(this.db);
-			this.pPuppetStore = new DbPuppetStore(this.db);
-			this.pEventStore = new DbEventStore(this.db);
-			this.pReactionStore = new DbReactionStore(this.db);
-			this.pEmoteStore = new DbEmoteStore(this.db);
+			this.pRoomStore = new DbRoomStore(this.db, undefined, this.bridge.protocol?.id);
+			this.pUserStore = new DbUserStore(this.db, undefined, this.bridge.protocol?.id);
+			this.pGroupStore = new DbGroupStore(this.db, undefined, this.bridge.protocol?.id);
+			this.pPuppetStore = new DbPuppetStore(this.db, undefined, this.bridge.protocol?.id);
+			this.pEventStore = new DbEventStore(this.db, this.bridge.protocol?.id);
+			this.pReactionStore = new DbReactionStore(this.db, this.bridge.protocol?.id);
+			this.pEmoteStore = new DbEmoteStore(this.db, this.bridge.protocol?.id);
 		} catch (ex) {
 			log.error("Error opening database:", ex);
 			throw new Error("Couldn't open database. The appservice won't be able to continue.");
