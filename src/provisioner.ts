@@ -396,7 +396,10 @@ export class Provisioner {
 		}
 		if (!data || data.isDirect) {
 			log.verbose(`No muting in direct rooms`);
-		} else if (!await this.bridge.namespaceHandler.canSeeRoom(roomParts, userId)) {
+		} else if (!await this.bridge.namespaceHandler.canSeeRoom({
+			puppetId: await this.bridge.namespaceHandler.getDbPuppetId(roomParts.puppetId),
+			roomId: roomParts.roomId,
+		}, userId)) {
 			targetLevel = MUTED_POWER_LEVEL;
 		}
 
@@ -463,7 +466,10 @@ export class Provisioner {
 				return false;
 			}
 		}
-		if (await this.bridge.namespaceHandler.canSeeRoom(room, userId)) {
+		if (await this.bridge.namespaceHandler.canSeeRoom({
+			roomId: room.roomId,
+			puppetId: await this.bridge.namespaceHandler.getDbPuppetId(room.puppetId),
+		}, userId)) {
 			const client = (await this.bridge.roomSync.getRoomOp(room.mxid)) || this.bridge.botIntent.underlyingClient;
 			try {
 				await client.inviteUser(userId, room.mxid);
