@@ -131,7 +131,7 @@ export class BotProvisioner {
 					if (retData.fn) {
 						this.fnCollectListeners.set(sender, {
 							fn: retData.fn,
-							puppetId: -1,
+							puppetId,
 						});
 					}
 					if (!retData.data) {
