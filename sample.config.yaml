@@ -4,8 +4,9 @@ bridge:
   bindAddress: localhost
   # Port to host the bridge on which your homeserver will connect to
   port: 6000
-  # Name of your homeserver
-  domain: matrix.myhomeserver.com
+  # Name of your homeserver. That is the domain part in mxids, so if your mxid is
+  # @someuser:example.org, put "example.org" here
+  domain: myhomeserver.com
   # URL where the bridge can connect to your homeserver
   homeserverUrl: http://localhost:8008
   # Optionally specify a different media URL used for the media store
