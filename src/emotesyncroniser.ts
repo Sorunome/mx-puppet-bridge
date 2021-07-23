@@ -24,7 +24,7 @@ const log = new Log("EmoteSync");
 const EMOTE_SET_LOCK_TIMEOUT = 1000 * 60;
 
 interface IPoniesRoomEmotesContent {
-	emoticons: {
+	images: {
 		[key: string]: {
 			url: string;
 		};
@@ -32,7 +32,8 @@ interface IPoniesRoomEmotesContent {
 	pack?: {
 		display_name?: string;
 		avatar_url?: string;
-		short?: string;
+		usage?: string[];
+		attribution?: string;
 	};
 }
 
@@ -148,11 +149,17 @@ export class EmoteSyncroniser {
 		const dbPuppetId = await this.bridge.namespaceHandler.getDbPuppetId(room.puppetId);
 		const emotes = await this.emoteStore.getForRoom(dbPuppetId, room.roomId);
 		const stateEventContent: IPoniesRoomEmotesContent = {
-			emoticons: {},
+			images: {},
+			pack: {
+				usage: ["emoticon"],
+			},
 		};
 		for (const e of emotes) {
 			if (e.name && e.avatarMxc) {
-				stateEventContent.emoticons[e.name] = {url: e.avatarMxc};
+				const name = e.name[0] === ":" && e.name[e.name.length - 1] === ":"
+					? e.name.substring(1, e.name.length - 1)
+					: e.name;
+				stateEventContent.images[name] = {url: e.avatarMxc};
 			}
 		}
 		await client.sendStateEvent(roomId, "im.ponies.room_emotes", "", stateEventContent);
