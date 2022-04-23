@@ -1,3 +1,5 @@
+**THIS PROJECT HAS BEEN MIGRATED OVER TO GITLAB: [mx-puppet-bridge](https://gitlab.com/mx-puppet/mx-puppet-bridge)**
+
 [Support Chat](https://matrix.to/#/#mx-puppet-bridge:sorunome.de) [![donate](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Sorunome/donate)
 
 # mx-puppet-bridge
