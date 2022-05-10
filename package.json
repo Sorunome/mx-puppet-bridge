@@ -31,7 +31,7 @@
     "got": "^11.6.0",
     "hasha": "^5.2.0",
     "js-yaml": "^3.13.1",
-    "markdown-it": "^9.1.0",
+    "markdown-it": "^12.3.2",
     "pg-promise": "^10.5.0",
     "prom-client": "^13.0.0",
     "unescape": "^1.0.1",
