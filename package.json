@@ -27,7 +27,7 @@
     "escape-html": "^1.0.3",
     "events": "^3.1.0",
     "expire-set": "^1.0.0",
-    "file-type": "^12.4.2",
+    "file-type": "^16.5.4",
     "got": "^11.6.0",
     "hasha": "^5.2.0",
     "js-yaml": "^3.13.1",
